@@ -1,4 +1,16 @@
 {
   "name": "js13k2020",
-  "private": true
+  "private": true,
+  "scripts": {
+    "start": "node build.js"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "~15.0.0",
+    "regpack": "Siorki/RegPack#v5.0.3",
+    "rollup": "~2.26.4",
+    "rollup-plugin-terser": "^7.0.0",
+    "rollup-plugin-uglify-es": "0.0.1",
+    "shelljs": "~0.8.4",
+    "typescript": "~3.9.7"
+  }
 }

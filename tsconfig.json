@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": false,
+    "strictNullChecks": true,
+  },
+  "include": [
+    "src/**/*.ts"
+  ]
+}
