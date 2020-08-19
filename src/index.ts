@@ -12,24 +12,24 @@ let curState: GameState = stateNew();
 
 const frame = () =>
 {
-	requestAnimationFrame( frame );
+    requestAnimationFrame( frame );
 
     const newTime = performance.now();
     const deltaTime = newTime - previousTime;
     previousTime = newTime;
 
-	tickAccTime += deltaTime;
-	while( tickAccTime >= TICK_LENGTH_MILLIS )
-	{
-		tickAccTime -= TICK_LENGTH_MILLIS;
+    tickAccTime += deltaTime;
+    while( tickAccTime >= TICK_LENGTH_MILLIS )
+    {
+        tickAccTime -= TICK_LENGTH_MILLIS;
 
-		const inputs = inputSample();
+        const inputs = inputSample();
 
-		prevState = curState;
-		curState = stateStep( curState, inputs );
-	}
+        prevState = curState;
+        curState = stateStep( curState, inputs );
+    }
 
-	renderGame( prevState, curState, tickAccTime / TICK_LENGTH_MILLIS );
+    renderGame( prevState, curState, tickAccTime / TICK_LENGTH_MILLIS );
 };
 
 inputInit();

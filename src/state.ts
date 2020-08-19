@@ -2,22 +2,22 @@ import { InputState, Action_Down } from "./input";
 
 export type GameState =
 {
-	tick: number,
+    tick: number,
 };
 
 export const stateNew = (): GameState =>
 ({
-	tick: 0,
+    tick: 0,
 })
 
 export const stateStep = ( previous: GameState, inputs: InputState ): GameState =>
 {
-	const state = JSON.parse(JSON.stringify( previous )) as GameState;
+    const state = JSON.parse(JSON.stringify( previous )) as GameState;
 
-	state.tick++;
+    state.tick++;
 
-	if( inputs.actionStarted[ Action_Down ])
-		console.log('X');
+    if( inputs.actionStarted[ Action_Down ])
+        console.log('X');
 
-	return state;
+    return state;
 };
