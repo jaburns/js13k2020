@@ -6,5 +6,13 @@ export default {
     file: 'build/bundle.js',
     strict: false,
   },
-  plugins: [ terser() ]
+  plugins: [ terser({
+    mangle: {
+      reserved: ['g','a','o'],
+      properties: true, // { debug: true },
+    },
+    format: {
+      quote_style: 1
+    }
+  })]
 };
