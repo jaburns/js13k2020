@@ -1,5 +1,15 @@
+uniform sampler2D u_tex;
+
+varying vec2 v_uv;
+
+void main()
+{
+    gl_FragColor = texture2D(u_tex, v_uv);
+}
+
 // ======== Simplex noise ========
 
+/*
 vec4 mod289_v4(vec4 x) {
   return x - floor(x * (1.0 / 289.0)) * 289.0; }
 
@@ -109,19 +119,4 @@ float simplexNoise(vec4 v)
                + dot(m1*m1, vec2( dot( p3, x3 ), dot( p4, x4 ) ) ) ) ;
 
 }
-
-// =====================================================
-
-uniform sampler2D u_tex;
-
-varying vec2 v_uv;
-
-vec4 noised( vec4 x )
-{
-	return x + 0.1*simplexNoise( x );
-}
-
-void main()
-{
-    gl_FragColor = texture2D(u_tex, noised(v_uv));
-}
+*/

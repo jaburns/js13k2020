@@ -4,6 +4,8 @@ const fs = require('fs');
 const _ = require('lodash');
 const ShapeShifter = require('regpack/shapeShifter');
 
+const DEBUG = process.argv.indexOf('--debug') >= 0;
+
 const g_shaderExternalNameMap = {};
 
 sh.cd( __dirname );
@@ -68,38 +70,45 @@ const generateShaderFile = () =>
 
 const wrapWithHTML = js =>
 {
-    const htmlTemplate = fs.readFileSync('src/index.html', 'utf8')
+    const htmlTemplate = fs.readFileSync( DEBUG ? 'src/index.debug.html' : 'src/index.release.html', 'utf8' )
         .split('\n')
         .map( line => line.trim() )
-        .join('');
+        .join('')
+        .trim();
 
-    return htmlTemplate.replace('__CODE__', js);
+    return htmlTemplate.replace('__CODE__', js.trim());
 };
 
 const main = () =>
 {
+    fs.writeFileSync( 'src/debug.gen.ts', `export const DEBUG = ${DEBUG ? 'true' : 'false'};\n` );
+
     console.log('Minifying shaders...');
     generateShaderFile();
     console.log('Compiling typescript...');
     run( 'tsc --outDir build' );
-    run( 'rollup -c' );
+    console.log('Rolling up bundle...');
+    run( 'rollup -c' + ( DEBUG ? ' --config-debug' : '' ));
 
     let x = fs.readFileSync('build/bundle.js', 'utf8');
     x = minifyShaderExternalNames( x );
     x = x.replace(/const /g, 'let ');
-    x = regpacked( x );
+    if( !DEBUG ) x = regpacked( x );
     x = wrapWithHTML( x );
 
     fs.writeFileSync( 'build/out.html', x );
 
-    run( 'tools/advzip/advzip-linux-x64 --shrink-insane -i 10 -a out.zip build/out.html' );
+    if( !DEBUG )
+    {
+        run( 'tools/advzip/advzip-linux-x64 --shrink-insane -i 10 -a out.zip build/out.html' );
 
-    const zipStat = fs.statSync('out.zip');
-    const percent = Math.floor((zipStat.size / 13312) * 100);
+        const zipStat = fs.statSync('out.zip');
+        const percent = Math.floor((zipStat.size / 13312) * 100);
 
-    console.log(''); 
-    console.log(`  Final bundle size: ${zipStat.size} / 13312 bytes (${percent} %)`);
-    console.log(''); 
+        console.log(''); 
+        console.log(`  Final bundle size: ${zipStat.size} / 13312 bytes (${percent} %)`);
+        console.log(''); 
+    }
 };
 
 main();

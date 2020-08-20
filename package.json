@@ -2,7 +2,8 @@
   "name": "js13k2020",
   "private": true,
   "scripts": {
-    "start": "node build.js"
+    "debug": "node build.js --debug",
+    "release": "node build.js"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "~15.0.0",
