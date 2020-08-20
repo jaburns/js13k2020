@@ -70,7 +70,9 @@ const generateShaderFile = () =>
 
 const wrapWithHTML = js =>
 {
-    const htmlTemplate = fs.readFileSync( DEBUG ? 'src/index.debug.html' : 'src/index.release.html', 'utf8' )
+    let htmlTemplate = fs.readFileSync( DEBUG ? 'src/index.debug.html' : 'src/index.release.html', 'utf8' );
+
+    if( !DEBUG ) htmlTemplate = htmlTemplate
         .split('\n')
         .map( line => line.trim() )
         .join('')
@@ -81,6 +83,7 @@ const wrapWithHTML = js =>
 
 const main = () =>
 {
+    sh.mkdir( '-p', 'build' );
     fs.writeFileSync( 'src/debug.gen.ts', `export const DEBUG = ${DEBUG ? 'true' : 'false'};\n` );
 
     console.log('Minifying shaders...');
