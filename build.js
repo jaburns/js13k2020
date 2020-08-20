@@ -3,6 +3,7 @@ const sh = require('shelljs');
 const fs = require('fs');
 const _ = require('lodash');
 const ShapeShifter = require('regpack/shapeShifter');
+const advzipPath = require('advzip-bin');
 
 const DEBUG = process.argv.indexOf('--debug') >= 0;
 
@@ -103,7 +104,7 @@ const main = () =>
 
     if( !DEBUG )
     {
-        run( 'tools/advzip/advzip-linux-x64 --shrink-insane -i 10 -a out.zip build/out.html' );
+        run( advzipPath + ' --shrink-insane -i 10 -a out.zip build/out.html' );
 
         const zipStat = fs.statSync('out.zip');
         const percent = Math.floor((zipStat.size / 13312) * 100);
