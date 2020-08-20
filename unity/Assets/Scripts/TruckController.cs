@@ -4,14 +4,12 @@ using UnityEngine;
 
 public class TruckController : MonoBehaviour
 {
+    public float frameRadius;
     public float wheelRadius;
-    public float suspensionSize;
+    public float interWheelK;
+    public float suspensionK;
 
-    public GameObject frameFrontLeft;
-    public GameObject frameFrontRight;
-    public GameObject frameBackLeft;
-    public GameObject frameBackRight;
-
+    public GameObject frameObject;
     public GameObject wheelFrontLeft;
     public GameObject wheelFrontRight;
     public GameObject wheelBackLeft;
@@ -19,87 +17,77 @@ public class TruckController : MonoBehaviour
 
     float subtickTime;
 
-    SimulationObject simFrameFrontLeft;
-    SimulationObject simFrameFrontRight;
-    SimulationObject simFrameBackLeft;
-    SimulationObject simFrameBackRight;
-
+    SimulationObject simFrameObject;
     SimulationObject simWheelFrontLeft;
     SimulationObject simWheelFrontRight;
     SimulationObject simWheelBackLeft;
     SimulationObject simWheelBackRight;
 
-    class DistanceConstraint
+    class SpringConstraint
     {
         public SimulationObject a;
         public SimulationObject b;
         public readonly float dist;
+        public readonly float k;
 
-        public DistanceConstraint( SimulationObject a, SimulationObject b )
+        public SpringConstraint( float k, SimulationObject a, SimulationObject b )
         {
+            this.k = k;
             this.a = a;
             this.b = b;
             this.dist = (a.position - b.position).magnitude;
         }
     }
 
-    class SuspensionConstraint
-    {
-        public SimulationObject frameMain;
-        public SimulationObject frameL;
-        public SimulationObject frameR;
-        public SimulationObject wheel;
-    }
-
     class SimulationObject
     {
         public GameObject gameObject;
-        public Vector3 lastPosition;
+        public Vector3 lastPositionToRender;
+        public Vector3 velocity;
         public Vector3 position;
+        readonly public float radius;
 
-        public SimulationObject( GameObject go )
+        public SimulationObject( float radius, GameObject go )
         {
+            this.radius = radius;
             gameObject = go;
             position = go.transform.position;
-            lastPosition = go.transform.position;
+            velocity = Vector3.zero;
+            lastPositionToRender = go.transform.position;
         }
     }
 
-    List<DistanceConstraint> distanceConstraints;
-    List<SuspensionConstraint> suspensionConstraints;
+    List<SpringConstraint> springConstraints;
     List<SimulationObject> objects;
 
     void Awake()
     {
         objects = new List<SimulationObject> {
-            (simFrameBackLeft = new SimulationObject (    frameBackLeft )),
-            (simFrameBackRight = new SimulationObject (   frameBackRight )),
-            (simFrameFrontLeft = new SimulationObject (   frameFrontLeft )),
-            (simFrameFrontRight = new SimulationObject (  frameFrontRight )),
-
-            (simWheelBackLeft = new SimulationObject (    wheelBackLeft )),
-         //   (simWheelBackRight = new SimulationObject (   wheelBackRight )),
-         //   (simWheelFrontLeft = new SimulationObject (   wheelFrontLeft )),
-         //   (simWheelFrontRight = new SimulationObject (  wheelFrontRight)),
+            (simFrameObject = new SimulationObject ( frameRadius,   frameObject )),
+            (simWheelBackLeft = new SimulationObject (    wheelRadius, wheelBackLeft )),
+            (simWheelBackRight = new SimulationObject (   wheelRadius, wheelBackRight )),
+            (simWheelFrontLeft = new SimulationObject (   wheelRadius, wheelFrontLeft )),
+            (simWheelFrontRight = new SimulationObject (  wheelRadius, wheelFrontRight)),
         };
 
-        distanceConstraints = new List<DistanceConstraint> {
-            new DistanceConstraint ( simFrameBackLeft, simFrameBackRight ),
-            new DistanceConstraint ( simFrameBackLeft, simFrameFrontLeft ),
-            new DistanceConstraint ( simFrameBackLeft, simFrameFrontRight ),
+        springConstraints = new List<SpringConstraint> {
+            new SpringConstraint ( suspensionK, simFrameObject, simWheelBackLeft ),
+            new SpringConstraint ( suspensionK, simFrameObject, simWheelBackRight ),
+            new SpringConstraint ( suspensionK, simFrameObject, simWheelFrontLeft ),
+            new SpringConstraint ( suspensionK, simFrameObject, simWheelFrontRight ),
 
-            new DistanceConstraint ( simFrameBackRight, simFrameFrontLeft ),
-            new DistanceConstraint ( simFrameBackRight, simFrameFrontRight ),
+            new SpringConstraint ( interWheelK, simWheelBackLeft, simWheelBackRight ),
+            new SpringConstraint ( interWheelK, simWheelBackLeft, simWheelFrontLeft ),
+            new SpringConstraint ( interWheelK, simWheelBackLeft, simWheelFrontRight ),
 
-            new DistanceConstraint ( simFrameFrontLeft, simFrameFrontRight ),
-        };
+            new SpringConstraint ( interWheelK, simWheelBackRight, simWheelFrontLeft ),
+            new SpringConstraint ( interWheelK, simWheelBackRight, simWheelFrontRight ),
 
-        suspensionConstraints = new List<SuspensionConstraint> {
-            new SuspensionConstraint { frameMain = simFrameBackLeft, frameL = simFrameFrontLeft, frameR = simFrameBackRight, wheel = simWheelBackLeft },
+            new SpringConstraint ( interWheelK, simWheelFrontLeft, simWheelFrontRight ),
         };
     }
 
-    void updatePosition( SimulationObject obj, Vector3 posStep, bool updateVel )
+    void stepPosition( SimulationObject obj, Vector3 posStep )
     {
         var start = obj.position;
         var mag = posStep.magnitude;
@@ -114,12 +102,7 @@ public class TruckController : MonoBehaviour
         if( Physics.SphereCast( start, wheelRadius, posStep.normalized, out info, mag ))
         {
             obj.position = info.point + info.normal * wheelRadius;
-
-            if( updateVel )
-            {
-                posStep = 0.8f * Vector3.Reflect( posStep, info.normal );
-                obj.lastPosition = obj.position - posStep;
-            }
+            obj.velocity = 0.8f * Vector3.Reflect( obj.velocity, info.normal );
         }
         else
         {
@@ -127,40 +110,39 @@ public class TruckController : MonoBehaviour
         }
     }
 
+    Vector3 getAcceleration( SimulationObject obj )
+    {
+        var result = Physics.gravity;
+
+        foreach( var c in springConstraints )
+        {
+            if( c.a != obj && c.b != obj ) continue;
+            var self = c.a == obj ? c.a : c.b;
+            var other = c.a == obj ? c.b : c.a;
+
+            var selfFromOther = self.position - other.position;
+            var x = c.dist - selfFromOther.magnitude;
+
+            result += selfFromOther.normalized * c.k * x;
+        }
+
+        return result;
+    }
+
     void FixedUpdate()
     {
         subtickTime = 0;
 
-        foreach( var obj in objects )
+        foreach( var c in springConstraints )
         {
-            var posStep = obj.position - obj.lastPosition + ( Physics.gravity * Time.fixedDeltaTime * Time.fixedDeltaTime );
-            obj.lastPosition = obj.position;
-            updatePosition( obj, posStep, true );
+            Debug.DrawLine( c.a.position, c.b.position );
         }
 
-        for( var i = 0; i < 10; ++i )
+        foreach( var obj in objects )
         {
-            foreach( var c in distanceConstraints )
-            {
-                var aToB = c.b.position - c.a.position;
-                var fixVec = 0.5f * (c.dist - aToB.magnitude) * aToB.normalized;
-                //c.a.position -= fixVec;
-                //c.b.position += fixVec;
-                updatePosition( c.a, -fixVec, false );
-                updatePosition( c.b,  fixVec, false );
-            }
-
-            foreach( var c in suspensionConstraints )
-            {
-                var axis = -Vector3.Cross( c.frameL.position - c.frameMain.position, c.frameR.position - c.frameMain.position ).normalized;
-                var suspensionVec = c.wheel.position - c.frameMain.position;
-                var idealDist = 0.5f * (Vector3.Dot( suspensionVec, axis ) + suspensionSize);
-                var idealWheelPos = c.frameMain.position + axis * idealDist;
-                var fixVec = 0.5f * (idealWheelPos - c.wheel.position);
-
-                updatePosition( c.wheel, fixVec, false );
-                updatePosition( c.frameMain, -fixVec, false );
-            }
+            obj.lastPositionToRender = obj.position;
+            obj.velocity += getAcceleration( obj ) * Time.fixedDeltaTime;
+            stepPosition( obj, obj.velocity * Time.fixedDeltaTime );
         }
     }
 
@@ -171,7 +153,7 @@ public class TruckController : MonoBehaviour
 
         foreach( var obj in objects )
         {
-            obj.gameObject.transform.position = obj.lastPosition + t * (obj.position - obj.lastPosition);
+            obj.gameObject.transform.position = obj.lastPositionToRender + t * (obj.position - obj.lastPositionToRender);
         }
     }
 }
