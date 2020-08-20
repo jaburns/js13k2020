@@ -6,6 +6,7 @@ const ShapeShifter = require('regpack/shapeShifter');
 const advzipPath = require('advzip-bin');
 
 const DEBUG = process.argv.indexOf('--debug') >= 0;
+const MONO_RUN = process.platform === 'win32' ? '' : 'mono ';
 
 const g_shaderExternalNameMap = {};
 
@@ -53,7 +54,7 @@ const minifyShaderExternalNames = code =>
 
 const generateShaderFile = () =>
 {
-    run( 'mono tools/shader_minifier.exe --no-renaming-list main --format js -o build/shaders.js --preserve-externals shaders/*' );
+    run( MONO_RUN + 'tools/shader_minifier.exe --no-renaming-list main --format js -o build/shaders.js --preserve-externals shaders/*' );
 
     let shaderCode = fs.readFileSync('build/shaders.js', 'utf8');
 
