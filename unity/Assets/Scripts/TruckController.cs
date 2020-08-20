@@ -7,6 +7,8 @@ public class TruckController : MonoBehaviour
     public float wheelRadius;
     public float suspensionSize;
 
+    float subtickTime;
+
     public GameObject frameFrontLeft;
     public GameObject frameFrontRight;
     public GameObject frameBackLeft;
@@ -17,17 +19,10 @@ public class TruckController : MonoBehaviour
     public GameObject wheelBackLeft;
     public GameObject wheelBackRight;
 
-    float subtickTime;
-
     SimulationObject simFrameFrontLeft;
     SimulationObject simFrameFrontRight;
     SimulationObject simFrameBackLeft;
     SimulationObject simFrameBackRight;
-
-    SimulationObject simWheelFrontLeft;
-    SimulationObject simWheelFrontRight;
-    SimulationObject simWheelBackLeft;
-    SimulationObject simWheelBackRight;
 
     class DistanceConstraint
     {
@@ -43,22 +38,18 @@ public class TruckController : MonoBehaviour
         }
     }
 
-    class SuspensionConstraint
-    {
-        public SimulationObject frameMain;
-        public SimulationObject frameL;
-        public SimulationObject frameR;
-        public SimulationObject wheel;
-    }
-
     class SimulationObject
     {
         public GameObject gameObject;
         public Vector3 lastPosition;
         public Vector3 position;
+        public readonly GameObject wheelMarker;
 
-        public SimulationObject( GameObject go )
+
+        public SimulationObject( GameObject go, GameObject wheelMarker )
         {
+            this.wheelMarker = wheelMarker;
+
             gameObject = go;
             position = go.transform.position;
             lastPosition = go.transform.position;
@@ -66,22 +57,17 @@ public class TruckController : MonoBehaviour
     }
 
     List<DistanceConstraint> distanceConstraints;
-    List<SuspensionConstraint> suspensionConstraints;
     List<SimulationObject> objects;
 
     void Awake()
     {
         objects = new List<SimulationObject> {
-            (simFrameBackLeft = new SimulationObject (    frameBackLeft )),
-            (simFrameBackRight = new SimulationObject (   frameBackRight )),
-            (simFrameFrontLeft = new SimulationObject (   frameFrontLeft )),
-            (simFrameFrontRight = new SimulationObject (  frameFrontRight )),
-
-            (simWheelBackLeft = new SimulationObject (    wheelBackLeft )),
-         //   (simWheelBackRight = new SimulationObject (   wheelBackRight )),
-         //   (simWheelFrontLeft = new SimulationObject (   wheelFrontLeft )),
-         //   (simWheelFrontRight = new SimulationObject (  wheelFrontRight)),
+            (simFrameBackLeft = new SimulationObject (    frameBackLeft  , wheelBackLeft )),
+            (simFrameBackRight = new SimulationObject (   frameBackRight , wheelBackRight  )),
+            (simFrameFrontLeft = new SimulationObject (   frameFrontLeft , wheelFrontLeft  )),
+            (simFrameFrontRight = new SimulationObject (  frameFrontRight, wheelFrontRight )),
         };
+
 
         distanceConstraints = new List<DistanceConstraint> {
             new DistanceConstraint ( simFrameBackLeft, simFrameBackRight ),
@@ -92,10 +78,6 @@ public class TruckController : MonoBehaviour
             new DistanceConstraint ( simFrameBackRight, simFrameFrontRight ),
 
             new DistanceConstraint ( simFrameFrontLeft, simFrameFrontRight ),
-        };
-
-        suspensionConstraints = new List<SuspensionConstraint> {
-            new SuspensionConstraint { frameMain = simFrameBackLeft, frameL = simFrameFrontLeft, frameR = simFrameBackRight, wheel = simWheelBackLeft },
         };
     }
 
@@ -131,9 +113,26 @@ public class TruckController : MonoBehaviour
     {
         subtickTime = 0;
 
+        var wheelVec = Vector3.Cross( simFrameBackRight.position - simFrameBackLeft.position, simFrameFrontLeft.position - simFrameBackLeft.position ).normalized;
+        Debug.DrawLine( simFrameBackLeft.position, simFrameBackLeft.position + wheelVec );
+
         foreach( var obj in objects )
         {
-            var posStep = obj.position - obj.lastPosition + ( Physics.gravity * Time.fixedDeltaTime * Time.fixedDeltaTime );
+            Vector3 accel = Physics.gravity;
+
+            RaycastHit info;
+            if( Physics.SphereCast( obj.position, wheelRadius, wheelVec, out info, suspensionSize ))
+            {
+                var wheelPos = info.point + info.normal * wheelRadius;
+                obj.wheelMarker.gameObject.transform.position = wheelPos;
+                accel += 10 * (obj.position - wheelPos);
+            }
+            else
+            {
+                obj.wheelMarker.gameObject.transform.position = obj.position + wheelVec * suspensionSize;
+            }
+
+            var posStep = obj.position - obj.lastPosition + ( accel * Time.fixedDeltaTime * Time.fixedDeltaTime );
             obj.lastPosition = obj.position;
             updatePosition( obj, posStep, true );
         }
@@ -144,22 +143,8 @@ public class TruckController : MonoBehaviour
             {
                 var aToB = c.b.position - c.a.position;
                 var fixVec = 0.5f * (c.dist - aToB.magnitude) * aToB.normalized;
-                //c.a.position -= fixVec;
-                //c.b.position += fixVec;
-                updatePosition( c.a, -fixVec, false );
-                updatePosition( c.b,  fixVec, false );
-            }
-
-            foreach( var c in suspensionConstraints )
-            {
-                var axis = -Vector3.Cross( c.frameL.position - c.frameMain.position, c.frameR.position - c.frameMain.position ).normalized;
-                var suspensionVec = c.wheel.position - c.frameMain.position;
-                var idealDist = 0.5f * (Vector3.Dot( suspensionVec, axis ) + suspensionSize);
-                var idealWheelPos = c.frameMain.position + axis * idealDist;
-                var fixVec = 0.5f * (idealWheelPos - c.wheel.position);
-
-                updatePosition( c.wheel, fixVec, false );
-                updatePosition( c.frameMain, -fixVec, false );
+                c.a.position -= fixVec;
+                c.b.position += fixVec;
             }
         }
     }
