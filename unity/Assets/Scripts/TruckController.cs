@@ -6,6 +6,7 @@ public class TruckController : MonoBehaviour
 {
     public float wheelRadius;
     public float suspensionSize;
+    public float kk;
 
     float subtickTime;
 
@@ -61,6 +62,8 @@ public class TruckController : MonoBehaviour
 
     void Awake()
     {
+        EvaluateDistanceFunc.Load();
+
         objects = new List<SimulationObject> {
             (simFrameBackLeft = new SimulationObject (    frameBackLeft  , wheelBackLeft )),
             (simFrameBackRight = new SimulationObject (   frameBackRight , wheelBackRight  )),
@@ -83,29 +86,16 @@ public class TruckController : MonoBehaviour
 
     void updatePosition( SimulationObject obj, Vector3 posStep, bool updateVel )
     {
-        var start = obj.position;
-        var mag = posStep.magnitude;
+        obj.position += posStep;
 
-        if( Physics.OverlapSphere( obj.position, wheelRadius ).Length > 0 )
+        var dist = EvaluateDistanceFunc.Go( obj.position );
+        if( dist < wheelRadius )
         {
-            start -= 0.9f * posStep.normalized;
-            mag += 0.9f;
-        }
+            var normal = EvaluateDistanceFunc.Normal( obj.position );
+            obj.position += normal * (wheelRadius - dist);
 
-        RaycastHit info;
-        if( Physics.SphereCast( start, wheelRadius, posStep.normalized, out info, mag ))
-        {
-            obj.position = info.point + info.normal * wheelRadius;
-
-            if( updateVel )
-            {
-                posStep = 0.8f * Vector3.Reflect( posStep, info.normal );
-                obj.lastPosition = obj.position - posStep;
-            }
-        }
-        else
-        {
-            obj.position += posStep;
+            posStep = 0.8f * Vector3.Reflect( posStep, normal );
+            obj.lastPosition = obj.position - posStep;
         }
     }
 
@@ -120,16 +110,18 @@ public class TruckController : MonoBehaviour
         {
             Vector3 accel = Physics.gravity;
 
+            var idealWheelPos = obj.position + wheelVec * suspensionSize;
+
             RaycastHit info;
             if( Physics.SphereCast( obj.position, wheelRadius, wheelVec, out info, suspensionSize ))
             {
                 var wheelPos = info.point + info.normal * wheelRadius;
                 obj.wheelMarker.gameObject.transform.position = wheelPos;
-                accel += 10 * (obj.position - wheelPos);
+                accel -= kk * (idealWheelPos - wheelPos);
             }
             else
             {
-                obj.wheelMarker.gameObject.transform.position = obj.position + wheelVec * suspensionSize;
+                obj.wheelMarker.gameObject.transform.position = idealWheelPos;
             }
 
             var posStep = obj.position - obj.lastPosition + ( accel * Time.fixedDeltaTime * Time.fixedDeltaTime );
