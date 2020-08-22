@@ -38,6 +38,7 @@ void main()
     col *= 2.8;
 
     //float scans = clamp( 0.35+0.35*sin(0.0*u_time+uv.y*1200.), 0.0, 1.0);
+    //float scans = clamp( 0.35+0.35*sin(3.5*u_time+uv.y*u_resolution.y*1.7), 0.0, 1.0);
     float scans = clamp( 0.35+0.35*sin(3.5*u_time+uv.y*u_resolution.y*1.5), 0.0, 1.0);
     float s = pow(scans,1.7);
     col = col*vec3( 0.4+0.7*s) ;

@@ -1,4 +1,5 @@
 import { InputState, Action_Down } from "./input";
+import { gfxSampleSDF, sdfSampleResults } from "./gfx";
 
 export type GameState =
 {
@@ -17,13 +18,10 @@ export let stateStep = ( previous: GameState, inputs: InputState ): GameState =>
     state.tick++;
 
     if( inputs.started[ Action_Down ])
-        console.log('X');
-
-    if( inputs.held[ Action_Down ])
-        console.log('.');
-
-    if( inputs.ended[ Action_Down ])
-        console.log('O');
+    {
+        gfxSampleSDF();
+        console.log( sdfSampleResults );
+    }
 
     return state;
 };
