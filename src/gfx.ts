@@ -1,58 +1,24 @@
-import { standard_vert, normals_frag } from "./shaders.gen";
+import { main_vert, main_frag } from "./shaders.gen";
+import { GameState } from "./state";
 import { DEBUG } from "./debug.gen";
+
+// https://www.shadertoy.com/view/Ms23DR
 
 declare const a: HTMLCanvasElement;
 declare const g: WebGLRenderingContext;
 
-type Model =
+let _fullScreenQuadVertBuffer: WebGLBuffer;
+let _shader: WebGLProgram;
+
+//let onResize = () =>
+//    g.viewport( 0, 0, a.width = window.innerWidth, a.height = window.innerHeight );
+
+// Init
 {
-    vertexBuffer: WebGLBuffer,
-    normalBuffer?: WebGLBuffer,
-    indexBuffer: WebGLBuffer,
-};
+    let vert = main_vert;
+    let frag = main_frag;
 
-const createCubeModel = (): Model =>
-{
-    const result = {
-        vertexBuffer: g.createBuffer()!,
-        normalBuffer: g.createBuffer()!,
-        indexBuffer: g.createBuffer()!,
-    };
-
-    // TODO cube
-    const verts = [0,0,0];
-    const norms = [0,0,0];
-    const tris = [0];
-
-    g.bindBuffer(g.ARRAY_BUFFER, result.vertexBuffer);
-    g.bufferData(g.ARRAY_BUFFER, new Float32Array(verts), g.STATIC_DRAW);
-    g.bindBuffer(g.ARRAY_BUFFER, result.normalBuffer);
-    g.bufferData(g.ARRAY_BUFFER, new Float32Array(norms), g.STATIC_DRAW);
-    g.bindBuffer(g.ELEMENT_ARRAY_BUFFER, result.indexBuffer);
-    g.bufferData(g.ELEMENT_ARRAY_BUFFER, new Uint16Array(tris), g.STATIC_DRAW);
-
-    return result;
-};
-
-const onResize = () =>
-    g.viewport( 0, 0, a.width = window.innerWidth, a.height = window.innerHeight );
-
-export const gfxInit = () =>
-{
-    window.onresize = onResize;
-
-    onResize();
-
-    g.clearColor(0,1,0,1);
-    g.clear(g.COLOR_BUFFER_BIT);
-
-    gfxBuildProgram( standard_vert, normals_frag );
-    createCubeModel();
-};
-
-export const gfxBuildProgram = ( vert: string, frag: string ): WebGLProgram =>
-{
-    const vs = g.createShader( g.VERTEX_SHADER )!;
+    let vs = g.createShader( g.VERTEX_SHADER )!;
     g.shaderSource( vs, vert );
     g.compileShader( vs );
 
@@ -63,8 +29,8 @@ export const gfxBuildProgram = ( vert: string, frag: string ): WebGLProgram =>
             console.error( 'Vertex shader error', log, vert );
     }
 
-    const fs = g.createShader( g.FRAGMENT_SHADER )!;
-    g.shaderSource( fs, 'precision highp float;' + frag );
+    let fs = g.createShader( g.FRAGMENT_SHADER )!;
+    g.shaderSource( fs, frag );
     g.compileShader( fs );
 
     if( DEBUG )
@@ -74,15 +40,31 @@ export const gfxBuildProgram = ( vert: string, frag: string ): WebGLProgram =>
             console.error( 'Fragment shader error', log, fs );
     }
 
-    const prog = g.createProgram()!;
-    g.attachShader( prog, vs );
-    g.attachShader( prog, fs );
-    g.linkProgram( prog );
+    _shader = g.createProgram()!;
+    g.attachShader( _shader, vs );
+    g.attachShader( _shader, fs );
+    g.linkProgram( _shader );
 
-    return prog;
-};
+    _fullScreenQuadVertBuffer = g.createBuffer()!;
+    g.bindBuffer( g.ARRAY_BUFFER, _fullScreenQuadVertBuffer );
+    g.bufferData( g.ARRAY_BUFFER, Uint8Array.of(1, 1, 1, 128, 128, 1), g.STATIC_DRAW );
 
-export const gfxDrawCube = ( t: number ) =>
+    g.viewport( 0, 0, 320, 240 );
+}
+
+export let gfxDrawGame = ( prevState: GameState, curState: GameState, lerpTime: number ) =>
 {
+    let t = curState.tick + (curState.tick - prevState.tick) * lerpTime;
 
+    g.useProgram( _shader );
+
+    g.uniform2f( g.getUniformLocation( _shader, 'u_resolution' ), 320, 240 );
+    g.uniform1f( g.getUniformLocation( _shader, 'u_time' ), t / 30 );
+
+    g.bindBuffer( g.ARRAY_BUFFER, _fullScreenQuadVertBuffer );
+    let posLoc = g.getAttribLocation( _shader, 'a_position' );
+    g.enableVertexAttribArray( posLoc );
+    g.vertexAttribPointer( posLoc, 2, g.BYTE, false, 0, 0 );
+
+    g.drawArrays( g.TRIANGLES, 0, 3 );
 };

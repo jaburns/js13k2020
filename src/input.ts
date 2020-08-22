@@ -13,15 +13,15 @@ export type InputState =
 let lastHeld: {[k: number]: true} = {};
 let held: {[k: number]: true} = {};
 
-export const inputInit = () =>
+// Init
 {
-    document.addEventListener('keydown', k => held[k.keyCode] = true);
-    document.addEventListener('keyup', k => delete held[k.keyCode]);
+    document.onkeydown = k => held[k.keyCode] = true;
+    document.onkeyup = k => delete held[k.keyCode];
 };
 
-export const inputSample = (): InputState =>
+export let inputSample = (): InputState =>
 {
-    const result: InputState = {
+    let result: InputState = {
         started: {}, held, ended: {},
     };
 

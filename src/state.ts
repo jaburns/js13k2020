@@ -5,14 +5,14 @@ export type GameState =
     tick: number,
 };
 
-export const stateNew = (): GameState =>
+export let stateNew = (): GameState =>
 ({
     tick: 0,
 })
 
-export const stateStep = ( previous: GameState, inputs: InputState ): GameState =>
+export let stateStep = ( previous: GameState, inputs: InputState ): GameState =>
 {
-    const state = JSON.parse(JSON.stringify( previous )) as GameState;
+    let state = JSON.parse(JSON.stringify( previous )) as GameState;
 
     state.tick++;
 

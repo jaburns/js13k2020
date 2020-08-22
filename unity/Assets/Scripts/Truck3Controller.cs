@@ -10,6 +10,10 @@ public class Truck3Controller : MonoBehaviour
     List<DistanceConstraint> constraints;
     List<Vector3> wheelLastPos;
     public GameObject body;
+    public GameObject cameraRig;
+    List<Vector3> forceCache;
+
+    float steerAngle;
 
     class DistanceConstraint
     {
@@ -50,6 +54,7 @@ public class Truck3Controller : MonoBehaviour
         };
 
         wheelLastPos = wheels.Select( x => x.transform.position ).ToList();
+        forceCache = new List<Vector3> { Vector3.zero, Vector3.zero,Vector3.zero,Vector3.zero };
     }
 
     Vector3 LossyReflect( Vector3 v, Vector3 n, Vector3 guess_u, float bounce, float frictionU, float frictionV )
@@ -67,7 +72,7 @@ public class Truck3Controller : MonoBehaviour
         return v_n*n + v_u*tan_u + v_v*tan_v;
     }
     
-    void StepPosition( GameObject wheel, Vector3 posStep, ref Vector3 lastPos, Vector3 wheelForward )
+    Vector3 StepPosition( GameObject wheel, Vector3 posStep, ref Vector3 lastPos, Vector3 wheelForward, bool isDrivingWheel )
     {
         lastPos = wheel.transform.position;
         wheel.transform.position += posStep;
@@ -79,9 +84,21 @@ public class Truck3Controller : MonoBehaviour
             wheel.transform.position += normal * (WHEEL_RADIUS - dist);
 
             var vel = wheel.transform.position - lastPos;
-            vel = LossyReflect( vel, normal, wheelForward, 0.8f, 1.0f, 0.1f );
+            vel = LossyReflect( vel, normal, wheelForward, 0.7f, 1, 0.1f );
             lastPos = wheel.transform.position - vel;
+
+            if( isDrivingWheel && (Input.GetKey( KeyCode.UpArrow ) || Input.GetKey( KeyCode.DownArrow )))
+            {
+                var cross = Vector3.Cross( normal, wheelForward ).normalized;
+                var groundedFwd = Vector3.Cross( cross, normal );
+
+                Debug.DrawLine( wheel.transform.position, wheel.transform.position + groundedFwd, Color.red );
+
+                return 20 * groundedFwd * ( Input.GetKey( KeyCode.UpArrow ) ? 1 : -0.5f );
+            }
         }
+
+        return Vector3.zero;
     }
 
     void FixedUpdate()
@@ -90,13 +107,38 @@ public class Truck3Controller : MonoBehaviour
         var carUp1 = -Vector3.Cross( wheels[0].transform.position - wheels[3].transform.position, wheels[2].transform.position - wheels[3].transform.position ).normalized;
         var carUp = (0.5f * (carUp0 + carUp1)).normalized;
 
+        if( Input.GetKey(KeyCode.RightArrow) ) {
+            if( steerAngle < 25 ) steerAngle += 2;
+        } else if( Input.GetKey(KeyCode.LeftArrow) ) {
+            if( steerAngle > -25 ) steerAngle -= 2;
+        } else if( steerAngle > 2 )
+            steerAngle -= 2;
+        else if( steerAngle < -2)
+            steerAngle += 2;
+        else
+            steerAngle = 0;
+
         var carForward = (wheels[2].transform.position - wheels[1].transform.position).normalized;
-        var frontWheelsForward = Quaternion.AngleAxis( (Input.GetKey(KeyCode.RightArrow) ? 45 : Input.GetKey(KeyCode.LeftArrow) ? -45 : 0), Vector3.up ) * carForward;
+        var frontWheelsForward = Quaternion.AngleAxis( steerAngle, Vector3.up ) * carForward; //(Input.GetKey(KeyCode.RightArrow) ? 45 : Input.GetKey(KeyCode.LeftArrow) ? -45 : 0), Vector3.up ) * carForward;
 
         for( int i = 0; i < 2; ++i )
             wheels[i].transform.rotation = Quaternion.LookRotation( carForward, carUp );
         for( int i = 2; i < 4; ++i )
             wheels[i].transform.rotation = Quaternion.LookRotation( frontWheelsForward, carUp );
+
+        for( int i = 0; i < 4; ++i )
+        {
+            var force = Physics.gravity + forceCache[i];
+            var posStep = (wheels[i].transform.position - wheelLastPos[i]) + force * Time.fixedDeltaTime * Time.fixedDeltaTime;
+
+            Vector3 lastPos = wheelLastPos[i];
+            forceCache[i] = StepPosition( wheels[i], posStep, ref lastPos, i < 2 ? carForward : frontWheelsForward, i < 2 );
+            wheelLastPos[i] = lastPos;
+        }
+
+        for( int i = 0; i < 2; ++i )
+        foreach( var c in constraints )
+            c.StepSolve();
 
         body.transform.position = (
             wheels[0].transform.position +
@@ -107,23 +149,9 @@ public class Truck3Controller : MonoBehaviour
         body.transform.rotation = 
             Quaternion.LookRotation( carForward, carUp );
 
-        var force = Physics.gravity;
-        if( Input.GetKey(KeyCode.UpArrow)) {
-            force += 10 *carForward;
-        }
-
-        for( int i = 0; i < 4; ++i )
-        {
-            var posStep = (wheels[i].transform.position - wheelLastPos[i]) + force * Time.fixedDeltaTime * Time.fixedDeltaTime;
-
-            Vector3 lastPos = wheelLastPos[i];
-            StepPosition( wheels[i], posStep, ref lastPos, i < 2 ? carForward : frontWheelsForward );
-            wheelLastPos[i] = lastPos;
-        }
-
-        for( int i = 0; i < 2; ++i )
-        foreach( var c in constraints )
-            c.StepSolve();
+        cameraRig.transform.position = body.transform.position;
+        cameraRig.transform.rotation = 
+            Quaternion.LookRotation( new Vector3( carForward.x, 0, carForward.z ).normalized, Vector3.up );
 
     }
 }

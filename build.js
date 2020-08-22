@@ -19,7 +19,7 @@ const run = cmd =>
         process.exit( code );
 };
 
-const regpacked = js =>
+const hashWebglIdentifiers = js =>
 {
     let result = new ShapeShifter().preprocess(js, {
         hashWebGLContext: true,
@@ -30,7 +30,6 @@ const regpacked = js =>
         useES6: true,
     })[2].contents;
 
-    // Global in for loop conflicts with let-delcared vars later.
     if( result.startsWith('for(') )
         result = result.replace('for(', 'for(let ');
 
@@ -55,16 +54,18 @@ const minifyShaderExternalNames = code =>
 const generateShaderFile = () =>
 {
     run( MONO_RUN + 'tools/shader_minifier.exe --no-renaming-list main --format js -o build/shaders.js --preserve-externals shaders/*' );
-
     let shaderCode = fs.readFileSync('build/shaders.js', 'utf8');
-
     buildShaderExternalNameMap( shaderCode );
-
     shaderCode = minifyShaderExternalNames( shaderCode );
 
     shaderCode = shaderCode
         .split('\n')
-        .map( x => x.replace(/^var/, 'export const') )
+        .map( x => {
+            let result = x.replace(/^var/, 'export const');
+            if( result.indexOf( '_frag =' ) >= 0 )
+                result += ' "precision highp float;" +';
+            return result;
+        })
         .join('\n');
 
     fs.writeFileSync('src/shaders.gen.ts', shaderCode);
@@ -97,10 +98,8 @@ const main = () =>
 
     let x = fs.readFileSync('build/bundle.js', 'utf8');
     x = minifyShaderExternalNames( x );
-    x = x.replace(/const /g, 'let ');
-    if( !DEBUG ) x = regpacked( x );
+    if( !DEBUG ) x = hashWebglIdentifiers( x );
     x = wrapWithHTML( x );
-
     fs.writeFileSync( 'build/out.html', x );
 
     if( !DEBUG )
@@ -109,7 +108,6 @@ const main = () =>
 
         const zipStat = fs.statSync('out.zip');
         const percent = Math.floor((zipStat.size / 13312) * 100);
-
         console.log(''); 
         console.log(`  Final bundle size: ${zipStat.size} / 13312 bytes (${percent} %)`);
         console.log(''); 
