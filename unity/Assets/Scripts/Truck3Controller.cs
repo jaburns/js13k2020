@@ -1,17 +1,15 @@
-﻿using System.Collections;
+﻿using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class Truck3Controller : MonoBehaviour
 {
-    const float WHEEL_RADIUS = 1.5f;
-
-    static bool first = false;
+    const float WHEEL_RADIUS = 0.5f;
 
     public List<GameObject> wheels;
-    public List<GameObject> fakeWheels;
     List<DistanceConstraint> constraints;
-    List<Vector3> wheelVelocity;
+    List<Vector3> wheelLastPos;
+    public GameObject body;
 
     class DistanceConstraint
     {
@@ -51,63 +49,81 @@ public class Truck3Controller : MonoBehaviour
             (new DistanceConstraint( wheels[2], wheels[3] )),
         };
 
-        wheelVelocity = new List<Vector3> { Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero };
+        wheelLastPos = wheels.Select( x => x.transform.position ).ToList();
     }
 
-    Vector3 LossyReflect( Vector3 v, Vector3 n, float bounce, float friction )
+    Vector3 LossyReflect( Vector3 v, Vector3 n, Vector3 guess_u, float bounce, float frictionU, float frictionV )
     {
-        var randVec = Vector3.Dot( n, Vector3.up ) > 0.9f ? Vector3.right : Vector3.up;
-        var tan_u = Vector3.Cross( n, randVec ).normalized;
-        var tan_v = Vector3.Cross( n, tan_u );
+        if( Vector3.Dot( n, guess_u ) > 0.99f )
+            Debug.LogError("DEGENERATE");
+
+        var tan_v = Vector3.Cross( n, guess_u ).normalized;
+        var tan_u = Vector3.Cross( n, tan_v );
 
         var v_n = -bounce * Vector3.Dot( v, n );
-        var v_u = friction * Vector3.Dot( v, tan_u );
-        var v_v = friction * Vector3.Dot( v, tan_v );
+        var v_u = frictionU * Vector3.Dot( v, tan_u );
+        var v_v = frictionV * Vector3.Dot( v, tan_v );
 
         return v_n*n + v_u*tan_u + v_v*tan_v;
     }
     
-    void StepPosition( GameObject wheel, Vector3 posStep, ref Vector3 vel )
+    void StepPosition( GameObject wheel, Vector3 posStep, ref Vector3 lastPos, Vector3 wheelForward )
     {
+        lastPos = wheel.transform.position;
         wheel.transform.position += posStep;
 
         var dist = EvaluateDistanceFunc.Go( wheel.transform.position );
         if( dist < WHEEL_RADIUS )
         {
             var normal = EvaluateDistanceFunc.Normal( wheel.transform.position );
-            //wheel.transform.position += normal * (WHEEL_RADIUS - dist);
-            vel += normal * (WHEEL_RADIUS - dist);
-            vel = LossyReflect( vel, normal, -0.9f, 1.0f );
+            wheel.transform.position += normal * (WHEEL_RADIUS - dist);
+
+            var vel = wheel.transform.position - lastPos;
+            vel = LossyReflect( vel, normal, wheelForward, 0.8f, 1.0f, 0.1f );
+            lastPos = wheel.transform.position - vel;
         }
     }
 
     void FixedUpdate()
     {
-        first = true;
-        for( int i = 0; i < 4; ++i )
-        {
-            wheelVelocity[i] += Physics.gravity * Time.fixedDeltaTime;
-            Vector3 vel = wheelVelocity[i];
-            StepPosition( wheels[i], wheelVelocity[i] * Time.fixedDeltaTime, ref vel );
-            wheelVelocity[i] = vel;
-            first = false;
+        var carUp0 = Vector3.Cross( wheels[0].transform.position - wheels[1].transform.position, wheels[2].transform.position - wheels[1].transform.position ).normalized;
+        var carUp1 = -Vector3.Cross( wheels[0].transform.position - wheels[3].transform.position, wheels[2].transform.position - wheels[3].transform.position ).normalized;
+        var carUp = (0.5f * (carUp0 + carUp1)).normalized;
+
+        var carForward = (wheels[2].transform.position - wheels[1].transform.position).normalized;
+        var frontWheelsForward = Quaternion.AngleAxis( (Input.GetKey(KeyCode.RightArrow) ? 45 : Input.GetKey(KeyCode.LeftArrow) ? -45 : 0), Vector3.up ) * carForward;
+
+        for( int i = 0; i < 2; ++i )
+            wheels[i].transform.rotation = Quaternion.LookRotation( carForward, carUp );
+        for( int i = 2; i < 4; ++i )
+            wheels[i].transform.rotation = Quaternion.LookRotation( frontWheelsForward, carUp );
+
+        body.transform.position = (
+            wheels[0].transform.position +
+            wheels[1].transform.position +
+            wheels[2].transform.position +
+            wheels[3].transform.position ) / 4;
+
+        body.transform.rotation = 
+            Quaternion.LookRotation( carForward, carUp );
+
+        var force = Physics.gravity;
+        if( Input.GetKey(KeyCode.UpArrow)) {
+            force += 10 *carForward;
         }
 
-        for( int i = 0; i < 20; ++i )
+        for( int i = 0; i < 4; ++i )
+        {
+            var posStep = (wheels[i].transform.position - wheelLastPos[i]) + force * Time.fixedDeltaTime * Time.fixedDeltaTime;
+
+            Vector3 lastPos = wheelLastPos[i];
+            StepPosition( wheels[i], posStep, ref lastPos, i < 2 ? carForward : frontWheelsForward );
+            wheelLastPos[i] = lastPos;
+        }
+
+        for( int i = 0; i < 2; ++i )
         foreach( var c in constraints )
             c.StepSolve();
 
-        var downVec = -Vector3.Cross( wheels[0].transform.position - wheels[1].transform.position, wheels[2].transform.position - wheels[1].transform.position ).normalized;
-        for( var i = 0; i < 4; ++i )
-        {
-            fakeWheels[i].transform.position = wheels[i].transform.position + downVec;
-
-            var dist = EvaluateDistanceFunc.Go( fakeWheels[i].transform.position );
-            if( dist < 0.5f )
-            {
-                var normal = EvaluateDistanceFunc.Normal( fakeWheels[i].transform.position );
-                fakeWheels[i].transform.position += normal * (0.5f - dist);
-            }
-        }
     }
 }
