@@ -9,6 +9,13 @@ export default {
     strict: false,
   },
   plugins: DEBUG ? [] : [ terser({
+    compress: {
+      passes: 4,
+      unsafe: true,
+      unsafe_arrows: true,
+      unsafe_comps: true,
+      unsafe_math: true,
+    },
     mangle: {
       reserved: ['g','a'],
       properties: true, // { debug: true }, // ( enabling debug on property mangle makes error messages slightly more readable )

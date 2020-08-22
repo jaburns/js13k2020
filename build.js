@@ -61,7 +61,7 @@ const generateShaderFile = () =>
     shaderCode = shaderCode
         .split('\n')
         .map( x => {
-            let result = x.replace(/^var/, 'export const');
+            let result = x.replace(/^var/, 'export let');
             if( result.indexOf( '_frag =' ) >= 0 )
                 result += ' "precision highp float;" +';
             return result;

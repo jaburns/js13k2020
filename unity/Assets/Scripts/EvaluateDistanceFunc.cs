@@ -63,16 +63,25 @@ public class EvaluateDistanceFunc
         return result;
     }
 
+    static string smallNum( float x )
+    {
+        var d = System.Convert.ToDecimal( x );
+        var result = System.Math.Round( d, 4 ).ToString();
+        while( result.EndsWith("0") || result.EndsWith(".") )
+            result = result.Substring( 0, result.Length - 1 );
+        return result.Length == 0 ? "0" : result;
+    }
+
     static string genGlsl( Matrix4x4 m, Vector3 dims )
     {
         m = m.transpose;
         return string.Format(
             "sdBox( (mat4({0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15})*vec4(p,1)).xyz, vec3({16},{17},{18}) )",
-            m.m00, m.m01, m.m02, m.m03,
-            m.m10, m.m11, m.m12, m.m13,
-            m.m20, m.m21, m.m22, m.m23,
-            m.m30, m.m31, m.m32, m.m33,
-            dims.x, dims.y, dims.z
+            smallNum(m.m00), smallNum(m.m01), smallNum(m.m02), smallNum(m.m03),
+            smallNum(m.m10), smallNum(m.m11), smallNum(m.m12), smallNum(m.m13),
+            smallNum(m.m20), smallNum(m.m21), smallNum(m.m22), smallNum(m.m23),
+            smallNum(m.m30), smallNum(m.m31), smallNum(m.m32), smallNum(m.m33),
+            smallNum(dims.x), smallNum(dims.y), smallNum(dims.z)
         );
     }
 
