@@ -8,32 +8,13 @@ declare const s_totalStateSize: number;
 declare const s_wheelBaseWidth: number;
 declare const s_wheelBaseLength: number;
 
-/*
-  State map:
-
-    Wheel:  size(3)
-        xyz pos;
-        xyz lastPos;
-        xyz forceCache;
-
-    State:  size(2 + 4*size(Wheel) = 14)
-        x tick (do we even care about the tick?)
-        xyzw  Inputs(up/down/left/right)
-        Wheel wheels[4]
-*/
-
-const enum Actions
+const enum KeyCode
 {
     Up = 38, // key: up
     Down = 40, // key: down
     Left = 37, // key: left
     Right = 39, // key: right
 };
-// 
-// let inputsHeld: {[k: number]: true} = {};
-// 
-// document.onkeydown = k => inputsHeld[k.keyCode] = true;
-// document.onkeyup = k => delete inputsHeld[k.keyCode];
 
 const INITIAL_STATE = Float32Array.of(
     0, 0, 0, 0,
@@ -56,8 +37,7 @@ const INITIAL_STATE = Float32Array.of(
 );
 
 const TICK_LENGTH_MILLIS = 33.3;
-const MAIN_WIDTH = 512, MAIN_HEIGHT = 384;
-//const MAIN_WIDTH = 320, MAIN_HEIGHT = 240;
+const MAIN_WIDTH = 512, MAIN_HEIGHT = 384; //const MAIN_WIDTH = 320, MAIN_HEIGHT = 240;
 const OUT_WIDTH = 1024, OUT_HEIGHT = 768;
 const STATE_WIDTH = s_totalStateSize, STATE_HEIGHT = 1;
 
@@ -65,6 +45,7 @@ type Framebuffer = [WebGLFramebuffer,WebGLTexture];
 
 let _previousTime = performance.now();
 let _tickAccTime = 0;
+let _inputs: {[k: number]: true} = {};
 
 let _fullScreenQuadVertBuffer: WebGLBuffer;
 
@@ -75,6 +56,9 @@ let _postShader: WebGLProgram;
 let _drawFramebuffer: Framebuffer;
 let _stateFramebuffers: Framebuffer[];
 let _curStateBufferIndex: number = 0;
+
+document.onkeydown = k => _inputs[k.keyCode] = true;
+document.onkeyup = k => delete _inputs[k.keyCode];
 
 let buildShader = ( vert: string, frag: string, main?: string ): WebGLProgram =>
 {
