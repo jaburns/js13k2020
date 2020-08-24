@@ -130,9 +130,10 @@ public class Truck3Controller : MonoBehaviour
         {
             var force = Physics.gravity + forceCache[i];
             var posStep = (wheels[i].transform.position - wheelLastPos[i]) + force * Time.fixedDeltaTime * Time.fixedDeltaTime;
-
             Vector3 lastPos = wheelLastPos[i];
+
             forceCache[i] = StepPosition( wheels[i], posStep, ref lastPos, i < 2 ? carForward : frontWheelsForward, i < 2 );
+
             wheelLastPos[i] = lastPos;
         }
 

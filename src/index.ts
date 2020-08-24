@@ -1,13 +1,10 @@
-import { gfxDrawGame } from './gfx';
-import { GameState, stateNew, stateStep } from './state';
+import { gfxDrawGame, gfxStepState } from './gfx';
 import { inputSample } from './input';
 
 let TICK_LENGTH_MILLIS = 33.3;
 
 let previousTime = performance.now();
 let tickAccTime = 0;
-let prevState: GameState = stateNew();
-let curState: GameState = stateNew();
 
 let frame = () =>
 {
@@ -23,12 +20,10 @@ let frame = () =>
         tickAccTime -= TICK_LENGTH_MILLIS;
 
         let inputs = inputSample();
-
-        prevState = curState;
-        curState = stateStep( curState, inputs );
+        gfxStepState( inputs );
     }
 
-    gfxDrawGame( prevState, curState, tickAccTime / TICK_LENGTH_MILLIS );
+    gfxDrawGame( tickAccTime / TICK_LENGTH_MILLIS );
 };
 
 frame();

@@ -1,21 +1,15 @@
-uniform float u_time;
 uniform vec2 u_resolution;
+uniform sampler2D u_state;
+uniform int u_stateMode;
 
-uniform int u_enableSampleMode;
+vec4 g_state[14];
 
-uniform vec3 u_wheelPos0;
-uniform vec3 u_wheelPos1;
-uniform vec3 u_wheelPos2;
-uniform vec3 u_wheelPos3;
-
-
-const float i_EPS = 0.05;
+const float i_EPS = 0.01;
 const float i_PRECISION = .8;
-const int i_ITERATIONS = 100;
+const int i_ITERATIONS = 99;
 
-const vec3 i_COLORA = (vec3(151, 203, 169) / 255.);
-const vec3 i_COLORC = (.3*vec3(102, 139, 164) / 255.);
-const vec3 i_COLORD = (.1*vec3(102, 139, 164) / 255.);
+const vec3 i_COLORA = vec3(.8,.4,1);
+const vec3 i_COLORC = vec3(.0,.2,.3);
 
 mat2 rot( float t )
 {
@@ -28,11 +22,29 @@ float sdBox( vec3 p, vec3 b )
   return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
 }
 
+float sdSphere( vec3 p, float r )
+{
+    return length(p) - r;
+}
+
 float map( vec3 p )
 {
-    return
+    float world =
         min(sdBox( (mat4(-0.0802,0,0.9968,0,0,1,0,0,-0.9968,0,-0.0802,0,9.7113,7.7,-0.0714,1)*vec4(p,1)).xyz, vec3(21.003,1.2916,19.435) ),min(sdBox( (mat4(0.7996,0.1725,-0.5753,0,-0.5641,0.5444,-0.6209,0,0.2061,0.8209,0.5325,0,-6.8698,-4.3597,-16.2646,1)*vec4(p,1)).xyz, vec3(5.8863,5.8863,5.8863) ),min(sdBox( (mat4(0.0241,0.7624,0.6466,0,-0.5641,0.5444,-0.6209,0,-0.8254,-0.3498,0.4432,0,10.1649,5.9443,-14.7828,1)*vec4(p,1)).xyz, vec3(5.8863,5.8863,5.8863) ),min(sdBox( (mat4(-0.0752,-0.0279,0.9968,0,-0.3477,0.9376,0,0,-0.9346,-0.3466,-0.0802,0,8.3046,13.2649,0.7672,1)*vec4(p,1)).xyz, vec3(4.6284,4.6283,4.6284) ),min(sdBox( (mat4(0.1063,0.9118,0.3966,0,-0.3907,0.4051,-0.8266,0,-0.9144,-0.0671,0.3993,0,5.9394,-18.1587,-16.0968,1)*vec4(p,1)).xyz, vec3(19.3539,15.3994,4.6284) ),min(sdBox( (mat4(-0.3313,-0.1861,0.925,0,0.3533,0.8846,0.3045,0,-0.8749,0.4277,-0.2273,0,2.1767,8.4828,4.1946,1)*vec4(p,1)).xyz, vec3(9.8223,4.6283,21.5019) ),sdBox( (mat4(-0.0752,-0.0279,0.9968,0,-0.3477,0.9376,0,0,-0.9346,-0.3466,-0.0802,0,16.8634,7.3837,0.757,1)*vec4(p,1)).xyz, vec3(4.6284,4.6283,4.6284) )))))))
     ;
+
+    if( u_stateMode == 1 )
+        return world;
+
+    return min(
+        sdSphere( p - g_state[2].xyz, .5 ),
+        min(
+            sdSphere( p - g_state[5].xyz, .5 ),
+            min(
+                sdSphere( p - g_state[8].xyz, .5 ),
+                min(
+                    sdSphere( p - g_state[11].xyz, .5 ),
+                    world ))));
 }
 
 struct March
@@ -69,24 +81,83 @@ vec3 getNorm(vec3 p)
         map(p + e.yyx) - map(p - e.yyx)));
 }
 
-vec4 sampleModeMain()
+void stateUpdate()
 {
-    return vec4(0.5, 1.5, 2.5, 3.5);
+
+/*
+    state.tick++;
+
+    for( let i = 0; i < 4; ++i )
+    {
+        let posStep = vec3_plus(
+            vec3_minus( state.wheels[i].pos, state.wheels[i].lastPos ),
+            [ 0, -.0109, 0],
+        );
+        state.wheels[i].lastPos = state.wheels[i].pos;
+
+        state.wheels[i].pos = vec3_plus( state.wheels[i].pos, posStep );
+
+        gfxSampleSDF( state.wheels );
+        let normal: Vec3 = [sdfSampleResults[4*i], sdfSampleResults[4*i+1], sdfSampleResults[4*i+2]];
+        let dist = sdfSampleResults[4*i+3];
+
+        if( dist < 0.5 )
+        {
+            state.wheels[i].pos = vec3_plus( state.wheels[i].pos, vec3_scale( normal, 0.5 - dist ));
+
+            let vel = vec3_minus( state.wheels[i].pos, state.wheels[i].lastPos );
+            vel = vec3_reflect( vel, normal, 2 );
+            state.wheels[i].lastPos = vec3_minus( state.wheels[i].pos, vel );
+        }
+    }
+
+    for( let i = 0; i < 2; ++i )
+    {
+        _distances.forEach(([i,j,dist]) =>
+        {
+            let iToJ = vec3_minus( state.wheels[j].pos, state.wheels[i].pos );
+            let fixVec = vec3_scale( vec3_normalize( iToJ ), .5 * ( dist - Math.hypot( ...iToJ )))
+            state.wheels[i].pos = vec3_minus( state.wheels[i].pos, fixVec );
+            state.wheels[j].pos = vec3_plus( state.wheels[j].pos, fixVec );
+        });
+    }
+*/
 }
 
 void main()
 {
-    if( u_enableSampleMode == 1 )
+    for( int i = 0; i < 14; ++i )
+        g_state[i] = texture2D(u_state, vec2( (float(i)+.5)/14.));
+
+    if( u_stateMode == 1 )
     {
-        gl_FragColor = sampleModeMain();
-        return;
+        stateUpdate();
+
+        for( int i = 0; i < 14; ++i )
+        {
+            if( gl_FragCoord.x < float(i+1) )
+            {
+                gl_FragColor = g_state[i];
+                return;
+            }
+        }
     }
 
     vec2 uv = (gl_FragCoord.xy - .5*u_resolution)/u_resolution.y;
-    vec3 ro = vec3(0,0,-5);
-    vec3 rd = normalize(vec3(uv, .8));
 
-    rd.xz *= rot(sin(.3*u_time));
+    vec3 carForwardDir = normalize(g_state[8].xyz - g_state[5].xyz);
+    vec3 carCenterPt = (g_state[2].xyz + g_state[5].xyz + g_state[8].xyz + g_state[11].xyz)/4.;
+    vec3 carForwardXZ = normalize(vec3(carForwardDir.x, 0, carForwardDir.z));
+
+    float zoom = 1.;
+    vec3 ro = (carCenterPt - 7.*carForwardXZ) + vec3(0,3,0);
+    vec3 lookAt = carCenterPt + vec3(0,2,0);
+    vec3 f = normalize(lookAt - ro);
+    vec3 r = normalize(cross(vec3(0,1,0), f));
+    vec3 u = cross(f, r);
+    vec3 c = ro + f * zoom;
+    vec3 i = c + uv.x * r + uv.y * u;
+    vec3 rd = normalize(i - ro);
     
     March m = march( ro, rd );
     
@@ -97,10 +168,9 @@ void main()
         float fog = exp( -.02*m.dist );
         vec3 norm = getNorm( m.pos );
         lightness = fog * (1. - m.ao);
-        lightness *= clamp(dot(vec3(1,1,-1), norm),0.2,1.);
+        lightness *= 1.2*clamp(dot(normalize(vec3(0,2,-1)), norm),0.2,1.);
         color = i_COLORA;
-        vec3 shadow = mix(i_COLORD, i_COLORC, 1. - fog);
-        color = mix( shadow, color, lightness );        
+        color = mix( i_COLORC, color, lightness );        
     }
 
     gl_FragColor = vec4(color,1);

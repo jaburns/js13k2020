@@ -35,16 +35,16 @@ public class EvaluateDistanceFunc
     {
         float dist = float.PositiveInfinity;
 
-        List<string> calls = new List<string>();
+        //List<string> calls = new List<string>();
 
         foreach( var box in boxes )
         {
-            calls.Add(genGlsl( box.invTransform, box.dims ));
+            //calls.Add(genGlsl( box.invTransform, box.dims ));
             float boxDist = sdBox( box.invTransform.MultiplyPoint( p ), box.dims );
             dist = Mathf.Min( boxDist, dist );
         }
 
-        Debug.Log(joinCalls( calls ));
+        //Debug.Log(joinCalls( calls ));
 
         return dist;
     }
