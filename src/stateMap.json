@@ -6,7 +6,8 @@
 		"s_wheelStructSize": 3
 	},
 	"fields": [
-		"s_inputs",
+		"s_inputsA",
+		"s_inputsB",
 		"s_wheelPos0",
 		"s_wheelLastPos0",
 		"s_wheelForceCache0",

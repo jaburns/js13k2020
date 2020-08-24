@@ -67,8 +67,18 @@ const minifyShaderExternalNames = code =>
     return code;
 };
 
-const preprocessShader = shader =>
-    applyStateMap( shader );
+const convertStateAccessNotation = shaderCode =>
+{
+
+    return shaderCode;
+
+        // -> ST.wheelPos[2] -> g_state[s_wheelPos0];
+        // -> ST.wheelLastPos[i] -> g_state[s_wheelLastPos0 + i * s_wheelStructSize ];
+
+};
+
+const preprocessShader = shaderCode =>
+    applyStateMap( convertStateAccessNotation( shaderCode ));
 
 const generateShaderFile = () =>
 {

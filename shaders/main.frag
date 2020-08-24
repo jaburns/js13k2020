@@ -4,8 +4,8 @@ uniform sampler2D u_prevState;
 uniform float u_lerpTime;
 uniform bool u_modeState;
 
-vec4 g_state[14];
-vec4 g_prevState[14];
+vec3 g_state[14];
+vec3 g_prevState[14];
 
 const float i_EPS = 0.01;
 const float i_PRECISION = .8;
@@ -84,45 +84,43 @@ vec3 getNorm(vec3 p)
         map(p + e.yyx) - map(p - e.yyx)));
 }
 
-void distConstraint( inout vec4 pos0, inout vec4 pos1, float dist )
+void distConstraint( inout vec3 pos0, inout vec3 pos1, float dist )
 {
-    vec3 iToJ = pos0.xyz - pos1.xyz;
+    vec3 iToJ = pos0 - pos1;
     vec3 fixVec = .5 * (dist - length(iToJ)) * normalize( iToJ );
-    pos0.xyz += fixVec;
-    pos1.xyz -= fixVec;
+    pos0 += fixVec;
+    pos1 -= fixVec;
 }
 
 void m1()
 {
     for( int i = 0; i < s_totalStateSize; ++i )
-        g_state[i] = texture2D(u_state, vec2( (float(i)+.5)/s_totalStateSize.));
+        g_state[i] = texture2D(u_state, vec2( (float(i)+.5)/s_totalStateSize.)).xyz;
 
 // ----- State update -----
 
     for( int i = 0; i < 4; ++i )
     {
-        vec4 posStep = g_state[s_wheelPos0 + i * s_wheelStructSize]
+        vec3 posStep = g_state[s_wheelPos0 + i * s_wheelStructSize]
             - g_state[s_wheelLastPos0 + i * s_wheelStructSize]
-            - vec4( 0, .0109, 0, 0 ); // 9.81 / 30 / 30
+            - vec3( 0, .0109, 0 ); // 9.81 / 30 / 30
 
         g_state[s_wheelLastPos0 + i * s_wheelStructSize] =
             g_state[s_wheelPos0 + i * s_wheelStructSize];
 
         g_state[s_wheelPos0 + i * s_wheelStructSize] += posStep;
 
-        // TODO use vec3 to store state, ignore alpha channel
-
-        float dist = map( g_state[s_wheelPos0 + i * s_wheelStructSize].xyz );
-        vec3 normal = getNorm( g_state[s_wheelPos0 + i * s_wheelStructSize].xyz );
+        float dist = map( g_state[s_wheelPos0 + i * s_wheelStructSize] );
+        vec3 normal = getNorm( g_state[s_wheelPos0 + i * s_wheelStructSize] );
 
         if( dist < .5 )
         {
-            g_state[s_wheelPos0 + i * s_wheelStructSize].xyz += (.5-dist)*normal;
+            g_state[s_wheelPos0 + i * s_wheelStructSize] += (.5-dist)*normal;
 
-            vec4 vel = g_state[s_wheelPos0 + i * s_wheelStructSize]
+            vec3 vel = g_state[s_wheelPos0 + i * s_wheelStructSize]
                 - g_state[s_wheelLastPos0 + i * s_wheelStructSize];
 
-            vel.xyz = reflect( vel.xyz, normal );
+            vel = reflect( vel, normal );
 
             g_state[s_wheelLastPos0 + i * s_wheelStructSize] =
                 g_state[s_wheelPos0 + i * s_wheelStructSize]
@@ -137,52 +135,13 @@ void m1()
     distConstraint( g_state[s_wheelPos0 + 1 * s_wheelStructSize], g_state[s_wheelPos0 + 3 * s_wheelStructSize], sqrt(s_wheelBaseWidth*s_wheelBaseWidth + s_wheelBaseLength*s_wheelBaseLength) );
     distConstraint( g_state[s_wheelPos0 + 2 * s_wheelStructSize], g_state[s_wheelPos0 + 3 * s_wheelStructSize], s_wheelBaseWidth );
 
-/*
-    let _distances = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]].map(([i,j]) => [i,j,Math.hypot(...vec3_minus(_startWheelPos[i], _startWheelPos[j]))]);
-
-    for( let i = 0; i < 4; ++i )
-    {
-        let posStep = vec3_plus(
-            vec3_minus( state.wheels[i].pos, state.wheels[i].lastPos ),
-            [ 0, -.0109, 0],
-        );
-        state.wheels[i].lastPos = state.wheels[i].pos;
-
-        state.wheels[i].pos = vec3_plus( state.wheels[i].pos, posStep );
-
-        gfxSampleSDF( state.wheels );
-        let normal: Vec3 = [sdfSampleResults[4*i], sdfSampleResults[4*i+1], sdfSampleResults[4*i+2]];
-        let dist = sdfSampleResults[4*i+3];
-
-        if( dist < 0.5 )
-        {
-            state.wheels[i].pos = vec3_plus( state.wheels[i].pos, vec3_scale( normal, 0.5 - dist ));
-
-            let vel = vec3_minus( state.wheels[i].pos, state.wheels[i].lastPos );
-            vel = vec3_reflect( vel, normal, 2 );
-            state.wheels[i].lastPos = vec3_minus( state.wheels[i].pos, vel );
-        }
-    }
-
-    for( let i = 0; i < 2; ++i )
-    {
-        _distances.forEach(([i,j,dist]) =>
-        {
-            let iToJ = vec3_minus( state.wheels[j].pos, state.wheels[i].pos );
-            let fixVec = vec3_scale( vec3_normalize( iToJ ), .5 * ( dist - Math.hypot( ...iToJ )))
-            state.wheels[i].pos = vec3_minus( state.wheels[i].pos, fixVec );
-            state.wheels[j].pos = vec3_plus( state.wheels[j].pos, fixVec );
-        });
-    }
-*/
-
 // ------------------------
 
     for( int i = 0; i < s_totalStateSize; ++i )
     {
         if( gl_FragCoord.x < float(i+1) )
         {
-            gl_FragColor = g_state[i];
+            gl_FragColor = vec4(g_state[i],0);
             return;
         }
     }
@@ -194,7 +153,7 @@ void m0()
         g_state[i] = mix(
             texture2D(u_prevState, vec2( (float(i)+.5)/s_totalStateSize.)),
             texture2D(u_state, vec2( (float(i)+.5)/s_totalStateSize.)),
-            u_lerpTime );
+            u_lerpTime ).xyz;
 
     vec2 uv = (gl_FragCoord.xy - .5*u_resolution)/u_resolution.y;
 
