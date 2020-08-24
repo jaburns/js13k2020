@@ -5,6 +5,8 @@ uniform float u_lerpTime;
 uniform bool u_modeState;
 
 vec3 g_state[14];
+mat3 g_wheelRot;
+mat3 g_wheelRot2;
 
 const float i_EPS = 0.01;
 const float i_PRECISION = .8;
@@ -24,9 +26,28 @@ float sdBox( vec3 p, vec3 b )
   return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
 }
 
-float sdSphere( vec3 p, float r )
+float sdTorus( vec3 p, vec2 t )
 {
-    return length(p) - r;
+    vec2 q = vec2(length(p.zy)-t.x,p.x);
+    return length(q)-t.y;
+}
+
+mat3 transp( mat3 m )
+{
+    return mat3(
+        m[0][0], m[1][0], m[2][0],
+        m[0][1], m[1][1], m[2][1],
+        m[0][2], m[1][2], m[2][2]
+    );
+}
+
+float sdWheel( vec3 p, vec3 pos )
+{
+    return sdTorus( g_wheelRot*(p - pos), vec2( .3, .2));
+}
+float sdBody( vec3 p, vec3 pos )
+{
+    return sdBox( g_wheelRot*(p - pos), vec3(.4, .2, .9));
 }
 
 float map( vec3 p )
@@ -39,14 +60,16 @@ float map( vec3 p )
         return world;
 
     return min(
-        sdSphere( p - ST.wheelPos[0], .5 ),
+        sdBody(p,(ST.wheelPos[0]+ST.wheelPos[1]+ST.wheelPos[2]+ST.wheelPos[3])/4.),
         min(
-            sdSphere( p - ST.wheelPos[1], .5 ),
+            sdWheel( p , ST.wheelPos[0] ),
             min(
-                sdSphere( p - ST.wheelPos[2], .5 ),
+                sdWheel( p , ST.wheelPos[1] ),
                 min(
-                    sdSphere( p - ST.wheelPos[3], .5 ),
-                    world ))));
+                    sdWheel( p , ST.wheelPos[2] ),
+                    min(
+                        sdWheel( p , ST.wheelPos[3] ),
+                        world )))));
 }
 
 struct March
@@ -83,6 +106,18 @@ vec3 getNorm(vec3 p)
         map(p + e.yyx) - map(p - e.yyx)));
 }
 
+vec3 lossyReflect( vec3 v, vec3 n, vec3 guess_u, float bounce, float frictionU, float frictionV )
+{
+    vec3 tan_v = normalize( cross( n, guess_u ));
+    vec3 tan_u = cross( n, tan_v );
+
+    float v_n = -bounce * dot( v, n );
+    float v_u = frictionU * dot( v, tan_u );
+    float v_v = frictionV * dot( v, tan_v );
+
+    return v_n*n + v_u*tan_u + v_v*tan_v;
+}
+
 void distConstraint( inout vec3 pos0, inout vec3 pos1, float dist )
 {
     vec3 iToJ = pos0 - pos1;
@@ -98,6 +133,8 @@ void m1()
 
 // ----- State update -----
 
+    vec3 wheelForward = normalize(ST.wheelPos[2] - ST.wheelPos[1]);
+
     for( int i = 0; i < 4; ++i )
     {
         vec3 posStep = ST.wheelPos[i] - ST.wheelLastPos[i] - vec3( 0, .0109, 0 ); // 9.81/30/30
@@ -112,7 +149,7 @@ void m1()
             ST.wheelPos[i] += (.5-dist)*normal;
 
             vec3 vel = ST.wheelPos[i] - ST.wheelLastPos[i];
-            vel = reflect( vel, normal );
+            vel = lossyReflect( vel, normal, wheelForward, .7, 1., .1 );
             ST.wheelLastPos[i] = ST.wheelPos[i] - vel;
         }
     }
@@ -146,14 +183,21 @@ void m0()
 
     vec2 uv = (gl_FragCoord.xy - .5*u_resolution)/u_resolution.y;
 
+    vec3 carUpDir = normalize(
+        normalize(cross( ST.wheelPos[0] - ST.wheelPos[3], ST.wheelPos[2] - ST.wheelPos[3] )) -
+        normalize(cross( ST.wheelPos[0] - ST.wheelPos[1], ST.wheelPos[2] - ST.wheelPos[1] ))
+    );
+
     vec3 carForwardDir = normalize(ST.wheelPos[2] - ST.wheelPos[1]);
     vec3 carCenterPt = (ST.wheelPos[0] + ST.wheelPos[1] + ST.wheelPos[2] + ST.wheelPos[3])/4.;
-    vec3 carForwardXZ = normalize(vec3(carForwardDir.x, 0, carForwardDir.z));
+
+    g_wheelRot = transp(mat3( cross(carUpDir, carForwardDir), carUpDir, carForwardDir ));
 
     float zoom = 1.;
-    vec3 ro = (carCenterPt - 7.*carForwardXZ) + vec3(0,3,0);
-    vec3 lookAt = carCenterPt + vec3(0,2,0);
+    vec3 ro = vec3(0); // carCenterPt + 3.*carUpDir - 7.*carForwardDir;
+    vec3 lookAt = carCenterPt; //  + 2.*carUpDir;
     vec3 f = normalize(lookAt - ro);
+    //vec3 r = normalize(cross(carUpDir, f));
     vec3 r = normalize(cross(vec3(0,1,0), f));
     vec3 u = cross(f, r);
     vec3 c = ro + f * zoom;
