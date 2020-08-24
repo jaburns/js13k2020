@@ -17,7 +17,7 @@ vec2 curve(vec2 uv)
     return uv;
 }
 
-void main()
+void m0()
 {
     vec2 uv = gl_FragCoord.xy / u_resolution;
     uv = curve( uv );

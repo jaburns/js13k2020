@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 const sh = require('shelljs');
 const fs = require('fs');
+const path = require('path');
 const _ = require('lodash');
 const ShapeShifter = require('regpack/shapeShifter');
 const advzipPath = require('advzip-bin');
+const stateMap = require('./src/stateMap.json');
 
 const DEBUG = process.argv.indexOf('--debug') >= 0;
 const MONO_RUN = process.platform === 'win32' ? '' : 'mono ';
@@ -17,6 +19,20 @@ const run = cmd =>
     const code = sh.exec( cmd ).code;
     if( code !== 0 )
         process.exit( code );
+};
+
+const applyStateMap = code =>
+{
+    code = code.replace( /s_totalStateSize/g, stateMap.fields.length );
+
+    for( let k in stateMap.constants )
+        if( k !== 's_totalStateSize' )
+            code = code.replace( new RegExp( k, 'g' ), stateMap.constants[k] );
+
+    for( let i in stateMap.fields )
+        code = code.replace( new RegExp( stateMap.fields[i], 'g' ), i );
+
+    return code;
 };
 
 const hashWebglIdentifiers = js =>
@@ -51,24 +67,31 @@ const minifyShaderExternalNames = code =>
     return code;
 };
 
+const preprocessShader = shader =>
+    applyStateMap( shader );
+
 const generateShaderFile = () =>
 {
-    run( MONO_RUN + 'tools/shader_minifier.exe --no-renaming-list main --format js -o build/shaders.js --preserve-externals shaders/*' );
+    sh.mkdir( '-p', 'shadersTmp' );
+    sh.ls( 'shaders' ).forEach( x =>
+    {
+        const code = fs.readFileSync( path.resolve( 'shaders', x ), 'utf8' );
+        fs.writeFileSync( path.resolve( 'shadersTmp', x ), preprocessShader( code ));
+    });
+
+    run( MONO_RUN + 'tools/shader_minifier.exe --no-renaming-list main,m0,m1,MS --format js -o build/shaders.js --preserve-externals shadersTmp/*' );
     let shaderCode = fs.readFileSync('build/shaders.js', 'utf8');
     buildShaderExternalNameMap( shaderCode );
     shaderCode = minifyShaderExternalNames( shaderCode );
 
     shaderCode = shaderCode
         .split('\n')
-        .map( x => {
-            let result = x.replace(/^var/, 'export let');
-            if( result.indexOf( '_frag =' ) >= 0 )
-                result += ' "precision highp float;" +';
-            return result;
-        })
+        .map( x => x.replace(/^var/, 'export let'))
         .join('\n');
 
     fs.writeFileSync('src/shaders.gen.ts', shaderCode);
+
+    sh.rm( '-rf', 'shadersTmp' );
 };
 
 const wrapWithHTML = js =>
@@ -99,6 +122,7 @@ const main = () =>
     let x = fs.readFileSync('build/bundle.js', 'utf8');
     x = minifyShaderExternalNames( x );
     if( !DEBUG ) x = hashWebglIdentifiers( x );
+    x = applyStateMap( x );
     x = wrapWithHTML( x );
     fs.writeFileSync( 'build/out.html', x );
 

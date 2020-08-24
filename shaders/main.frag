@@ -1,8 +1,11 @@
 uniform vec2 u_resolution;
 uniform sampler2D u_state;
-uniform int u_stateMode;
+uniform sampler2D u_prevState;
+uniform float u_lerpTime;
+uniform bool u_modeState;
 
 vec4 g_state[14];
+vec4 g_prevState[14];
 
 const float i_EPS = 0.01;
 const float i_PRECISION = .8;
@@ -33,17 +36,17 @@ float map( vec3 p )
         min(sdBox( (mat4(-0.0802,0,0.9968,0,0,1,0,0,-0.9968,0,-0.0802,0,9.7113,7.7,-0.0714,1)*vec4(p,1)).xyz, vec3(21.003,1.2916,19.435) ),min(sdBox( (mat4(0.7996,0.1725,-0.5753,0,-0.5641,0.5444,-0.6209,0,0.2061,0.8209,0.5325,0,-6.8698,-4.3597,-16.2646,1)*vec4(p,1)).xyz, vec3(5.8863,5.8863,5.8863) ),min(sdBox( (mat4(0.0241,0.7624,0.6466,0,-0.5641,0.5444,-0.6209,0,-0.8254,-0.3498,0.4432,0,10.1649,5.9443,-14.7828,1)*vec4(p,1)).xyz, vec3(5.8863,5.8863,5.8863) ),min(sdBox( (mat4(-0.0752,-0.0279,0.9968,0,-0.3477,0.9376,0,0,-0.9346,-0.3466,-0.0802,0,8.3046,13.2649,0.7672,1)*vec4(p,1)).xyz, vec3(4.6284,4.6283,4.6284) ),min(sdBox( (mat4(0.1063,0.9118,0.3966,0,-0.3907,0.4051,-0.8266,0,-0.9144,-0.0671,0.3993,0,5.9394,-18.1587,-16.0968,1)*vec4(p,1)).xyz, vec3(19.3539,15.3994,4.6284) ),min(sdBox( (mat4(-0.3313,-0.1861,0.925,0,0.3533,0.8846,0.3045,0,-0.8749,0.4277,-0.2273,0,2.1767,8.4828,4.1946,1)*vec4(p,1)).xyz, vec3(9.8223,4.6283,21.5019) ),sdBox( (mat4(-0.0752,-0.0279,0.9968,0,-0.3477,0.9376,0,0,-0.9346,-0.3466,-0.0802,0,16.8634,7.3837,0.757,1)*vec4(p,1)).xyz, vec3(4.6284,4.6283,4.6284) )))))))
     ;
 
-    if( u_stateMode == 1 )
+    if( u_modeState )
         return world;
 
     return min(
-        sdSphere( p - g_state[2].xyz, .5 ),
+        sdSphere( p - g_state[s_wheelPos0].xyz, .5 ),
         min(
-            sdSphere( p - g_state[5].xyz, .5 ),
+            sdSphere( p - g_state[s_wheelPos1].xyz, .5 ),
             min(
-                sdSphere( p - g_state[8].xyz, .5 ),
+                sdSphere( p - g_state[s_wheelPos2].xyz, .5 ),
                 min(
-                    sdSphere( p - g_state[11].xyz, .5 ),
+                    sdSphere( p - g_state[s_wheelPos3].xyz, .5 ),
                     world ))));
 }
 
@@ -81,11 +84,61 @@ vec3 getNorm(vec3 p)
         map(p + e.yyx) - map(p - e.yyx)));
 }
 
-void stateUpdate()
+void distConstraint( inout vec4 pos0, inout vec4 pos1, float dist )
 {
+    vec3 iToJ = pos0.xyz - pos1.xyz;
+    vec3 fixVec = .5 * (dist - length(iToJ)) * normalize( iToJ );
+    pos0.xyz += fixVec;
+    pos1.xyz -= fixVec;
+}
+
+void m1()
+{
+    for( int i = 0; i < s_totalStateSize; ++i )
+        g_state[i] = texture2D(u_state, vec2( (float(i)+.5)/s_totalStateSize.));
+
+// ----- State update -----
+
+    for( int i = 0; i < 4; ++i )
+    {
+        vec4 posStep = g_state[s_wheelPos0 + i * s_wheelStructSize]
+            - g_state[s_wheelLastPos0 + i * s_wheelStructSize]
+            - vec4( 0, .0109, 0, 0 ); // 9.81 / 30 / 30
+
+        g_state[s_wheelLastPos0 + i * s_wheelStructSize] =
+            g_state[s_wheelPos0 + i * s_wheelStructSize];
+
+        g_state[s_wheelPos0 + i * s_wheelStructSize] += posStep;
+
+        // TODO use vec3 to store state, ignore alpha channel
+
+        float dist = map( g_state[s_wheelPos0 + i * s_wheelStructSize].xyz );
+        vec3 normal = getNorm( g_state[s_wheelPos0 + i * s_wheelStructSize].xyz );
+
+        if( dist < .5 )
+        {
+            g_state[s_wheelPos0 + i * s_wheelStructSize].xyz += (.5-dist)*normal;
+
+            vec4 vel = g_state[s_wheelPos0 + i * s_wheelStructSize]
+                - g_state[s_wheelLastPos0 + i * s_wheelStructSize];
+
+            vel.xyz = reflect( vel.xyz, normal );
+
+            g_state[s_wheelLastPos0 + i * s_wheelStructSize] =
+                g_state[s_wheelPos0 + i * s_wheelStructSize]
+                - vel;
+        }
+    }
+
+    distConstraint( g_state[s_wheelPos0 + 0 * s_wheelStructSize], g_state[s_wheelPos0 + 1 * s_wheelStructSize], s_wheelBaseWidth );
+    distConstraint( g_state[s_wheelPos0 + 0 * s_wheelStructSize], g_state[s_wheelPos0 + 2 * s_wheelStructSize], sqrt(s_wheelBaseWidth*s_wheelBaseWidth + s_wheelBaseLength*s_wheelBaseLength) );
+    distConstraint( g_state[s_wheelPos0 + 0 * s_wheelStructSize], g_state[s_wheelPos0 + 3 * s_wheelStructSize], s_wheelBaseLength );
+    distConstraint( g_state[s_wheelPos0 + 1 * s_wheelStructSize], g_state[s_wheelPos0 + 2 * s_wheelStructSize], s_wheelBaseLength );
+    distConstraint( g_state[s_wheelPos0 + 1 * s_wheelStructSize], g_state[s_wheelPos0 + 3 * s_wheelStructSize], sqrt(s_wheelBaseWidth*s_wheelBaseWidth + s_wheelBaseLength*s_wheelBaseLength) );
+    distConstraint( g_state[s_wheelPos0 + 2 * s_wheelStructSize], g_state[s_wheelPos0 + 3 * s_wheelStructSize], s_wheelBaseWidth );
 
 /*
-    state.tick++;
+    let _distances = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]].map(([i,j]) => [i,j,Math.hypot(...vec3_minus(_startWheelPos[i], _startWheelPos[j]))]);
 
     for( let i = 0; i < 4; ++i )
     {
@@ -122,31 +175,31 @@ void stateUpdate()
         });
     }
 */
-}
 
-void main()
-{
-    for( int i = 0; i < 14; ++i )
-        g_state[i] = texture2D(u_state, vec2( (float(i)+.5)/14.));
+// ------------------------
 
-    if( u_stateMode == 1 )
+    for( int i = 0; i < s_totalStateSize; ++i )
     {
-        stateUpdate();
-
-        for( int i = 0; i < 14; ++i )
+        if( gl_FragCoord.x < float(i+1) )
         {
-            if( gl_FragCoord.x < float(i+1) )
-            {
-                gl_FragColor = g_state[i];
-                return;
-            }
+            gl_FragColor = g_state[i];
+            return;
         }
     }
+}
+
+void m0()
+{
+    for( int i = 0; i < s_totalStateSize; ++i )
+        g_state[i] = mix(
+            texture2D(u_prevState, vec2( (float(i)+.5)/s_totalStateSize.)),
+            texture2D(u_state, vec2( (float(i)+.5)/s_totalStateSize.)),
+            u_lerpTime );
 
     vec2 uv = (gl_FragCoord.xy - .5*u_resolution)/u_resolution.y;
 
-    vec3 carForwardDir = normalize(g_state[8].xyz - g_state[5].xyz);
-    vec3 carCenterPt = (g_state[2].xyz + g_state[5].xyz + g_state[8].xyz + g_state[11].xyz)/4.;
+    vec3 carForwardDir = normalize(g_state[s_wheelPos2].xyz - g_state[s_wheelPos1].xyz);
+    vec3 carCenterPt = (g_state[s_wheelPos0].xyz + g_state[s_wheelPos1].xyz + g_state[s_wheelPos2].xyz + g_state[s_wheelPos3].xyz)/4.;
     vec3 carForwardXZ = normalize(vec3(carForwardDir.x, 0, carForwardDir.z));
 
     float zoom = 1.;

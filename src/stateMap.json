@@ -1,0 +1,23 @@
+{
+	"constants": {
+		"s_totalStateSize": -1,
+		"s_wheelBaseWidth": 1.3,
+		"s_wheelBaseLength": 1.8,
+		"s_wheelStructSize": 3
+	},
+	"fields": [
+		"s_inputs",
+		"s_wheelPos0",
+		"s_wheelLastPos0",
+		"s_wheelForceCache0",
+		"s_wheelPos1",
+		"s_wheelLastPos1",
+		"s_wheelForceCache1",
+		"s_wheelPos2",
+		"s_wheelLastPos2",
+		"s_wheelForceCache2",
+		"s_wheelPos3",
+		"s_wheelLastPos3",
+		"s_wheelForceCache3"
+	]
+}
