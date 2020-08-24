@@ -24,7 +24,7 @@ const OUT_WIDTH = 1024, OUT_HEIGHT = 768;
 
 let _previousTime = performance.now();
 let _tickAccTime = 0;
-let _inputs: {[k: number]: true} = {};
+let _inputs: {[k: number]: 1} = {};
 
 let _fullScreenQuadVertBuffer: WebGLBuffer;
 
@@ -142,7 +142,7 @@ let frame = () =>
     fullScreenDraw( _postShader );
 };
 
-document.onkeydown = k => _inputs[k.keyCode] = true;
+document.onkeydown = k => _inputs[k.keyCode] = 1;
 document.onkeyup = k => delete _inputs[k.keyCode];
 
 g.getExtension('OES_texture_float');

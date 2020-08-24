@@ -5,7 +5,6 @@ uniform float u_lerpTime;
 uniform bool u_modeState;
 
 vec3 g_state[14];
-vec3 g_prevState[14];
 
 const float i_EPS = 0.01;
 const float i_PRECISION = .8;
@@ -40,13 +39,13 @@ float map( vec3 p )
         return world;
 
     return min(
-        sdSphere( p - g_state[s_wheelPos0].xyz, .5 ),
+        sdSphere( p - ST.wheelPos[0], .5 ),
         min(
-            sdSphere( p - g_state[s_wheelPos1].xyz, .5 ),
+            sdSphere( p - ST.wheelPos[1], .5 ),
             min(
-                sdSphere( p - g_state[s_wheelPos2].xyz, .5 ),
+                sdSphere( p - ST.wheelPos[2], .5 ),
                 min(
-                    sdSphere( p - g_state[s_wheelPos3].xyz, .5 ),
+                    sdSphere( p - ST.wheelPos[3], .5 ),
                     world ))));
 }
 
@@ -101,39 +100,29 @@ void m1()
 
     for( int i = 0; i < 4; ++i )
     {
-        vec3 posStep = g_state[s_wheelPos0 + i * s_wheelStructSize]
-            - g_state[s_wheelLastPos0 + i * s_wheelStructSize]
-            - vec3( 0, .0109, 0 ); // 9.81 / 30 / 30
+        vec3 posStep = ST.wheelPos[i] - ST.wheelLastPos[i] - vec3( 0, .0109, 0 ); // 9.81/30/30
+        ST.wheelLastPos[i] = ST.wheelPos[i];
+        ST.wheelPos[i] += posStep;
 
-        g_state[s_wheelLastPos0 + i * s_wheelStructSize] =
-            g_state[s_wheelPos0 + i * s_wheelStructSize];
-
-        g_state[s_wheelPos0 + i * s_wheelStructSize] += posStep;
-
-        float dist = map( g_state[s_wheelPos0 + i * s_wheelStructSize] );
-        vec3 normal = getNorm( g_state[s_wheelPos0 + i * s_wheelStructSize] );
+        float dist = map( ST.wheelPos[i] );
+        vec3 normal = getNorm( ST.wheelPos[i] );
 
         if( dist < .5 )
         {
-            g_state[s_wheelPos0 + i * s_wheelStructSize] += (.5-dist)*normal;
+            ST.wheelPos[i] += (.5-dist)*normal;
 
-            vec3 vel = g_state[s_wheelPos0 + i * s_wheelStructSize]
-                - g_state[s_wheelLastPos0 + i * s_wheelStructSize];
-
+            vec3 vel = ST.wheelPos[i] - ST.wheelLastPos[i];
             vel = reflect( vel, normal );
-
-            g_state[s_wheelLastPos0 + i * s_wheelStructSize] =
-                g_state[s_wheelPos0 + i * s_wheelStructSize]
-                - vel;
+            ST.wheelLastPos[i] = ST.wheelPos[i] - vel;
         }
     }
 
-    distConstraint( g_state[s_wheelPos0 + 0 * s_wheelStructSize], g_state[s_wheelPos0 + 1 * s_wheelStructSize], s_wheelBaseWidth );
-    distConstraint( g_state[s_wheelPos0 + 0 * s_wheelStructSize], g_state[s_wheelPos0 + 2 * s_wheelStructSize], sqrt(s_wheelBaseWidth*s_wheelBaseWidth + s_wheelBaseLength*s_wheelBaseLength) );
-    distConstraint( g_state[s_wheelPos0 + 0 * s_wheelStructSize], g_state[s_wheelPos0 + 3 * s_wheelStructSize], s_wheelBaseLength );
-    distConstraint( g_state[s_wheelPos0 + 1 * s_wheelStructSize], g_state[s_wheelPos0 + 2 * s_wheelStructSize], s_wheelBaseLength );
-    distConstraint( g_state[s_wheelPos0 + 1 * s_wheelStructSize], g_state[s_wheelPos0 + 3 * s_wheelStructSize], sqrt(s_wheelBaseWidth*s_wheelBaseWidth + s_wheelBaseLength*s_wheelBaseLength) );
-    distConstraint( g_state[s_wheelPos0 + 2 * s_wheelStructSize], g_state[s_wheelPos0 + 3 * s_wheelStructSize], s_wheelBaseWidth );
+    distConstraint( ST.wheelPos[0], ST.wheelPos[1], s_wheelBaseWidth );
+    distConstraint( ST.wheelPos[0], ST.wheelPos[2], sqrt(s_wheelBaseWidth*s_wheelBaseWidth + s_wheelBaseLength*s_wheelBaseLength) );
+    distConstraint( ST.wheelPos[0], ST.wheelPos[3], s_wheelBaseLength );
+    distConstraint( ST.wheelPos[1], ST.wheelPos[2], s_wheelBaseLength );
+    distConstraint( ST.wheelPos[1], ST.wheelPos[3], sqrt(s_wheelBaseWidth*s_wheelBaseWidth + s_wheelBaseLength*s_wheelBaseLength) );
+    distConstraint( ST.wheelPos[2], ST.wheelPos[3], s_wheelBaseWidth );
 
 // ------------------------
 
@@ -157,8 +146,8 @@ void m0()
 
     vec2 uv = (gl_FragCoord.xy - .5*u_resolution)/u_resolution.y;
 
-    vec3 carForwardDir = normalize(g_state[s_wheelPos2].xyz - g_state[s_wheelPos1].xyz);
-    vec3 carCenterPt = (g_state[s_wheelPos0].xyz + g_state[s_wheelPos1].xyz + g_state[s_wheelPos2].xyz + g_state[s_wheelPos3].xyz)/4.;
+    vec3 carForwardDir = normalize(ST.wheelPos[2] - ST.wheelPos[1]);
+    vec3 carCenterPt = (ST.wheelPos[0] + ST.wheelPos[1] + ST.wheelPos[2] + ST.wheelPos[3])/4.;
     vec3 carForwardXZ = normalize(vec3(carForwardDir.x, 0, carForwardDir.z));
 
     float zoom = 1.;

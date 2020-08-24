@@ -5,7 +5,7 @@ const path = require('path');
 const _ = require('lodash');
 const ShapeShifter = require('regpack/shapeShifter');
 const advzipPath = require('advzip-bin');
-const stateMap = require('./src/stateMap.json');
+const stateMap = require('./src/definitions.json');
 
 const DEBUG = process.argv.indexOf('--debug') >= 0;
 const MONO_RUN = process.platform === 'win32' ? '' : 'mono ';
@@ -23,14 +23,14 @@ const run = cmd =>
 
 const applyStateMap = code =>
 {
-    code = code.replace( /s_totalStateSize/g, stateMap.fields.length );
+    code = code.replace( /s_totalStateSize/g, stateMap.stateFields.length );
 
     for( let k in stateMap.constants )
         if( k !== 's_totalStateSize' )
             code = code.replace( new RegExp( k, 'g' ), stateMap.constants[k] );
 
-    for( let i in stateMap.fields )
-        code = code.replace( new RegExp( stateMap.fields[i], 'g' ), i );
+    for( let i in stateMap.stateFields )
+        code = code.replace( new RegExp( stateMap.stateFields[i], 'g' ), i );
 
     return code;
 };
@@ -67,14 +67,38 @@ const minifyShaderExternalNames = code =>
     return code;
 };
 
+// i.e.
+//  ST.wheelPos[2] -> g_state[s_wheelPos2];
+//  ST.wheelLastPos[i] -> g_state[s_wheelLastPos0 + i * s_wheelStructSize ];
 const convertStateAccessNotation = shaderCode =>
 {
+    let match;
+    while( match = shaderCode.match( /ST\.[a-zA-Z0-9\[\]]+/ ))
+    {
+        const str = match[0];
+        let newStr = str;
+
+        if( str.endsWith(']'))
+        {
+            const idx = str.match(/\[(.+)\]/)[1];
+            const propName = str.replace('ST.', '').replace(/\[.*/, '');
+            const structName = propName.match(/^[a-z]+/)[0];
+
+            if( isNaN( parseInt( idx )))
+                newStr = `g_state[s_${propName}0 + ${idx} * s_${structName}StructSize]`;
+            else
+                newStr = `g_state[s_${propName}${idx}]`;
+        }
+        else
+        {
+            const propName = str.replace('ST.', '');
+            newStr = `g_state[s_${propName}]`;
+        }
+
+        shaderCode = shaderCode.substr( 0, match.index ) + newStr + shaderCode.substr( match.index + str.length );
+    }
 
     return shaderCode;
-
-        // -> ST.wheelPos[2] -> g_state[s_wheelPos0];
-        // -> ST.wheelLastPos[i] -> g_state[s_wheelLastPos0 + i * s_wheelStructSize ];
-
 };
 
 const preprocessShader = shaderCode =>

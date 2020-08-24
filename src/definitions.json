@@ -1,11 +1,11 @@
 {
 	"constants": {
-		"s_totalStateSize": -1,
+		"s_totalStateSize": -99,
 		"s_wheelBaseWidth": 1.3,
 		"s_wheelBaseLength": 1.8,
 		"s_wheelStructSize": 3
 	},
-	"fields": [
+	"stateFields": [
 		"s_inputsA",
 		"s_inputsB",
 		"s_wheelPos0",
