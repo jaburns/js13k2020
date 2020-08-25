@@ -1,7 +1,6 @@
 import { main_vert, main_frag, post_frag } from "./shaders.gen";
 import { DEBUG } from "./debug.gen";
 import { gl_VERTEX_SHADER, gl_FRAGMENT_SHADER, gl_ARRAY_BUFFER, gl_STATIC_DRAW, gl_FRAMEBUFFER, gl_TEXTURE_2D, gl_RGBA, gl_UNSIGNED_BYTE, gl_LINEAR, gl_CLAMP_TO_EDGE, gl_TEXTURE_WRAP_S, gl_TEXTURE_WRAP_T, gl_TEXTURE_MIN_FILTER, gl_COLOR_ATTACHMENT0, gl_NEAREST, gl_FLOAT, gl_TRIANGLES, gl_BYTE, gl_TEXTURE0, gl_TEXTURE_MAG_FILTER, gl_TEXTURE1, gl_RGB, gl_TEXTURE2 } from "./glConsts";
-import { tryStartAudio } from "./audio";
 
 // =================================================================================================
 
@@ -17,6 +16,8 @@ declare const s_renderWidth: number;
 declare const s_renderHeight: number;
 declare const s_fullWidth: number;
 declare const s_fullHeight: number;
+declare const s_audioBufferSize: number;
+declare const s_audioSampleRate: number;
 
 const enum KeyCode
 {
@@ -44,6 +45,8 @@ let _canvasTexture: WebGLTexture;
 let _drawFramebuffer: Framebuffer;
 let _stateFramebuffers: Framebuffer[];
 let _curStateBufferIndex: number = 0;
+
+let _audioT: number = 0;
 
 let x_fb: WebGLFramebuffer;
 let x_tex: WebGLTexture;
@@ -167,7 +170,37 @@ let frame = () =>
 
 // =================================================================================================
 
-document.onkeydown = k => ( tryStartAudio(), _inputs[k.keyCode] = 1 );
+let taylorSquareWave = ( x: number, harmonics: number ): number =>
+{
+    let result = 0;
+    for( let i = 1; i <= harmonics; i += 2 )
+        result += 4 / Math.PI / i * Math.sin( i * x );
+    return result;
+};
+
+let startAudio = () =>
+{
+    let ctx = new ((window as any).AudioContext || (window as any).webkitAudioContext)({ sampleRate: s_audioSampleRate }) as AudioContext;
+    let node = ctx.createScriptProcessor( s_audioBufferSize, 0, 1 );
+    node.connect( ctx.destination );
+    node.onaudioprocess = e =>
+    {
+        let buffer = e.outputBuffer.getChannelData( 0 );
+
+    // ----- Audio buffer fill -------------------------
+
+        for( let i = 0; i < buffer.length; ++i )
+            buffer[i] = taylorSquareWave( _audioT += 0.005 + 0.001*Math.sin(_audioT/1000), 10 );
+
+    // -------------------------------------------------
+    };
+
+    startAudio = () => {};
+};
+
+// =================================================================================================
+
+document.onkeydown = k => ( startAudio(), _inputs[k.keyCode] = 1 );
 document.onkeyup = k => delete _inputs[k.keyCode];
 
 // =================================================================================================
