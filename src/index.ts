@@ -1,6 +1,9 @@
 import { main_vert, main_frag, post_frag } from "./shaders.gen";
 import { DEBUG } from "./debug.gen";
 import { gl_VERTEX_SHADER, gl_FRAGMENT_SHADER, gl_ARRAY_BUFFER, gl_STATIC_DRAW, gl_FRAMEBUFFER, gl_TEXTURE_2D, gl_RGBA, gl_UNSIGNED_BYTE, gl_LINEAR, gl_CLAMP_TO_EDGE, gl_TEXTURE_WRAP_S, gl_TEXTURE_WRAP_T, gl_TEXTURE_MIN_FILTER, gl_COLOR_ATTACHMENT0, gl_NEAREST, gl_FLOAT, gl_TRIANGLES, gl_BYTE, gl_TEXTURE0, gl_TEXTURE_MAG_FILTER, gl_TEXTURE1, gl_RGB, gl_TEXTURE2 } from "./glConsts";
+import { tryStartAudio } from "./audio";
+
+// =================================================================================================
 
 declare const a: HTMLCanvasElement;
 declare const b: HTMLCanvasElement;
@@ -25,11 +28,13 @@ const enum KeyCode
 
 type Framebuffer = [WebGLFramebuffer,WebGLTexture];
 
+// =================================================================================================
+
 let _previousTime = performance.now();
 let _tickAccTime = 0;
 let _inputs: {[k: number]: 1} = {};
 
-let _fullScreenQuadVertBuffer: WebGLBuffer;
+let _fullScreenTriVertBuffer: WebGLBuffer;
 
 let _mainShader: WebGLProgram;
 let _stateShader: WebGLProgram;
@@ -42,6 +47,8 @@ let _curStateBufferIndex: number = 0;
 
 let x_fb: WebGLFramebuffer;
 let x_tex: WebGLTexture;
+
+// =================================================================================================
 
 let buildShader = ( vert: string, frag: string, main?: string ): WebGLProgram =>
 {
@@ -76,14 +83,18 @@ let buildShader = ( vert: string, frag: string, main?: string ): WebGLProgram =>
     return ss;
 };
 
+// =================================================================================================
+
 let fullScreenDraw = ( shader: WebGLProgram ) =>
 {
-    g.bindBuffer( gl_ARRAY_BUFFER, _fullScreenQuadVertBuffer );
+    g.bindBuffer( gl_ARRAY_BUFFER, _fullScreenTriVertBuffer );
     let posLoc = g.getAttribLocation( shader, 'a_position' );
     g.enableVertexAttribArray( posLoc );
     g.vertexAttribPointer( posLoc, 2, gl_BYTE, false, 0, 0 );
     g.drawArrays( gl_TRIANGLES, 0, 3 );
 };
+
+// =================================================================================================
 
 let frame = () =>
 {
@@ -97,6 +108,8 @@ let frame = () =>
     while( _tickAccTime >= s_millisPerTick )
     {
         _tickAccTime -= s_millisPerTick;
+
+    // ----- Fixed update tick ------------------------------
 
         g.useProgram( _stateShader );
         g.bindFramebuffer( gl_FRAMEBUFFER, _stateFramebuffers[1-_curStateBufferIndex][0] );
@@ -113,6 +126,8 @@ let frame = () =>
 
         fullScreenDraw( _stateShader );
     }
+
+    // ----- Frame update ------------------------------
 
     g.useProgram( _mainShader );
 
@@ -144,14 +159,18 @@ let frame = () =>
     g.bindTexture( gl_TEXTURE_2D, _drawFramebuffer[1] );
 
     g.uniform2f( g.getUniformLocation( _postShader, 'u_resolution' ), s_fullWidth, s_fullHeight );
-    g.uniform1f( g.getUniformLocation( _postShader, 'u_time' ), 0 );  // TODO supply time
+    g.uniform1f( g.getUniformLocation( _postShader, 'u_time' ), _previousTime/1000 );
     g.uniform1i( g.getUniformLocation( _postShader, 'u_tex' ), 0 );
 
     fullScreenDraw( _postShader );
 };
 
-document.onkeydown = k => _inputs[k.keyCode] = 1;
+// =================================================================================================
+
+document.onkeydown = k => ( tryStartAudio(), _inputs[k.keyCode] = 1 );
 document.onkeyup = k => delete _inputs[k.keyCode];
+
+// =================================================================================================
 
 g.getExtension('OES_texture_float');
 g.getExtension('OES_texture_float_linear');
@@ -160,8 +179,8 @@ _mainShader = buildShader( main_vert, main_frag );
 _stateShader = buildShader( main_vert, main_frag, 'm1' );
 _postShader = buildShader( main_vert, post_frag );
 
-_fullScreenQuadVertBuffer = g.createBuffer()!;
-g.bindBuffer( gl_ARRAY_BUFFER, _fullScreenQuadVertBuffer );
+_fullScreenTriVertBuffer = g.createBuffer()!;
+g.bindBuffer( gl_ARRAY_BUFFER, _fullScreenTriVertBuffer );
 g.bufferData( gl_ARRAY_BUFFER, Uint8Array.of(1, 1, 1, 128, 128, 1), gl_STATIC_DRAW );
 
 x_fb = g.createFramebuffer()!;
@@ -214,6 +233,7 @@ _stateFramebuffers = [0, 1].map(i =>
     [x_fb, x_tex]
 ));
 
+// =================================================================================================
 // https://jsfiddle.net/p49wuce2/
 
 c.strokeStyle = '#f00';
@@ -258,5 +278,7 @@ g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_MIN_FILTER, gl_LINEAR );
 g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_S, gl_CLAMP_TO_EDGE );
 g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_T, gl_CLAMP_TO_EDGE );
 g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, gl_RGBA, gl_UNSIGNED_BYTE, b );
+
+// =================================================================================================
 
 frame();

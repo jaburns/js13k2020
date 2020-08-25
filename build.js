@@ -5,14 +5,12 @@ const path = require('path');
 const _ = require('lodash');
 const ShapeShifter = require('regpack/shapeShifter');
 const advzipPath = require('advzip-bin');
-const stateMap = require('./src/definitions.json');
+const definitionsJson = require('./src/definitions.json');
 
 const DEBUG = process.argv.indexOf('--debug') >= 0;
 const MONO_RUN = process.platform === 'win32' ? '' : 'mono ';
 
 const g_shaderExternalNameMap = {};
-
-sh.cd( __dirname );
 
 const run = cmd =>
 {
@@ -23,14 +21,11 @@ const run = cmd =>
 
 const applyStateMap = code =>
 {
-    code = code.replace( /s_totalStateSize/g, stateMap.stateFields.length );
+    for( let k in definitionsJson.constants )
+        code = code.replace( new RegExp( k, 'g' ), definitionsJson.constants[k] );
 
-    for( let k in stateMap.constants )
-        if( k !== 's_totalStateSize' )
-            code = code.replace( new RegExp( k, 'g' ), stateMap.constants[k] );
-
-    for( let i in stateMap.stateFields )
-        code = code.replace( new RegExp( stateMap.stateFields[i], 'g' ), i );
+    for( let i in definitionsJson.stateFields )
+        code = code.replace( new RegExp( definitionsJson.stateFields[i], 'g' ), i );
 
     return code;
 };
@@ -156,7 +151,11 @@ const wrapWithHTML = js =>
 
 const main = () =>
 {
+    definitionsJson.constants.s_totalStateSize = definitionsJson.stateFields.length;
+
+    sh.cd( __dirname );
     sh.mkdir( '-p', 'build' );
+
     fs.writeFileSync( 'src/debug.gen.ts', `export const DEBUG = ${DEBUG ? 'true' : 'false'};\n` );
 
     console.log('Minifying shaders...');

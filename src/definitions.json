@@ -10,7 +10,8 @@
 		"s_fullWidth": 1024,
 		"s_fullHeight": 768,
 		"s_renderWidth": 512,
-		"s_renderHeight": 384
+		"s_renderHeight": 384,
+		"s_audioBufferSize": 1024
 	},
 	"stateFields": [
 		"s_steeringState",
