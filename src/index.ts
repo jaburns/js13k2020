@@ -21,10 +21,10 @@ declare const s_audioSampleRate: number;
 
 const enum KeyCode
 {
-    Up = 38, // key: up
-    Down = 40, // key: down
-    Left = 37, // key: left
-    Right = 39, // key: right
+    Up = 38,
+    Down = 40,
+    Left = 37,
+    Right = 39,
 };
 
 type Framebuffer = [WebGLFramebuffer,WebGLTexture];
