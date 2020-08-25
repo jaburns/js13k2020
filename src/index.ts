@@ -214,6 +214,8 @@ _stateFramebuffers = [0, 1].map(i =>
     [x_fb, x_tex]
 ));
 
+// https://jsfiddle.net/p49wuce2/
+
 c.strokeStyle = '#f00';
 c.fillStyle = '#f00';
 c.lineWidth = 40;
