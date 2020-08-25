@@ -35,19 +35,32 @@ const applyStateMap = code =>
     return code;
 };
 
-const hashWebglIdentifiers = js =>
+const hashWebglIdentifiers = ( js, and2dContext ) =>
 {
     let result = new ShapeShifter().preprocess(js, {
         hashWebGLContext: true,
         contextVariableName: 'g',
         contextType: 1,
         reassignVars: true,
-        varsNotReassigned: ['g','a'],
+        varsNotReassigned: ['a','b','g','c'],
         useES6: true,
     })[2].contents;
 
-    if( result.startsWith('for(') )
+    result = result.replace('for(', 'for(let ');
+
+    if( and2dContext )
+    {
+        result = new ShapeShifter().preprocess(result, {
+            hash2DContext: true,
+            contextVariableName: 'c',
+            contextType: 0,
+            reassignVars: true,
+            varsNotReassigned: ['a','b','g','c'],
+            useES6: true,
+        })[2].contents;
+
         result = result.replace('for(', 'for(let ');
+    }
 
     return result;
 };
@@ -155,9 +168,9 @@ const main = () =>
 
     let x = fs.readFileSync('build/bundle.js', 'utf8');
     x = minifyShaderExternalNames( x );
-    if( !DEBUG ) x = hashWebglIdentifiers( x );
-    x = applyStateMap( x );
+    if( !DEBUG ) x = hashWebglIdentifiers( x, true );
     x = wrapWithHTML( x );
+    x = applyStateMap( x );
     fs.writeFileSync( 'build/out.html', x );
 
     if( !DEBUG )

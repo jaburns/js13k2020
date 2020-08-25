@@ -1,20 +1,23 @@
-<canvas id=a width=1024 height=768></canvas>
+<canvas id=a width=s_fullWidth height=s_fullHeight></canvas>
+<canvas id=b width=s_renderWidth height=s_renderHeight></canvas>
 
 <script>
-	g=a.getContext('webgl');
+	g=a.getContext`webgl`;
+	c=b.getContext`2d`;
 	__CODE__
 </script>
 
 <style>
 html,body,canvas{
 	background:#000;
-    margin:0;
+    margin:0
 }
+#b{display:none}
 canvas{
 	position:absolute;
     top:50%;
     left:50%;
-    transform:translate(-50%,-50%);   
+    transform:translate(-50%,-50%)
 }
 
 </style>

@@ -20,6 +20,8 @@ vec2 curve(vec2 uv)
 void m0()
 {
     vec2 uv = gl_FragCoord.xy / u_resolution;
+           // gl_FragColor = texture2D( u_tex, uv );
+           // return;
     uv = curve( uv );
     vec3 col;
     float x =  sin(0.3*u_time+uv.y*21.0)*sin(0.7*u_time+uv.y*29.0)*sin(0.3+0.33*u_time+uv.y*31.0)*0.0017;
@@ -38,8 +40,8 @@ void m0()
     col *= 2.8;
 
     //float scans = clamp( 0.35+0.35*sin(0.0*u_time+uv.y*1200.), 0.0, 1.0);
-    //float scans = clamp( 0.35+0.35*sin(3.5*u_time+uv.y*u_resolution.y*1.7), 0.0, 1.0);
-    float scans = clamp( 0.35+0.35*sin(3.5*u_time+uv.y*u_resolution.y*1.5), 0.0, 1.0);
+    //float scans = clamp( 0.35+0.35*sin(3.5*u_time+uv.y*u_resolution.y*1.5), 0.0, 1.0);
+    float scans = clamp( 0.35+0.35*sin(3.5*u_time+uv.y*u_resolution.y*1.1), 0.0, 1.0);
     float s = pow(scans,1.7);
     col = col*vec3( 0.4+0.7*s) ;
 

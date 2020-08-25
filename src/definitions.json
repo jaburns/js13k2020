@@ -3,11 +3,17 @@
 		"s_totalStateSize": -99,
 		"s_wheelBaseWidth": 1.3,
 		"s_wheelBaseLength": 1.8,
-		"s_wheelStructSize": 3
+		"s_ticksPerSecond": 30,
+		"s_sqrTicksPerSecond": 900,
+		"s_millisPerTick": 33.3,
+		"s_wheelStructSize": 3,
+		"s_fullWidth": 1024,
+		"s_fullHeight": 768,
+		"s_renderWidth": 512,
+		"s_renderHeight": 384
 	},
 	"stateFields": [
-		"s_inputsA",
-		"s_inputsB",
+		"s_steeringState",
 		"s_wheelPos0",
 		"s_wheelLastPos0",
 		"s_wheelForceCache0",

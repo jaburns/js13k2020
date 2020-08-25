@@ -1,11 +1,13 @@
-<canvas id=a width=1024 height=768></canvas>
+<canvas id=a width=s_fullWidth height=s_fullHeight></canvas>
+<canvas id=b width=s_renderWidth height=s_renderHeight></canvas>
 
-<style onload="g=a.getContext('webgl');__CODE__">
+<style onload="g=a.getContext`webgl`;c=b.getContext`2d`;__CODE__">
 
 html,body,canvas{
 	background:#000;
     margin:0
 }
+#b{display:none}
 canvas{
 	position:absolute;
     top:50%;

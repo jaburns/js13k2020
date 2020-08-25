@@ -1,18 +1,25 @@
 uniform vec2 u_resolution;
 uniform sampler2D u_state;
 uniform sampler2D u_prevState;
+uniform sampler2D u_canvas;
 uniform float u_lerpTime;
 uniform bool u_modeState;
+uniform vec4 u_inputs;
 
 vec3 g_state[14];
+vec3 g_carCenterPt;
+vec3 g_carForwardDir;
+vec3 g_carDownDir;
+vec3 g_steerForwardDir;
 mat3 g_wheelRot;
-mat3 g_wheelRot2;
+mat3 g_steerRot;
 
 const float i_EPS = 0.01;
+const float i_PI = 3.14159;
 const float i_PRECISION = .8;
 const int i_ITERATIONS = 99;
 
-const vec3 i_COLORA = vec3(.8,.4,1);
+const vec3 i_COLORA = vec3(.5,.6,1.); // vec3(.8,.4,1);
 const vec3 i_COLORC = vec3(.0,.2,.3);
 
 mat2 rot( float t )
@@ -41,13 +48,13 @@ mat3 transp( mat3 m )
     );
 }
 
-float sdWheel( vec3 p, vec3 pos )
+float sdWheel( vec3 p, vec3 pos, mat3 rot )
 {
-    return sdTorus( g_wheelRot*(p - pos), vec2( .3, .2));
+    return sdTorus( rot*(p - pos), vec2( .3, .2));
 }
-float sdBody( vec3 p, vec3 pos )
+float sdBody( vec3 p )
 {
-    return sdBox( g_wheelRot*(p - pos), vec3(.4, .2, .9));
+    return sdBox( g_wheelRot*(p - g_carCenterPt), vec3(.4, .2, 1.));
 }
 
 float map( vec3 p )
@@ -60,15 +67,15 @@ float map( vec3 p )
         return world;
 
     return min(
-        sdBody(p,(ST.wheelPos[0]+ST.wheelPos[1]+ST.wheelPos[2]+ST.wheelPos[3])/4.),
+        sdBody(p),
         min(
-            sdWheel( p , ST.wheelPos[0] ),
+            sdWheel( p , ST.wheelPos[0], g_wheelRot ),
             min(
-                sdWheel( p , ST.wheelPos[1] ),
+                sdWheel( p , ST.wheelPos[1], g_wheelRot ),
                 min(
-                    sdWheel( p , ST.wheelPos[2] ),
+                    sdWheel( p , ST.wheelPos[2], g_steerRot ),
                     min(
-                        sdWheel( p , ST.wheelPos[3] ),
+                        sdWheel( p , ST.wheelPos[3], g_steerRot ),
                         world )))));
 }
 
@@ -126,20 +133,42 @@ void distConstraint( inout vec3 pos0, inout vec3 pos1, float dist )
     pos1 -= fixVec;
 }
 
+void initGlobals()
+{
+    g_carDownDir = normalize(
+        normalize(cross( ST.wheelPos[0] - ST.wheelPos[3], ST.wheelPos[2] - ST.wheelPos[3] )) -
+        normalize(cross( ST.wheelPos[0] - ST.wheelPos[1], ST.wheelPos[2] - ST.wheelPos[1] ))
+    );
+    g_carForwardDir = normalize( ST.wheelPos[2] - ST.wheelPos[1] );
+    g_carCenterPt = ( ST.wheelPos[0] + ST.wheelPos[1] + ST.wheelPos[2] + ST.wheelPos[3] ) / 4.;
+
+    mat3 wheelRotFwd = mat3( cross( g_carDownDir, g_carForwardDir ), g_carDownDir, g_carForwardDir );
+    g_wheelRot = transp( wheelRotFwd );
+
+    g_steerForwardDir = vec3( 0, 0, 1 );
+    g_steerForwardDir.xz *= rot( ST.steeringState.x );
+    g_steerForwardDir = wheelRotFwd * g_steerForwardDir;
+
+    g_steerRot = transp( mat3( cross( g_carDownDir, g_steerForwardDir ), g_carDownDir, g_steerForwardDir ));
+}
+
 void m1()
 {
     for( int i = 0; i < s_totalStateSize; ++i )
         g_state[i] = texture2D(u_state, vec2( (float(i)+.5)/s_totalStateSize.)).xyz;
 
-// ----- State update -----
+    ST.steeringState.x = u_inputs.z > 0. ? i_PI/8. : u_inputs.w > 0. ? -i_PI / 8. : 0.;
 
-    vec3 wheelForward = normalize(ST.wheelPos[2] - ST.wheelPos[1]);
+    initGlobals();
+
+// ----- State update -----
 
     for( int i = 0; i < 4; ++i )
     {
-        vec3 posStep = ST.wheelPos[i] - ST.wheelLastPos[i] - vec3( 0, .0109, 0 ); // 9.81/30/30
+        vec3 posStep = ST.wheelPos[i] - ST.wheelLastPos[i]  + (ST.wheelForceCache[i] - vec3(0,9.81,0)) / s_sqrTicksPerSecond.;
         ST.wheelLastPos[i] = ST.wheelPos[i];
         ST.wheelPos[i] += posStep;
+        ST.wheelForceCache[i] = vec3( 0 );
 
         float dist = map( ST.wheelPos[i] );
         vec3 normal = getNorm( ST.wheelPos[i] );
@@ -149,8 +178,15 @@ void m1()
             ST.wheelPos[i] += (.5-dist)*normal;
 
             vec3 vel = ST.wheelPos[i] - ST.wheelLastPos[i];
-            vel = lossyReflect( vel, normal, wheelForward, .7, 1., .1 );
+            vel = lossyReflect( vel, normal, i < 2 ? g_carForwardDir : g_steerForwardDir, .7, 1., .1 );
             ST.wheelLastPos[i] = ST.wheelPos[i] - vel;
+
+            if( i < 2 && ( u_inputs.x > 0. || u_inputs.y > 0. ))
+            {
+                vec3 xs = cross( normal, g_carForwardDir );
+                vec3 groundedFwd = normalize( cross( xs, normal ));
+                ST.wheelForceCache[i] = 20. * groundedFwd * ( u_inputs.x > 0. ? 1. : -.5 );
+            }
         }
     }
 
@@ -181,23 +217,15 @@ void m0()
             texture2D(u_state, vec2( (float(i)+.5)/s_totalStateSize.)),
             u_lerpTime ).xyz;
 
+    initGlobals();
+
     vec2 uv = (gl_FragCoord.xy - .5*u_resolution)/u_resolution.y;
 
-    vec3 carUpDir = normalize(
-        normalize(cross( ST.wheelPos[0] - ST.wheelPos[3], ST.wheelPos[2] - ST.wheelPos[3] )) -
-        normalize(cross( ST.wheelPos[0] - ST.wheelPos[1], ST.wheelPos[2] - ST.wheelPos[1] ))
-    );
-
-    vec3 carForwardDir = normalize(ST.wheelPos[2] - ST.wheelPos[1]);
-    vec3 carCenterPt = (ST.wheelPos[0] + ST.wheelPos[1] + ST.wheelPos[2] + ST.wheelPos[3])/4.;
-
-    g_wheelRot = transp(mat3( cross(carUpDir, carForwardDir), carUpDir, carForwardDir ));
-
     float zoom = 1.;
-    vec3 ro = vec3(0); // carCenterPt + 3.*carUpDir - 7.*carForwardDir;
-    vec3 lookAt = carCenterPt; //  + 2.*carUpDir;
+    vec3 ro = vec3(0); // g_carCenterPt - 1.*g_carDownDir - 7.*g_carForwardDir;
+    vec3 lookAt = g_carCenterPt; //  - 1.*g_carDownDir;
     vec3 f = normalize(lookAt - ro);
-    //vec3 r = normalize(cross(carUpDir, f));
+    //vec3 r = normalize(cross(-g_carDownDir, f));
     vec3 r = normalize(cross(vec3(0,1,0), f));
     vec3 u = cross(f, r);
     vec3 c = ro + f * zoom;
@@ -213,10 +241,17 @@ void m0()
         float fog = exp( -.02*m.dist );
         vec3 norm = getNorm( m.pos );
         lightness = fog * (1. - m.ao);
-        lightness *= 1.2*clamp(dot(normalize(vec3(0,2,-1)), norm),0.2,1.);
-        color = i_COLORA;
+        lightness *= 1.2*clamp(dot(normalize(vec3(0,2,-1)), norm),.2,1.);
+        color = i_COLORA; // .5+.5*norm;
         color = mix( i_COLORC, color, lightness );        
     }
 
-    gl_FragColor = vec4(color,1);
+    vec2 uv1 = gl_FragCoord.xy / u_resolution;
+    uv1.y = 1. - uv1.y;
+    if( uv1.y < .7 )
+        uv1.x += .5*uv1.y - .27;
+    vec4 canvas = texture2D( u_canvas, uv1 );
+
+
+    gl_FragColor = vec4( color + canvas.a * canvas.rgb, 1 );
 }

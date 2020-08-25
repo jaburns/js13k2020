@@ -153,6 +153,5 @@ public class Truck3Controller : MonoBehaviour
         cameraRig.transform.position = body.transform.position;
         cameraRig.transform.rotation = 
             Quaternion.LookRotation( new Vector3( carForward.x, 0, carForward.z ).normalized, Vector3.up );
-
     }
 }
