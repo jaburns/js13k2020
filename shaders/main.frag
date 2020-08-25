@@ -29,8 +29,8 @@ mat2 rot( float t )
 
 float sdBox( vec3 p, vec3 b )
 {
-  vec3 q = abs(p) - b;
-  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
+    vec3 q = abs(p) - b;
+    return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
 }
 
 float sdTorus( vec3 p, vec2 t )
@@ -39,7 +39,7 @@ float sdTorus( vec3 p, vec2 t )
     return length(q)-t.y;
 }
 
-mat3 transp( mat3 m )
+mat3 transpose( mat3 m )
 {
     return mat3(
         m[0][0], m[1][0], m[2][0],
@@ -89,7 +89,7 @@ struct March
 March march( vec3 ro, vec3 rd )
 {
     float dist;
-	float totalDist = 0.0;
+    float totalDist = 0.0;
     
     int j = 0;
     for( int i = 0; i < i_ITERATIONS; ++i )
@@ -143,13 +143,13 @@ void initGlobals()
     g_carCenterPt = ( ST.wheelPos[0] + ST.wheelPos[1] + ST.wheelPos[2] + ST.wheelPos[3] ) / 4.;
 
     mat3 wheelRotFwd = mat3( cross( g_carDownDir, g_carForwardDir ), g_carDownDir, g_carForwardDir );
-    g_wheelRot = transp( wheelRotFwd );
+    g_wheelRot = transpose( wheelRotFwd );
 
     g_steerForwardDir = vec3( 0, 0, 1 );
     g_steerForwardDir.xz *= rot( ST.steeringState.x );
     g_steerForwardDir = wheelRotFwd * g_steerForwardDir;
 
-    g_steerRot = transp( mat3( cross( g_carDownDir, g_steerForwardDir ), g_carDownDir, g_steerForwardDir ));
+    g_steerRot = transpose( mat3( cross( g_carDownDir, g_steerForwardDir ), g_carDownDir, g_steerForwardDir ));
 }
 
 void m1()
