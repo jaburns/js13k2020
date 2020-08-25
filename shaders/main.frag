@@ -139,6 +139,9 @@ void initGlobals()
         normalize(cross( ST.wheelPos[0] - ST.wheelPos[3], ST.wheelPos[2] - ST.wheelPos[3] )) -
         normalize(cross( ST.wheelPos[0] - ST.wheelPos[1], ST.wheelPos[2] - ST.wheelPos[1] ))
     );
+
+    if( g_carDownDir.y > 0. ) g_carDownDir *= -1.;
+
     g_carForwardDir = normalize( ST.wheelPos[2] - ST.wheelPos[1] );
     g_carCenterPt = ( ST.wheelPos[0] + ST.wheelPos[1] + ST.wheelPos[2] + ST.wheelPos[3] ) / 4.;
 
@@ -181,11 +184,11 @@ void m1()
             vel = lossyReflect( vel, normal, i < 2 ? g_carForwardDir : g_steerForwardDir, .7, 1., .1 );
             ST.wheelLastPos[i] = ST.wheelPos[i] - vel;
 
-            if( i < 2 && ( u_inputs.x > 0. || u_inputs.y > 0. ))
+            if( u_inputs.x > 0. || u_inputs.y > 0. )
             {
-                vec3 xs = cross( normal, g_carForwardDir );
+                vec3 xs = cross( normal, i < 2 ? g_carForwardDir : g_steerForwardDir );
                 vec3 groundedFwd = normalize( cross( xs, normal ));
-                ST.wheelForceCache[i] = 20. * groundedFwd * ( u_inputs.x > 0. ? 1. : -.5 );
+                ST.wheelForceCache[i] = 10. * groundedFwd * ( u_inputs.x > 0. ? 1. : -.5 );
             }
         }
     }
