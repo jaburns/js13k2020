@@ -1,6 +1,7 @@
 import { main_vert, main_frag, post_frag } from "./shaders.gen";
 import { DEBUG } from "./debug.gen";
 import { gl_VERTEX_SHADER, gl_FRAGMENT_SHADER, gl_ARRAY_BUFFER, gl_STATIC_DRAW, gl_FRAMEBUFFER, gl_TEXTURE_2D, gl_RGBA, gl_UNSIGNED_BYTE, gl_LINEAR, gl_CLAMP_TO_EDGE, gl_TEXTURE_WRAP_S, gl_TEXTURE_WRAP_T, gl_TEXTURE_MIN_FILTER, gl_COLOR_ATTACHMENT0, gl_NEAREST, gl_FLOAT, gl_TRIANGLES, gl_BYTE, gl_TEXTURE0, gl_TEXTURE_MAG_FILTER, gl_TEXTURE1, gl_RGB, gl_TEXTURE2 } from "./glConsts";
+import { startAudio } from "./synth";
 
 // =================================================================================================
 
@@ -16,8 +17,6 @@ declare const s_renderWidth: number;
 declare const s_renderHeight: number;
 declare const s_fullWidth: number;
 declare const s_fullHeight: number;
-declare const s_audioBufferSize: number;
-declare const s_audioSampleRate: number;
 
 const enum KeyCode
 {
@@ -45,8 +44,6 @@ let _canvasTexture: WebGLTexture;
 let _drawFramebuffer: Framebuffer;
 let _stateFramebuffers: Framebuffer[];
 let _curStateBufferIndex: number = 0;
-
-let _audioT: number = 0;
 
 let x_fb: WebGLFramebuffer;
 let x_tex: WebGLTexture;
@@ -166,89 +163,6 @@ let frame = () =>
     g.uniform1i( g.getUniformLocation( _postShader, 'u_tex' ), 0 );
 
     fullScreenDraw( _postShader );
-};
-
-// =================================================================================================
-
-let KICKS = [ 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0 ];
-let HATS =  [ 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1 ];
-
-let clamp = (x: number, lowerlimit: number, upperlimit: number) =>
-{
-    if (x < lowerlimit) x = lowerlimit;
-    if (x > upperlimit) x = upperlimit;
-    return x;
-};
-
-let smoothstep = (edge0: number, edge1: number, x: number) =>
-{
-    x = clamp((x - edge0) / (edge1 - edge0), 0, 1); 
-    return x * x * (3 - 2 * x);
-};
-
-let latestStartTime = ( time: number, track: number[] ): number =>
-{
-    time *= 4.;
-    let result = -10.;
-    
-    for( let i = 0; i < track.length; ++i ) {
-        let t = i;
-        if( t >= time ) break;
-        if( track[i] > 0 ) result = t;
-    }
-    
-    return result / 4.;
-}
-
-let taylorSquareWave = ( x: number, harmonics: number ): number =>
-{
-    let result = 0;
-    for( let i = 1; i <= harmonics; i += 2 )
-        result += 4 / Math.PI / i * Math.sin( i * x );
-    return result;
-};
-
-let kick = ( time: number ) =>
-{
-    let attack = clamp( 400.*time, 0., 1. );
-    let decay = 1. - smoothstep( .4, .5, time );
-    return attack * decay * Math.sin( 220. * Math.pow( time, .65 ));
-};
-
-let hat = ( time: number ) =>
-{
-    return .33 * Math.random() * Math.exp( -30.*time );
-};
-
-let signal = ( time: number ) =>
-{
-    let t = time % (HATS.length / 4.);
-    let padF = 32.;
-
-    return 1.00 * kick( t - latestStartTime( t, KICKS )) +
-        0.50 * hat( t - latestStartTime( t, HATS )) +
-        0.25 * 1 * taylorSquareWave( 2. * Math.PI * (padF + 2.) * time, 5 ) +
-        (t > HATS.length / 8 ? 0.7 : 0) * 1 * Math.sin( 4. * Math.PI * padF * time );
-};
-
-let startAudio = () =>
-{
-    let ctx = new ((window as any).AudioContext || (window as any).webkitAudioContext)({ sampleRate: s_audioSampleRate }) as AudioContext;
-    let node = ctx.createScriptProcessor( s_audioBufferSize, 0, 1 );
-    node.connect( ctx.destination );
-    node.onaudioprocess = e =>
-    {
-        let buffer = e.outputBuffer.getChannelData( 0 );
-
-    // ----- Audio buffer fill -------------------------
-
-        for( let i = 0; i < buffer.length; ++i )
-            buffer[i] = signal( _audioT += 1 / s_audioSampleRate );
-
-    // -------------------------------------------------
-    };
-
-    startAudio = () => {};
 };
 
 // =================================================================================================
