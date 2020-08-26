@@ -69,7 +69,7 @@ let note = [
     784/2,
     784/2,
     784/2,
-]; // .map( x => 1.5*x );
+];// .map( x => 1.5*x );
 
 let note2 = [
     659.28/2,
@@ -101,10 +101,15 @@ let pad = ( time: number, tempo: number ) =>
 
     time %= tempo;
 
+    let ttt = _sampleOffset / s_audioSampleRate / TEMPO;
+    let xx = ttt % 128>= 64;
+    if(xx) nn *= Math.pow(2, 5/12);
+
+
     let attack = clamp01(400*time);
     let decay = 1. - smoothstep( .1, .2, time );
     let f = nn; //  - 100*time;
-    return .2 * attack * decay * saw( f * time ) + .3*sqr( f * 1.5 * time );
+    return .8 * attack * decay * (tri( f * time ) + .2*saw( f * time ));
 };
 
 type LPF =
@@ -214,14 +219,14 @@ let audioTick = ( y: Float32Array ) =>
 
     buffWipe( rawSaw );
     addNote( pad, rawSaw, .25*TEMPO, .5 );
-    let tt = (_sampleOffset / s_audioSampleRate) % (TEMPO * (xx?2:1));
-    lpf.update( 100 + 1500*tt, 2 );
+    let tt = ((_sampleOffset / s_audioSampleRate) % (TEMPO * (xx?2:1))) * (xx?1:1);
+    lpf.update( (xx?200:100) + 1500*tt, 2 );
     lpf.tick( rawSaw, outSaw );
 
     buffWipe( buff0 );
     addNote( kick, buff0, 1*TEMPO, .5 );
-    addNote( hat, buff0, .5*TEMPO, .1 );
-    addNote( crash, buff0, 2*TEMPO, .5 );
+    addNote( hat, buff0, .5*TEMPO, .05 );
+    addNote( crash, buff0, 2*TEMPO, .25 );
 
     //if( xx )
     //{
