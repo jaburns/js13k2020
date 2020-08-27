@@ -219,9 +219,13 @@ void m0()
 
     vec2 uv = (gl_FragCoord.xy - .5*u_resolution)/u_resolution.y;
 
+    vec3 fwdxz = normalize(vec3(g_carForwardDir.x, 0, g_carForwardDir.z));
+
     float zoom = 1.;
-    vec3 ro = vec3(0); // g_carCenterPt - 1.*g_carDownDir - 7.*g_carForwardDir;
-    vec3 lookAt = g_carCenterPt; //  - 1.*g_carDownDir;
+    //vec3 ro = vec3(0);
+    vec3 ro = g_carCenterPt + vec3(0,2,0) - 7.*fwdxz;
+    //vec3 lookAt = g_carCenterPt; //  - 1.*g_carDownDir;
+    vec3 lookAt = g_carCenterPt + vec3(0,1,0);
     vec3 f = normalize(lookAt - ro);
     //vec3 r = normalize(cross(-g_carDownDir, f));
     vec3 r = normalize(cross(vec3(0,1,0), f));

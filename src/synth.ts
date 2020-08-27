@@ -209,7 +209,7 @@ let outSaw = new Float32Array( s_audioBufferSize );
 let preLpf = new Float32Array( s_audioBufferSize );
 
 let lpf = createLPF();
-let lpf2 = createLPF(), LLL = true;
+let lpf2 = createLPF(), LLL = false;
 lpf2.update( 400, 4 );
 
 let audioTick = ( y: Float32Array ) =>

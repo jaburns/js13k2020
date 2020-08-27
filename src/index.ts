@@ -236,6 +236,7 @@ _stateFramebuffers = [0, 1].map(i =>
 // =================================================================================================
 // https://jsfiddle.net/p49wuce2/
 
+/*
 c.strokeStyle = '#f00';
 c.fillStyle = '#f00';
 c.lineWidth = 40;
@@ -271,6 +272,7 @@ b.style.letterSpacing = '0px';
 c.fillStyle = '#ff0';
 c.font = 'bold 24px monospace';
 c.fillText( 'PRESS SPACE', 180, 330 );
+*/
 
 _canvasTexture = g.createTexture()!;
 g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
