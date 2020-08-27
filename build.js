@@ -121,7 +121,7 @@ const generateShaderFile = () =>
         fs.writeFileSync( path.resolve( 'shadersTmp', x ), preprocessShader( code ));
     });
 
-    run( MONO_RUN + 'tools/shader_minifier.exe --no-renaming-list main,m0,m1,MS --format js -o build/shaders.js --preserve-externals shadersTmp/*' );
+    run( MONO_RUN + 'tools/shader_minifier.exe --no-renaming-list main,m0,m1,MS --format js -o build/shaders.js --preserve-externals '+(DEBUG ? '--preserve-all-globals' : '')+' shadersTmp/*' );
     let shaderCode = fs.readFileSync('build/shaders.js', 'utf8');
     buildShaderExternalNameMap( shaderCode );
     shaderCode = minifyShaderExternalNames( shaderCode );

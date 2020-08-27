@@ -209,8 +209,8 @@ let outSaw = new Float32Array( s_audioBufferSize );
 let preLpf = new Float32Array( s_audioBufferSize );
 
 let lpf = createLPF();
-let lpf2 = createLPF();
-lpf2.update( 1200, 4 );
+let lpf2 = createLPF(), LLL = true;
+lpf2.update( 400, 4 );
 
 let audioTick = ( y: Float32Array ) =>
 {
@@ -228,12 +228,12 @@ let audioTick = ( y: Float32Array ) =>
     addNote( hat, buff0, .5*TEMPO, .05 );
     addNote( crash, buff0, 2*TEMPO, .25 );
 
-    //if( xx )
-    //{
-    //    buffAdd( buff0, outSaw, preLpf );
-    //    lpf2.tick( preLpf, y );
-    //}
-    //else 
+    if( LLL )
+    {
+        buffAdd( buff0, outSaw, preLpf );
+        lpf2.tick( preLpf, y );
+    }
+    else 
         buffAdd( buff0, outSaw, y );
 
 
