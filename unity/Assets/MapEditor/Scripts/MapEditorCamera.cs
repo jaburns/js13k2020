@@ -19,10 +19,8 @@ public class MapEditorCamera : MonoBehaviour
         thisCam.transform.localScale = cam.transform.localScale;
         thisCam.fieldOfView = cam.fieldOfView;
 
-        var mapFunc = GenShader( false );
-        Debug.Log( GenShader( true ));
-
-        File.WriteAllText(Application.dataPath + "/MapEditor/Shaders/MapDef.cginc", mapFunc);
+        File.WriteAllText(Application.dataPath + "/MapEditor/Shaders/MapDefs.cginc", GenShader( false ));
+        File.WriteAllText(Application.dataPath + "/MapEditor/Shaders/MapDefs.glsl.txt", GenShader( true ));
         AssetDatabase.Refresh();
     }
 

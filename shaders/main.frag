@@ -36,65 +36,7 @@ mat3 transpose( mat3 m )
     );
 }
 
-// =========================================================================
-
-mat3 quat( float x, float y, float z, float w ) {
-    return mat3(
-        1. - 2.*y*y - 2.*z*z,
-        2.*y*x + 2.*w*z,
-        2.*z*x - 2.*w*y,
-            2.*y*x - 2.*w*z,
-            1. - 2.*x*x - 2.*z*z,
-            2.*z*y + 2.*w*x,
-                2.*z*x + 2.*w*y,
-                2.*z*y - 2.*w*x,
-                1. - 2.*x*x - 2.*y*y
-    );
-}
-
-float sdBox( vec3 p, vec3 b )
-{
-    vec3 q = abs(p) - b;
-    return length(max(q,0.)) + min(max(q.x,max(q.y,q.z)),0.);
-}
-
-float sdCappedCylinder( vec3 p, float h, float r )
-{
-    vec2 d = abs(vec2(length(p.yx),p.z)) - vec2(r,h);
-    return min(max(d.x,d.y),0.0) + length(max(d,0.0));
-}
-
-float opSmoothUnion( float d1, float d2, float k )
-{
-    float h = clamp( 0.5 + 0.5*(d2-d1)/k, 0.0, 1.0 );
-    return mix( d2, d1, h ) - k*h*(1.0-h);
-}
-
-float sdObj0( vec3 p, vec3 s )
-{
-    return sdBox( p, s );
-}
-
-float sdObj1( vec3 p, vec3 s )
-{
-    return min(
-        sdBox( p, vec3(s.x,.5,s.z)),
-        min(
-            sdCappedCylinder( p - vec3(-s.x-.5,0,0), s.z, 1. ),
-            sdCappedCylinder( p - vec3(s.x+.5,0,0), s.z, 1. )
-        )
-    );
-}
-
-// =========================================================================
-
-float track( vec3 p )
-{
-return min(opSmoothUnion(sdObj0( quat(0.347,0.,0.,0.938)*(p-vec3(0,-0.95,17.21)), vec3(2.622,0.25,2.197)),sdObj1( quat(0.,0.,0.,1.)*(p-vec3(0,-2.38,6.29)), vec3(4,0.5,10.02)),2.),min(sdObj1( quat(0.,0.,0.,1.)*(p-vec3(0,-2.38,6.29)), vec3(4,0.5,10.02)),min(sdObj0( quat(0.347,0.,0.,0.938)*(p-vec3(0,-0.95,17.21)), vec3(2.622,0.25,2.197)),sdObj1( quat(0.057,-0.301,0.177,0.935)*(p-vec3(7.8,2.6,34.5)), vec3(4,0.5,10.02)))));
-}
-
-
-// =========================================================================
+#pragma INCLUDE_WORLD_SDF
 
 float sdTorus( vec3 p, vec2 t )
 {

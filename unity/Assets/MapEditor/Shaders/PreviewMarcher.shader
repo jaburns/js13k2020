@@ -43,8 +43,13 @@
                 return o;
             }
 
+            float3x3 transpose_hlsl_only( float3x3 m )
+            {
+                return transpose( m );
+            }
+
             #include "SDFDefs.cginc"
-            #include "MapDef.cginc"
+            #include "MapDefs.cginc"
 
             float map( float3 p )
             {

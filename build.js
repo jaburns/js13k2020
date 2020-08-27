@@ -75,11 +75,11 @@ const minifyShaderExternalNames = code =>
     return code;
 };
 
-// i.e.
-//  ST.wheelPos[2] -> g_state[s_wheelPos2];
-//  ST.wheelLastPos[i] -> g_state[s_wheelLastPos0 + i * s_wheelStructSize ];
 const convertStateAccessNotation = shaderCode =>
 {
+    // i.e. ST.wheelPos[2] -> g_state[s_wheelPos2];
+    //      ST.wheelLastPos[i] -> g_state[s_wheelLastPos0 + i * s_wheelStructSize ];
+
     let match;
     while( match = shaderCode.match( /ST\.[a-zA-Z0-9\[\]]+/ ))
     {
@@ -109,8 +109,24 @@ const convertStateAccessNotation = shaderCode =>
     return shaderCode;
 };
 
+const convertHLSLtoGLSL = hlsl => hlsl
+    .replace(/float3x3/g, 'mat3')
+    .replace(/float2/g, 'vec2')
+    .replace(/float3/g, 'vec3')
+    .replace(/float4/g, 'vec4')
+    .replace(/lerp/g, 'mix')
+    .replace(/transpose_hlsl_only/g, '');
+
+const insertWorldSDFCode = shaderCode =>
+{
+    const sdfDefs = convertHLSLtoGLSL( fs.readFileSync( 'unity/Assets/MapEditor/Shaders/SDFDefs.cginc', 'utf8' ));
+    const mapDefs = fs.readFileSync( 'unity/Assets/MapEditor/Shaders/MapDefs.glsl.txt', 'utf8' );
+
+    return shaderCode.replace( '#pragma INCLUDE_WORLD_SDF', sdfDefs + '\n' + mapDefs + '\n' );
+};
+
 const preprocessShader = shaderCode =>
-    applyStateMap( convertStateAccessNotation( shaderCode ));
+    applyStateMap( convertStateAccessNotation( insertWorldSDFCode( shaderCode )));
 
 const generateShaderFile = () =>
 {
