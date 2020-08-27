@@ -22,10 +22,12 @@ const int i_ITERATIONS = 99;
 const vec3 i_COLORA = vec3(.5,.6,1.); // vec3(.8,.4,1);
 const vec3 i_COLORC = vec3(.0,.2,.3);
 
-mat2 rot( float t )
+vec2 mul( mat2 m, vec2 v )
 {
-    return mat2(cos(t), sin(t), -sin(t), cos(t));
+    return m * v; // TODO move this notation conversion in to the build process
 }
+
+#pragma INCLUDE_WORLD_SDF
 
 mat3 transpose( mat3 m )
 {
@@ -35,8 +37,6 @@ mat3 transpose( mat3 m )
         m[0][2], m[1][2], m[2][2]
     );
 }
-
-#pragma INCLUDE_WORLD_SDF
 
 float sdTorus( vec3 p, vec2 t )
 {
@@ -56,7 +56,7 @@ float sdBody( vec3 p )
 
 float map( vec3 p )
 {
-    float world = track( p );
+    float world = track( p ).x;
 
     if( u_modeState )
         return world;

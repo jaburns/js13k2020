@@ -111,10 +111,12 @@ const convertStateAccessNotation = shaderCode =>
 
 const convertHLSLtoGLSL = hlsl => hlsl
     .replace(/float3x3/g, 'mat3')
+    .replace(/float2x2/g, 'mat2')
     .replace(/float2/g, 'vec2')
     .replace(/float3/g, 'vec3')
     .replace(/float4/g, 'vec4')
     .replace(/lerp/g, 'mix')
+    .replace(/atan2/g, 'atan')
     .replace(/transpose_hlsl_only/g, '');
 
 const insertWorldSDFCode = shaderCode =>

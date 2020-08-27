@@ -29,19 +29,10 @@ public class MapEditorCamera : MonoBehaviour
         thisCam = GetComponent<Camera>();
     }
 
-    class MapObjectSDF
-    {
-        public Matrix4x4 invTransform;
-        public Vector3 pos;
-        public Quaternion rot;
-        public Vector3 dims;
-        public string fn;
-    }
-
     class SmoothJoinGroup
     {
         public float k;
-        public List<MapObjectSDF> objs;
+        public List<MapObject> objs;
     }
 
     static string joinCalls( string template, List<string> calls )
@@ -69,35 +60,31 @@ public class MapEditorCamera : MonoBehaviour
         return result;
     }
 
-    static string genBoxShader( MapObjectSDF obj, bool glsl ) // string fn, Matrix4x4 m, Vector3 dims, bool glsl )
+    static string addParams( string call, List<float> paramList )
     {
-        var invQuat = Quaternion.Inverse( obj.rot );
+        paramList = paramList.Select(x => x).ToList();
+        while( paramList.Count > 0 )
+        {
+            call += "," + smallNum( paramList[0], true );
+            paramList.RemoveAt(0);
+        }
+        return call + ")";
+    }
 
-        return string.Format(
+    static string genBoxShader( MapObject obj, bool glsl ) // string fn, Matrix4x4 m, Vector3 dims, bool glsl )
+    {
+        var invQuat = Quaternion.Inverse( obj.transform.rotation );
+        var fn = obj.GetFn();
+
+        var call = string.Format(
             glsl
-                ? obj.fn+"( quat({0},{1},{2},{3})*(p-vec3({4},{5},{6})), vec3({7},{8},{9}))"
-                : obj.fn+"( mul(quat({0},{1},{2},{3}),p-float3({4},{5},{6})), float3({7},{8},{9}))",
+                ? fn+"( quat({0},{1},{2},{3})*(p-vec3({4},{5},{6})), vec3({7},{8},{9})"
+                : fn+"( mul(quat({0},{1},{2},{3}),p-float3({4},{5},{6})), float3({7},{8},{9})",
                 smallNum(invQuat.x, glsl), smallNum(invQuat.y, glsl), smallNum(invQuat.z, glsl), smallNum(invQuat.w, glsl),
-                smallNum(obj.pos.x), smallNum(obj.pos.y), smallNum(obj.pos.z),
-                smallNum(obj.dims.x), smallNum(obj.dims.y), smallNum(obj.dims.z)
-        );
+                smallNum(obj.transform.position.x), smallNum(obj.transform.position.y), smallNum(obj.transform.position.z),
+                smallNum(.5f*obj.transform.localScale.x), smallNum(.5f*obj.transform.localScale.y), smallNum(.5f*obj.transform.localScale.z));
 
-    //    var dims = obj.dims;
-    //    var m = obj.invTransform;
-
-    //    if( glsl )
-    //        m = m.transpose;
-
-    //    return string.Format(
-    //        glsl
-    //            ? obj.fn+"( (mat4({0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15})*vec4(p,1)).xyz, vec3({16},{17},{18}) )"
-    //            : obj.fn+"( mul(float4x4({0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15}),float4(p,1)).xyz, float3({16},{17},{18}) )",
-    //        smallNum(m.m00), smallNum(m.m01), smallNum(m.m02), smallNum(m.m03),
-    //        smallNum(m.m10), smallNum(m.m11), smallNum(m.m12), smallNum(m.m13),
-    //        smallNum(m.m20), smallNum(m.m21), smallNum(m.m22), smallNum(m.m23),
-    //        smallNum(m.m30), smallNum(m.m31), smallNum(m.m32), smallNum(m.m33),
-    //        smallNum(dims.x), smallNum(dims.y), smallNum(dims.z)
-    //    );
+        return addParams( call, obj.parames );
     }
 
     static public string GenShader( bool glsl )
@@ -112,34 +99,22 @@ public class MapEditorCamera : MonoBehaviour
 
             return new SmoothJoinGroup {
                 k = y.k,
-                objs = y.GetComponentsInChildren<MapObject>().Select( x => new MapObjectSDF {
-                    invTransform = Matrix4x4.TRS( x.transform.position, x.transform.rotation, Vector3.one ).inverse,
-                    pos = x.transform.position,
-                    rot = x.transform.rotation,
-                    dims = .5f * x.transform.localScale,
-                    fn = "sdObj" + (int)x.kind
-                }).ToList()
+                objs = y.GetComponentsInChildren<MapObject>().ToList(),
             };
         });
 
-        var items = GameObject.FindObjectsOfType<MapObject>().Where( x => !groupedObjects.Contains( x.gameObject )).Select( x => new MapObjectSDF {
-            invTransform = Matrix4x4.TRS( x.transform.position, x.transform.rotation, Vector3.one ).inverse,
-            pos = x.transform.position,
-            rot = x.transform.rotation,
-            dims = .5f * x.transform.localScale,
-            fn = "sdObj" + (int)x.kind
-        }).ToArray();
+        var items = GameObject.FindObjectsOfType<MapObject>().Where( x => !groupedObjects.Contains( x.gameObject )).ToArray();
 
         var smoothCalls = smoothJoinGroups.Select(
             x => joinCalls(
-                "opSmoothUnion({0},{1},"+smallNum(x.k, glsl)+")",
+                "opSmoothUnion2({0},{1},"+smallNum(x.k, glsl)+")",
                 x.objs.Select( y => genBoxShader( y, glsl )).ToList()
             )
         ).ToList();
 
-        return "float track( "+(glsl ? "vec3" : "float3")+" p )\n" +
+        return (glsl ? "vec2" : "float2") +" track( "+(glsl ? "vec3" : "float3")+" p )\n" +
         "{\n" +
-            "return " + joinCalls( "min({0},{1})", items.Select( x => genBoxShader( x, glsl )).Concat(smoothCalls).ToList() ) + ";\n" +
+            "return " + joinCalls( "min2({0},{1})", items.Select( x => genBoxShader( x, glsl )).Concat(smoothCalls).ToList() ) + ";\n" +
         "}";
     }
 }
