@@ -122,7 +122,7 @@ let frame = () =>
 
         g.uniform4f( g.getUniformLocation( _stateShader, 'u_inputs' ), ~~_inputs[KeyCode.Up], ~~_inputs[KeyCode.Down], ~~_inputs[KeyCode.Left], ~~_inputs[KeyCode.Right] );
         g.uniform1i( g.getUniformLocation( _stateShader, 'u_modeState' ), 1 );
-        g.uniform1i( g.getUniformLocation( _stateShader, 'u_modeTitle' ), 1 );
+        g.uniform1i( g.getUniformLocation( _stateShader, 'u_modeTitle' ), 0 );
         g.uniform1i( g.getUniformLocation( _stateShader, 'u_state' ), 0 );
 
         fullScreenDraw( _stateShader );
@@ -143,7 +143,7 @@ let frame = () =>
     g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
 
     g.uniform1i( g.getUniformLocation( _mainShader, 'u_modeState' ), 0 );
-    g.uniform1i( g.getUniformLocation( _mainShader, 'u_modeTitle' ), 1 );
+    g.uniform1i( g.getUniformLocation( _mainShader, 'u_modeTitle' ), 0 );
     g.uniform1f( g.getUniformLocation( _mainShader, 'u_time' ), _previousTime/1000 );
     g.uniform1i( g.getUniformLocation( _mainShader, 'u_state' ), 0 );
     g.uniform1i( g.getUniformLocation( _mainShader, 'u_prevState' ), 1 );
@@ -191,7 +191,7 @@ x_tex = g.createTexture()!;
 
 g.bindFramebuffer( gl_FRAMEBUFFER, x_fb );
 g.bindTexture( gl_TEXTURE_2D, x_tex );
-g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, s_renderWidth, s_renderHeight, 0, gl_RGBA, gl_UNSIGNED_BYTE, null );
+g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, s_renderWidth, s_renderHeight, 0, gl_RGBA, gl_FLOAT, null );
 
 g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_MIN_FILTER, gl_LINEAR );
 g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_S, gl_CLAMP_TO_EDGE );

@@ -1,7 +1,6 @@
 uniform vec2 u_resolution;
 uniform sampler2D u_state;
 uniform sampler2D u_prevState;
-uniform sampler2D u_canvas;
 uniform float u_time;
 uniform float u_lerpTime;
 uniform bool u_modeState;
@@ -73,7 +72,7 @@ float sdBody( vec3 p )
 vec2 map( vec3 p )
 {
     vec2 world = track( p );
-    world = min2( world, vec2(p.y,2) );
+    //world = min2( world, vec2(p.y,2) );
 
     if( u_modeState ) return world;
 
@@ -258,9 +257,6 @@ void m0()
 
     vec2 uv = (gl_FragCoord.xy - .5*u_resolution)/u_resolution.y;
 
-    vec3 fwdxz = normalize(vec3(g_carForwardDir.x, 0, g_carForwardDir.z));
-
-
     vec3 ro, lookAt;
     if( u_modeTitle )
     {
@@ -269,51 +265,35 @@ void m0()
     }
     else
     {
+        vec3 fwdxz = normalize(vec3(g_carForwardDir.x, 0, g_carForwardDir.z));
         ro = g_carCenterPt + vec3(0,2,0) - 7.*fwdxz;
         lookAt = g_carCenterPt + vec3(0,1,0);
     }
 
     float zoom = 1.;
     //vec3 ro = vec3(0);
+    vec3 upGuess = vec3(0,1,0);
     vec3 f = normalize(lookAt - ro);
     //vec3 r = normalize(cross(-g_carDownDir, f));
-    vec3 r = normalize(cross(vec3(0,1,0), f));
+    vec3 r = normalize(cross(upGuess, f));
     vec3 u = cross(f, r);
     vec3 c = ro + f * zoom;
     vec3 i = c + uv.x * r + uv.y * u;
     vec3 rd = normalize(i - ro);
     
     March m = march( ro, rd );
-    
-    float sunlight = 0.;
-    vec3 SKY = mix(i_COLOR_FOG, i_COLOR_SKY, clamp(2.*dot(rd,vec3(0,1,0)),0.,1.));
-    vec3 color = SKY;
-    
-    if( m.dist >= 0.0 ) {
-        vec3 norm = getNorm( m.pos );
-        vec3 lightDir = normalize(vec3(2,2,-1));
-        sunlight = clamp(dot(lightDir, norm),.1,1.);
-        color = m.mat < 1. ? i_COLOR_ROAD : m.mat < 2. ? i_COLOR_BUMPER : m.mat < 3. ? i_COLOR_GRASS : i_COLOR_CAR ;
-        color *= 1. + .1*surfFunc(m.pos);
-        color *= sunlight;
+    vec3 norm = vec3( 0 );
+    float depth = 0.;
 
-        float ml = shadowMarch(m.pos, lightDir, .1, 30.);
-        color *= .4 + .6*ml;
-
-        float fog = exp( -.02*m.dist );
-        color = mix( color, SKY, 1.-fog );
+    if( m.dist > 0. )
+    {
+        vec3 nm = getNorm( m.pos );
+        norm = nm;
+        gl_FragColor = vec4( norm, 1. + float(int(m.mat)) );
     }
-
-
-    vec2 uv1 = gl_FragCoord.xy / u_resolution;
-    uv1.y = 1. - uv1.y;
-    if( uv1.y < .7 )
-        uv1.x += .5*uv1.y - .27;
-    vec4 canvas = texture2D( u_canvas, uv1 );
-
-
-    canvas.a = 0.;
-
-
-    gl_FragColor = vec4( mix(color, canvas.rgb, .5*canvas.a), 1 );
+    else
+    {
+        gl_FragColor = vec4( norm, 0 );
+    }
+    
 }

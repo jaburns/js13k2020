@@ -3,7 +3,7 @@ declare const s_audioSampleRate: number;
 
 const TEMPO = .45; 
 
-let _sampleOffset = 0;
+let _sampleOffset = 0; // 750000;
 
 let clamp01 = (x: number) =>
     x < 0 ? 0 : x > 1 ? 1 : x;
@@ -34,6 +34,14 @@ let kick = ( time: number, tempo: number ) =>
     return attack * decay * Math.sin( 220. * Math.pow( time, .65 ));
 };
 
+let taylorSquareWave = ( x: number, harmonics: number ): number =>
+{
+    let result = 0;
+    for( let i = 1; i <= harmonics; i += 2 )
+        result += 4 / Math.PI / i * Math.sin( i * x );
+    return result;
+};
+
 let saw = ( t: number ) =>
 {
     return 1 - 2 * ((t % (2 * Math.PI)) / (2 * Math.PI));
@@ -46,7 +54,7 @@ let tri = ( t: number ) =>
 
 let sqr = ( t: number ) =>
 {
-    return saw(t) > 0 ? 1 : -1;
+    return saw(t) > 0.5 ? 1 : -1;
 }
 
 let note = [
@@ -69,7 +77,7 @@ let note = [
     784/2,
     784/2,
     784/2,
-];// .map( x => 1.5*x );
+];
 
 let note2 = [
     659.28/2,
@@ -91,14 +99,69 @@ let note2 = [
     523.28,
     466.14,
     440
-]; // .map( x => 1.5*x );
+];
+
+const A = 440;
+const AS = A * Math.pow(2,1/12);
+const B = A * Math.pow(2,2/12);
+const C = A * Math.pow(2,3/12);
+const CS = A * Math.pow(2,4/12);
+const D = A * Math.pow(2,5/12);
+const DS = A * Math.pow(2,6/12);
+const E = A * Math.pow(2,7/12);
+const F = A * Math.pow(2,8/12);
+const FS = A * Math.pow(2,9/12);
+const G = A * Math.pow(2,10/12);
+const GS = A * Math.pow(2,11/12);
+
+
+// G, F, 2*AS, 
+//let ladnote = Array(32).fill(0);
+
+
+let ladnote = [
+    0,0,D, F, G, F, G, F, 
+    0,0,0, 0, 0, 0, 0, 0, 
+    0,0,D, F, G, F, G, F, 
+    2*AS, 0, 0, 0, 0, 0, 0, 0,
+    0,0,D, F, G, F, G, F, 
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0,0,D, F, G, F, G, F, 
+    G, F, 2*AS, 2*C, 2*D, 0, 2*C, 2*D,
+
+    2*F,2*G,D, F, G, F, G, F, 
+    0,0,0, 0, 0, 0, 0, 0, 
+    0,0,D, F, G, F, G, F, 
+    2*AS, 0, 0, 0, 0, 0, 0, 0,
+    0,0,D, F, G, F, G, F, 
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0,0,D, F, G, F, G, F, 
+    G, F, 2*AS, 2*C, 2*D, 0, 2*C, 2*D,
+
+    2*F,2*G,D, F, G, F, G, F, 
+    0,0,0, 0, 0, 0, 0, 0, 
+    0,0,D, F, G, F, G, F, 
+    2*AS, 0, 0, 0, 0, 0, 0, 0,
+    0,0,D, F, G, F, G, F, 
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0,0,D, F, G, F, G, F, 
+    G, F, 2*AS, 2*C, 2*D, 0, 2*C, 2*D,
+
+    2*F,2*G,D, F, G, F, G, F, 
+    0,0,D, F, G, F, G, F, 
+    G, F, 2*AS, 2*C, 2*D, 0, 2*C, 2*D,
+    2*F,2*G,D, F, G, F, G, F, 
+    0,0,D, F, G, F, G, F, 
+    0,0,D, F, G, F, G, F, 
+    2*G, 2*F, 2*D, 2*F, 2*D, 2*C, 2*AS, 2*C,
+    2*F, 2*D, 2*C, 2*D, 2*C, 2*AS, G, 2*AS,
+];
 
 let pad = ( time: number, tempo: number ) =>
 {
     let nn = Math.floor( time / tempo / note.length ) % 4 === 3
         ? note2[ Math.floor( time / tempo ) % note.length ]
         : note[ Math.floor( time / tempo ) % note.length ];
-
     time %= tempo;
 
     let ttt = _sampleOffset / s_audioSampleRate / TEMPO;
@@ -110,6 +173,17 @@ let pad = ( time: number, tempo: number ) =>
     let decay = 1. - smoothstep( .1, .2, time );
     let f = nn; //  - 100*time;
     return .8 * attack * decay * (tri( f * time ) + .2*saw( f * time ));
+};
+
+let lead = ( time: number, tempo: number ) =>
+{
+    let nn = ladnote[ Math.floor( time / tempo ) % ladnote.length ];
+
+    time %= tempo;
+    let attack = clamp01(100*time);
+    let decay = 1. - smoothstep( .1, .3, time );
+    let f = nn; //  - 100*time;
+    return attack * decay * (.1*sqr( f * time )); // + .3*tri(.5*f*time));
 };
 
 type LPF =
@@ -170,12 +244,6 @@ let createLPF = (): LPF =>
     };
 };
 
-let noiseGen = ( y: Float32Array ) =>
-{
-    for (let i = 0; i < y.length; ++i)
-        y[i] = 1 - 2*Math.random();
-}
-
 let buffWipe = ( y: Float32Array ) =>
 {
     for (let i = 0; i < y.length; ++i)
@@ -189,12 +257,6 @@ let addNote = ( noteFn: (secs: number, tempo: number) => number, y: Float32Array
         let t = (_sampleOffset + i) / s_audioSampleRate;
         y[i] += volume * noteFn( t, tempo );
     }
-};
-
-let buffCopy = ( x: Float32Array, y: Float32Array ) =>
-{
-    for (let i = 0; i < y.length; ++i)
-        y[i] = x[i];
 };
 
 let buffAdd = ( x: Float32Array, x1: Float32Array, y: Float32Array ) =>
@@ -224,9 +286,12 @@ let audioTick = ( y: Float32Array ) =>
     lpf.tick( rawSaw, outSaw );
 
     buffWipe( buff0 );
-    addNote( kick, buff0, 1*TEMPO, .5 );
+    addNote( kick, buff0, 1*TEMPO, .6 );
     addNote( hat, buff0, .5*TEMPO, .05 );
     addNote( crash, buff0, 2*TEMPO, .25 );
+
+    if(ttt % 256>= 128)
+        addNote( lead, buff0, .5*TEMPO, .4 );
 
     if( LLL )
     {
