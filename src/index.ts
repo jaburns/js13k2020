@@ -122,6 +122,7 @@ let frame = () =>
 
         g.uniform4f( g.getUniformLocation( _stateShader, 'u_inputs' ), ~~_inputs[KeyCode.Up], ~~_inputs[KeyCode.Down], ~~_inputs[KeyCode.Left], ~~_inputs[KeyCode.Right] );
         g.uniform1i( g.getUniformLocation( _stateShader, 'u_modeState' ), 1 );
+        g.uniform1i( g.getUniformLocation( _stateShader, 'u_modeTitle' ), 1 );
         g.uniform1i( g.getUniformLocation( _stateShader, 'u_state' ), 0 );
 
         fullScreenDraw( _stateShader );
@@ -142,6 +143,8 @@ let frame = () =>
     g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
 
     g.uniform1i( g.getUniformLocation( _mainShader, 'u_modeState' ), 0 );
+    g.uniform1i( g.getUniformLocation( _mainShader, 'u_modeTitle' ), 1 );
+    g.uniform1f( g.getUniformLocation( _mainShader, 'u_time' ), _previousTime/1000 );
     g.uniform1i( g.getUniformLocation( _mainShader, 'u_state' ), 0 );
     g.uniform1i( g.getUniformLocation( _mainShader, 'u_prevState' ), 1 );
     g.uniform1i( g.getUniformLocation( _mainShader, 'u_canvas' ), 2 );
@@ -197,6 +200,8 @@ g.framebufferTexture2D( gl_FRAMEBUFFER, gl_COLOR_ATTACHMENT0, gl_TEXTURE_2D, x_t
 
 _drawFramebuffer = [x_fb, x_tex];
 
+let Z = 0;
+
 _stateFramebuffers = [0, 1].map(i =>
 (
     x_fb = g.createFramebuffer()!,
@@ -208,20 +213,20 @@ _stateFramebuffers = [0, 1].map(i =>
     // Initial state
         0, 0, 0, 
 
-        0, 0, 0, 
-        0, 0, 0, 
-        0, 0, 0, 
-
-        s_wheelBaseWidth, 0, 0, 
-        s_wheelBaseWidth, 0, 0, 
+        0, 1, 0, 
+        0, 1, Z, 
         0, 0, 0, 
 
-        s_wheelBaseWidth, 0, s_wheelBaseLength,
-        s_wheelBaseWidth, 0, s_wheelBaseLength,
+        s_wheelBaseWidth, 1, 0, 
+        s_wheelBaseWidth, 1, Z,
+        0, 0, 0, 
+
+        s_wheelBaseWidth, 1, s_wheelBaseLength,
+        s_wheelBaseWidth, 1, s_wheelBaseLength+Z,
         0, 0, 0,
 
-        0, 0, s_wheelBaseLength,
-        0, 0, s_wheelBaseLength,
+        0, 1, s_wheelBaseLength,
+        0, 1, s_wheelBaseLength+Z,
         0, 0, 0,
     )),
 
@@ -236,7 +241,6 @@ _stateFramebuffers = [0, 1].map(i =>
 // =================================================================================================
 // https://jsfiddle.net/p49wuce2/
 
-/*
 c.strokeStyle = '#f00';
 c.fillStyle = '#f00';
 c.lineWidth = 40;
@@ -272,7 +276,6 @@ b.style.letterSpacing = '0px';
 c.fillStyle = '#ff0';
 c.font = 'bold 24px monospace';
 c.fillText( 'PRESS SPACE', 180, 330 );
-*/
 
 _canvasTexture = g.createTexture()!;
 g.bindTexture( gl_TEXTURE_2D, _canvasTexture );

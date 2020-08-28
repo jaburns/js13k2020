@@ -20,8 +20,8 @@ vec2 curve(vec2 uv)
 void m0()
 {
     vec2 uv = gl_FragCoord.xy / u_resolution;
-           // gl_FragColor = texture2D( u_tex, uv );
-           // return;
+       //  gl_FragColor = texture2D( u_tex, uv );
+       //  return;
     uv = curve( uv );
     vec3 col;
     float x =  sin(0.3*u_time+uv.y*21.0)*sin(0.7*u_time+uv.y*29.0)*sin(0.3+0.33*u_time+uv.y*31.0)*0.0017;

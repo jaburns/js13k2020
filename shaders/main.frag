@@ -2,8 +2,10 @@ uniform vec2 u_resolution;
 uniform sampler2D u_state;
 uniform sampler2D u_prevState;
 uniform sampler2D u_canvas;
+uniform float u_time;
 uniform float u_lerpTime;
 uniform bool u_modeState;
+uniform bool u_modeTitle;
 uniform vec4 u_inputs;
 
 vec3 g_state[14];
@@ -16,11 +18,25 @@ mat3 g_steerRot;
 
 const float i_EPS = 0.01;
 const float i_PI = 3.14159;
-const float i_PRECISION = .8;
-const int i_ITERATIONS = 99;
+const float i_PRECISION = 1.;
+const int i_ITERATIONS = 150;
 
-const vec3 i_COLORA = vec3(.5,.6,1.); // vec3(.8,.4,1);
-const vec3 i_COLORC = vec3(.0,.2,.3);
+// ----- From Shane's "Jagged Plain" demo: https://www.shadertoy.com/view/4tSXRm -----
+vec3 tri( vec3 x )
+{
+    return abs(x-floor(x)-.5);
+} 
+float surfFunc( vec3 p )
+{
+    float n = dot(tri(p*.15 + tri(p.yzx*.075)), vec3(.444));
+    p = p*1.5773 - n;
+    p.yz = vec2(p.y + p.z, p.z - p.y) * .866;
+    p.xz = vec2(p.x + p.z, p.z - p.x) * .866;
+    n += dot(tri(p*.225 + tri(p.yzx*.1125)), vec3(.222));     
+    return abs(n-.5)*1.9 + (1.-abs(sin(n*9.)))*.05;
+}
+// -----------------------------------------------------------------------------------
+
 
 vec2 mul( mat2 m, vec2 v )
 {
@@ -54,36 +70,33 @@ float sdBody( vec3 p )
     return sdBox( g_wheelRot*(p - g_carCenterPt), vec3(.4, .2, 1.));
 }
 
-float map( vec3 p )
+vec2 map( vec3 p )
 {
-    float world = track( p ).x;
+    vec2 world = track( p );
+    world = min2( world, vec2(p.y,2) );
 
-    if( u_modeState )
-        return world;
+    if( u_modeState ) return world;
 
-    return min(
-        sdBody(p),
-        min(
-            sdWheel( p , ST.wheelPos[0], g_wheelRot ),
-            min(
-                sdWheel( p , ST.wheelPos[1], g_wheelRot ),
-                min(
-                    sdWheel( p , ST.wheelPos[2], g_steerRot ),
-                    min(
-                        sdWheel( p , ST.wheelPos[3], g_steerRot ),
-                        world )))));
+    world = min2( world, vec2(sdBody(p),3));
+    world = min2( world, vec2(sdWheel( p , ST.wheelPos[0], g_wheelRot ),3));
+    world = min2( world, vec2(sdWheel( p , ST.wheelPos[1], g_wheelRot ),3));
+    world = min2( world, vec2(sdWheel( p , ST.wheelPos[2], g_steerRot ),3));
+    world = min2( world, vec2(sdWheel( p , ST.wheelPos[3], g_steerRot ),3));
+
+    return world;
 }
 
 struct March
 {
     vec3 pos;
     float dist;
+    float mat;
     float ao;
 };
 
 March march( vec3 ro, vec3 rd )
 {
-    float dist;
+    vec2 dist;
     float totalDist = 0.0;
     
     int j = 0;
@@ -91,21 +104,21 @@ March march( vec3 ro, vec3 rd )
     {
         j = i;
         dist = map( ro );
-        if( dist < i_EPS || totalDist > 200. ) break;
-        totalDist += i_PRECISION * dist;
-        ro += i_PRECISION * rd * dist;
+        if( dist.x < i_EPS || totalDist > 200. ) break;
+        totalDist += i_PRECISION * dist.x;
+        ro += i_PRECISION * rd * dist.x;
     }
     
-    return March( ro, dist < i_EPS ? totalDist : -1.0, float(j) / 90. );
+    return March( ro, dist.x < i_EPS ? totalDist : -1.0, dist.y, float(j) / 90. );
 }
 
 vec3 getNorm(vec3 p)
 {
     vec2 e = vec2(0.001, 0);
     return normalize(vec3(
-        map(p + e.xyy) - map(p - e.xyy),
-        map(p + e.yxy) - map(p - e.yxy),
-        map(p + e.yyx) - map(p - e.yyx)));
+        map(p + e.xyy).x - map(p - e.xyy).x,
+        map(p + e.yxy).x - map(p - e.yxy).x,
+        map(p + e.yyx).x - map(p - e.yyx).x));
 }
 
 vec3 lossyReflect( vec3 v, vec3 n, vec3 guess_u, float bounce, float frictionU, float frictionV )
@@ -155,7 +168,7 @@ void m1()
     for( int i = 0; i < s_totalStateSize; ++i )
         g_state[i] = texture2D(u_state, vec2( (float(i)+.5)/s_totalStateSize.)).xyz;
 
-    ST.steeringState.x = u_inputs.z > 0. ? i_PI/8. : u_inputs.w > 0. ? -i_PI / 8. : 0.;
+    ST.steeringState.x = u_modeTitle ? 0. : u_inputs.z > 0. ? i_PI/32. : u_inputs.w > 0. ? -i_PI / 32. : 0.;
 
     initGlobals();
 
@@ -168,7 +181,7 @@ void m1()
         ST.wheelPos[i] += posStep;
         ST.wheelForceCache[i] = vec3( 0 );
 
-        float dist = map( ST.wheelPos[i] );
+        float dist = map( ST.wheelPos[i] ).x;
         vec3 normal = getNorm( ST.wheelPos[i] );
 
         if( dist < .5 )
@@ -176,14 +189,14 @@ void m1()
             ST.wheelPos[i] += (.5-dist)*normal;
 
             vec3 vel = ST.wheelPos[i] - ST.wheelLastPos[i];
-            vel = lossyReflect( vel, normal, i < 2 ? g_carForwardDir : g_steerForwardDir, .7, 1., .1 );
+            vel = lossyReflect( vel, normal, i < 2 ? g_carForwardDir : g_steerForwardDir, .2, 1., .1 );
             ST.wheelLastPos[i] = ST.wheelPos[i] - vel;
 
-            if( u_inputs.x > 0. || u_inputs.y > 0. )
+            if( u_modeTitle && ST.wheelPos[i].z < 20. || u_inputs.x > 0. || u_inputs.y > 0. )
             {
                 vec3 xs = cross( normal, i < 2 ? g_carForwardDir : g_steerForwardDir );
                 vec3 groundedFwd = normalize( cross( xs, normal ));
-                ST.wheelForceCache[i] = 10. * groundedFwd * ( u_inputs.x > 0. ? 1. : -.5 );
+                ST.wheelForceCache[i] = 10. * groundedFwd * ( u_modeTitle || u_inputs.x > 0. ? 1. : -.5 );
             }
         }
     }
@@ -207,6 +220,32 @@ void m1()
     }
 }
 
+float shadowMarch( in vec3 ro, in vec3 rd, float mint, float maxt )
+{
+    float k = 20.;
+    float res = 1.0;
+    float t = mint;
+
+    for( int i = 0; i < i_ITERATIONS; ++i )
+    {
+        if( t >= maxt ) break;
+        vec2 h = map(ro + rd*t);
+        if( h.x < 0.001 ) return 0.0;
+        res = min( res, k*h.x/t );
+        t += h.x;
+    }
+
+    return res;
+}
+
+//let togl = (x) => {let r = x.substr(0,2),g=x.substr(2,2),b=x.substr(4,2); return 'vec3('+([parseInt(r,16)+'.',parseInt(g,16)+'.',parseInt(b,16)+'.'].join(','))+')/255.;'}
+const vec3 i_COLOR_ROAD =vec3(58.,61.,68.)/255.; // 3a3d44
+const vec3 i_COLOR_BUMPER = vec3(178.,8.,93.)/255.; // b2085d
+const vec3 i_COLOR_GRASS = vec3(13.,233.,73.)/255.; // 0d8549
+const vec3 i_COLOR_CAR = 1.-vec3(249.,193.,28.)/255.; // f9c11c
+const vec3 i_COLOR_FOG = vec3(.8,.9,1);
+const vec3 i_COLOR_SKY = .5*vec3(64.,146.,254)/255.;
+
 void m0()
 {
     for( int i = 0; i < s_totalStateSize; ++i )
@@ -221,11 +260,21 @@ void m0()
 
     vec3 fwdxz = normalize(vec3(g_carForwardDir.x, 0, g_carForwardDir.z));
 
+
+    vec3 ro, lookAt;
+    if( u_modeTitle )
+    {
+        ro = vec3(10,10,80);
+        lookAt = g_carCenterPt + vec3(0,1,0);
+    }
+    else
+    {
+        ro = g_carCenterPt + vec3(0,2,0) - 7.*fwdxz;
+        lookAt = g_carCenterPt + vec3(0,1,0);
+    }
+
     float zoom = 1.;
     //vec3 ro = vec3(0);
-    vec3 ro = g_carCenterPt + vec3(0,2,0) - 7.*fwdxz;
-    //vec3 lookAt = g_carCenterPt; //  - 1.*g_carDownDir;
-    vec3 lookAt = g_carCenterPt + vec3(0,1,0);
     vec3 f = normalize(lookAt - ro);
     //vec3 r = normalize(cross(-g_carDownDir, f));
     vec3 r = normalize(cross(vec3(0,1,0), f));
@@ -236,17 +285,25 @@ void m0()
     
     March m = march( ro, rd );
     
-    float lightness = 0.;
-    vec3 color = i_COLORC;
+    float sunlight = 0.;
+    vec3 SKY = mix(i_COLOR_FOG, i_COLOR_SKY, clamp(2.*dot(rd,vec3(0,1,0)),0.,1.));
+    vec3 color = SKY;
     
     if( m.dist >= 0.0 ) {
-        float fog = exp( -.02*m.dist );
         vec3 norm = getNorm( m.pos );
-        lightness = fog * (1. - m.ao);
-        lightness *= 1.2*clamp(dot(normalize(vec3(0,2,-1)), norm),.2,1.);
-        color = i_COLORA; // .5+.5*norm;
-        color = mix( i_COLORC, color, lightness );        
+        vec3 lightDir = normalize(vec3(2,2,-1));
+        sunlight = clamp(dot(lightDir, norm),.1,1.);
+        color = m.mat < 1. ? i_COLOR_ROAD : m.mat < 2. ? i_COLOR_BUMPER : m.mat < 3. ? i_COLOR_GRASS : i_COLOR_CAR ;
+        color *= 1. + .1*surfFunc(m.pos);
+        color *= sunlight;
+
+        float ml = shadowMarch(m.pos, lightDir, .1, 30.);
+        color *= .4 + .6*ml;
+
+        float fog = exp( -.02*m.dist );
+        color = mix( color, SKY, 1.-fog );
     }
+
 
     vec2 uv1 = gl_FragCoord.xy / u_resolution;
     uv1.y = 1. - uv1.y;
@@ -255,5 +312,8 @@ void m0()
     vec4 canvas = texture2D( u_canvas, uv1 );
 
 
-    gl_FragColor = vec4( color + canvas.a * canvas.rgb, 1 );
+    canvas.a = 0.;
+
+
+    gl_FragColor = vec4( mix(color, canvas.rgb, .5*canvas.a), 1 );
 }

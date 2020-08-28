@@ -17,4 +17,10 @@ public class MapObject : MonoBehaviour
     {
         return "sdObj" + (int)kind;
     }
+
+    void OnDrawGizmos()
+    {
+        Gizmos.matrix = transform.localToWorldMatrix;
+        Gizmos.DrawCube( Vector3.forward*.5f, Vector3.one );
+    }
 }
