@@ -1,25 +1,15 @@
-// ---------------------------------------------------------------------------------
-// MattiasCRT effect by Mattias from https://www.shadertoy.com/view/Ms23DR
-// ---------------------------------------------------------------------------------
-
 uniform sampler2D u_tex;
 uniform sampler2D u_canvas;
 uniform vec2 u_resolution;
-uniform float u_time;
+uniform vec2 u_time;
 
-vec2 curve(vec2 uv)
-{
-    uv = (uv - 0.5) * 2.0;
-    uv *= 1.1;	
-    uv.x *= 1.0 + pow((abs(uv.y) / 5.0), 2.0);
-    uv.y *= 1.0 + pow((abs(uv.x) / 4.0), 2.0);
-    uv  = (uv / 2.0) + 0.5;
-    uv =  uv *0.92 + 0.04;
-    return uv;
-}
+float easeOutCubic(float x) { float x1 = (1. - x); return 1. - x1*x1*x1; }
+float sdBox( in vec2 p, in vec2 b ) { vec2 d = abs(p)-b; return length(max(d,0.0)) + min(max(d.x,d.y),0.0); }
 
 vec4 getImage( vec2 uv )
 {
+    if( u_time.x == 0. ) return vec4(0,0.05,0.05,1);
+
     
     vec4 sample =   texture2D( u_tex, uv + 1./vec2(-s_fullWidth.,-s_fullHeight.) );
     vec4 sampleU =  texture2D( u_tex, uv + 1./vec2(-s_fullWidth.,s_fullHeight.) );
@@ -41,17 +31,70 @@ vec4 getImage( vec2 uv )
 
     float val = max( edgeNormal, edgeDepth );
 
-    return vec4( val,0,val,0 );
+
+
+
+    vec2 uv1 = uv;
+    float hide = .7;
+    uv1.y = 1. - uv1.y;
+    if( uv1.y < .7 ) {
+        uv1.x += .5*uv1.y - .27;
+    } else {
+        hide *= floor(2.*fract(u_time.y));
+    }
+    vec4 canvas = texture2D( u_canvas, uv1 );
+
+
+
+
+    vec4 outColor = vec4( val,0,val,0 ) + hide*canvas;
+
+
+
+
+    float t = u_time.y - u_time.x;
+    if( t < 1. )
+    {
+        vec2 uv2 = uv - .5;
+        if( t < .25 )
+        {
+            t = easeOutCubic( 4.*t );
+            if( sdBox( uv2, vec2(t, .02*t)) < 0. )
+                return vec4(1);
+        }
+        else if( t < 1. )
+        {
+            t = easeOutCubic( 1.3*(t-.25) );
+            if( sdBox( uv2, vec2(10., t)) < 0. )
+                return mix(vec4(1), outColor, t);
+        }
+        return vec4(0,0.05,.05,1);
+    }
+
+
+    return outColor;
 }
+
+// ---------------------------------------------------------------------------------
+// MattiasCRT effect by Mattias from https://www.shadertoy.com/view/Ms23DR
+// ---------------------------------------------------------------------------------
 
 void m0()
 {
     vec2 uv = gl_FragCoord.xy / u_resolution;
 //         gl_FragColor = getImage( uv );
 //         return;
-    uv = curve( uv );
+
+    // curve
+    uv = (uv - 0.5) * 2.0;
+    uv *= 1.1;	
+    uv.x *= 1.0 + pow((abs(uv.y) / 5.0), 2.0);
+    uv.y *= 1.0 + pow((abs(uv.x) / 4.0), 2.0);
+    uv  = (uv / 2.0) + 0.5;
+    uv =  uv *0.92 + 0.04;
+
     vec3 col;
-    float x =  sin(0.3*u_time+uv.y*21.0)*sin(0.7*u_time+uv.y*29.0)*sin(0.3+0.33*u_time+uv.y*31.0)*0.0017;
+    float x =  sin(0.3*u_time.y+uv.y*21.0)*sin(0.7*u_time.y+uv.y*29.0)*sin(0.3+0.33*u_time.y+uv.y*31.0)*0.0017;
 
     col.r = getImage(vec2(x+uv.x+0.001,uv.y+0.001)).x+0.05;
     col.g = getImage(vec2(x+uv.x+0.000,uv.y-0.002)).y+0.05;
@@ -66,13 +109,13 @@ void m0()
     col *= vec3(0.95,1.05,0.95);
     col *= 2.8;
 
-    //float scans = clamp( 0.35+0.35*sin(0.0*u_time+uv.y*1200.), 0.0, 1.0);
-    //float scans = clamp( 0.35+0.35*sin(3.5*u_time+uv.y*u_resolution.y*1.5), 0.0, 1.0);
-    float scans = clamp( 0.35+0.35*sin(3.5*u_time+uv.y*u_resolution.y*1.1), 0.0, 1.0);
+    //float scans = clamp( 0.35+0.35*sin(0.0*u_time.y+uv.y*1200.), 0.0, 1.0);
+    //float scans = clamp( 0.35+0.35*sin(3.5*u_time.y+uv.y*u_resolution.y*1.5), 0.0, 1.0);
+    float scans = clamp( 0.35+0.35*sin(3.5*u_time.y+uv.y*u_resolution.y*1.1), 0.0, 1.0);
     float s = pow(scans,1.7);
     col = col*vec3( 0.4+0.7*s) ;
 
-    col *= 1.0+0.01*sin(110.0*u_time);
+    col *= 1.0+0.01*sin(110.0*u_time.y);
     if (uv.x < 0.0 || uv.x > 1.0) col *= 0.0;
     if (uv.y < 0.0 || uv.y > 1.0) col *= 0.0;
     

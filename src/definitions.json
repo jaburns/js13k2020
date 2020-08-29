@@ -16,6 +16,7 @@
 
         "s_audioBufferSize": 1024,
         "s_audioSampleRate": 22050,
+        "s_tempo": 0.45,
 
         "s_wheelStructSize": 3
     },

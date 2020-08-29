@@ -26,13 +26,21 @@ const enum KeyCode
     Right = 39,
 };
 
+const enum Mode
+{
+    Menu = 0,
+    Race = 1,
+}
+
 type Framebuffer = [WebGLFramebuffer,WebGLTexture];
 
 // =================================================================================================
 
-let _previousTime = performance.now();
 let _tickAccTime = 0;
 let _inputs: {[k: number]: 1} = {};
+let _previousTime: number;
+let _startTime: number;
+let _veryStartTime: number;
 
 let _fullScreenTriVertBuffer: WebGLBuffer;
 
@@ -45,8 +53,7 @@ let _drawFramebuffer: Framebuffer;
 let _stateFramebuffers: Framebuffer[];
 let _curStateBufferIndex: number = 0;
 
-let x_fb: WebGLFramebuffer;
-let x_tex: WebGLTexture;
+let _mode: Mode = Mode.Menu;
 
 // =================================================================================================
 
@@ -85,6 +92,46 @@ let buildShader = ( vert: string, frag: string, main?: string ): WebGLProgram =>
 
 // =================================================================================================
 
+let resetState = () =>
+{
+    let z = _mode == Mode.Menu ? -.65 : 0;
+
+    _startTime = _previousTime;
+
+    _stateFramebuffers.map(([fb, tex]) =>
+    {
+        g.bindFramebuffer( gl_FRAMEBUFFER, fb );
+        g.bindTexture( gl_TEXTURE_2D, tex );
+        g.texImage2D( gl_TEXTURE_2D, 0, gl_RGB, s_totalStateSize, 1, 0, gl_RGB, gl_FLOAT, Float32Array.of(
+        // Initial state
+            0, 0, 0, 
+
+            0, 1, 0, 
+            0, 1, z, 
+            0, 0, 0, 
+
+            s_wheelBaseWidth, 1, 0, 
+            s_wheelBaseWidth, 1, z,
+            0, 0, 0, 
+
+            s_wheelBaseWidth, 1, s_wheelBaseLength,
+            s_wheelBaseWidth, 1, s_wheelBaseLength+z,
+            0, 0, 0,
+
+            0, 1, s_wheelBaseLength,
+            0, 1, s_wheelBaseLength+z,
+            0, 0, 0,
+        ));
+
+        g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_MIN_FILTER, gl_NEAREST );
+        g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_S, gl_CLAMP_TO_EDGE );
+        g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_T, gl_CLAMP_TO_EDGE );
+        g.framebufferTexture2D( gl_FRAMEBUFFER, gl_COLOR_ATTACHMENT0, gl_TEXTURE_2D, tex, 0 );
+    });
+};
+
+// =================================================================================================
+
 let fullScreenDraw = ( shader: WebGLProgram ) =>
 {
     g.bindBuffer( gl_ARRAY_BUFFER, _fullScreenTriVertBuffer );
@@ -100,58 +147,63 @@ let frame = () =>
 {
     requestAnimationFrame( frame );
 
-    let newTime = performance.now();
+    let newTime = performance.now()/1000;
     let deltaTime = newTime - _previousTime;
     _previousTime = newTime;
 
-    _tickAccTime += deltaTime;
-    while( _tickAccTime >= s_millisPerTick )
+    if( _startTime )
     {
-        _tickAccTime -= s_millisPerTick;
+        _tickAccTime += deltaTime*1000;
+        while( _tickAccTime >= s_millisPerTick )
+        {
+            _tickAccTime -= s_millisPerTick;
 
-    // ----- Fixed update tick ------------------------------
+        // ----- Fixed update tick ------------------------------
 
-        g.useProgram( _stateShader );
-        g.bindFramebuffer( gl_FRAMEBUFFER, _stateFramebuffers[1-_curStateBufferIndex][0] );
-        g.viewport( 0, 0, s_totalStateSize, 1 );
+            g.useProgram( _stateShader );
+            g.bindFramebuffer( gl_FRAMEBUFFER, _stateFramebuffers[1-_curStateBufferIndex][0] );
+            g.viewport( 0, 0, s_totalStateSize, 1 );
+
+            g.activeTexture( gl_TEXTURE0 );
+            g.bindTexture( gl_TEXTURE_2D, _stateFramebuffers[_curStateBufferIndex][1] );
+
+            _curStateBufferIndex = 1 - _curStateBufferIndex;
+
+            g.uniform4f( g.getUniformLocation( _stateShader, 'u_inputs' ), ~~_inputs[KeyCode.Up], ~~_inputs[KeyCode.Down], ~~_inputs[KeyCode.Left], ~~_inputs[KeyCode.Right] );
+            g.uniform1i( g.getUniformLocation( _stateShader, 'u_modeState' ), 1 );
+            g.uniform1i( g.getUniformLocation( _stateShader, 'u_modeTitle' ), ~(_mode != Mode.Menu) );
+            g.uniform1i( g.getUniformLocation( _stateShader, 'u_state' ), 0 );
+
+            fullScreenDraw( _stateShader );
+        }
+
+        // ----- Frame update ------------------------------
+
+        if( _mode == Mode.Menu && newTime > _startTime + 8 )
+            resetState();
+
+        g.useProgram( _mainShader );
+
+        g.bindFramebuffer( gl_FRAMEBUFFER, _drawFramebuffer[0] );
+        g.viewport( 0, 0, s_renderWidth, s_renderHeight );
 
         g.activeTexture( gl_TEXTURE0 );
         g.bindTexture( gl_TEXTURE_2D, _stateFramebuffers[_curStateBufferIndex][1] );
+        g.activeTexture( gl_TEXTURE1 );
+        g.bindTexture( gl_TEXTURE_2D, _stateFramebuffers[1-_curStateBufferIndex][1] );
 
-        _curStateBufferIndex = 1 - _curStateBufferIndex;
+        g.uniform1i( g.getUniformLocation( _mainShader, 'u_modeState' ), 0 );
+        g.uniform1i( g.getUniformLocation( _mainShader, 'u_modeTitle' ),  ~(_mode != Mode.Menu) );
+        g.uniform1f( g.getUniformLocation( _mainShader, 'u_time' ), newTime - _startTime );
+        g.uniform1i( g.getUniformLocation( _mainShader, 'u_state' ), 0 );
+        g.uniform1i( g.getUniformLocation( _mainShader, 'u_prevState' ), 1 );
+        g.uniform1f( g.getUniformLocation( _mainShader, 'u_lerpTime' ), _tickAccTime / s_millisPerTick );
+        g.uniform2f( g.getUniformLocation( _mainShader, 'u_resolution' ), s_renderWidth, s_renderHeight );
 
-        g.uniform4f( g.getUniformLocation( _stateShader, 'u_inputs' ), ~~_inputs[KeyCode.Up], ~~_inputs[KeyCode.Down], ~~_inputs[KeyCode.Left], ~~_inputs[KeyCode.Right] );
-        g.uniform1i( g.getUniformLocation( _stateShader, 'u_modeState' ), 1 );
-        g.uniform1i( g.getUniformLocation( _stateShader, 'u_modeTitle' ), 0 );
-        g.uniform1i( g.getUniformLocation( _stateShader, 'u_state' ), 0 );
-
-        fullScreenDraw( _stateShader );
+        fullScreenDraw( _mainShader );
     }
 
-    // ----- Frame update ------------------------------
-
-    g.useProgram( _mainShader );
-
-    g.bindFramebuffer( gl_FRAMEBUFFER, _drawFramebuffer[0] );
-    g.viewport( 0, 0, s_renderWidth, s_renderHeight );
-
-    g.activeTexture( gl_TEXTURE0 );
-    g.bindTexture( gl_TEXTURE_2D, _stateFramebuffers[_curStateBufferIndex][1] );
-    g.activeTexture( gl_TEXTURE1 );
-    g.bindTexture( gl_TEXTURE_2D, _stateFramebuffers[1-_curStateBufferIndex][1] );
-    g.activeTexture( gl_TEXTURE2 );
-    g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
-
-    g.uniform1i( g.getUniformLocation( _mainShader, 'u_modeState' ), 0 );
-    g.uniform1i( g.getUniformLocation( _mainShader, 'u_modeTitle' ), 0 );
-    g.uniform1f( g.getUniformLocation( _mainShader, 'u_time' ), _previousTime/1000 );
-    g.uniform1i( g.getUniformLocation( _mainShader, 'u_state' ), 0 );
-    g.uniform1i( g.getUniformLocation( _mainShader, 'u_prevState' ), 1 );
-    g.uniform1i( g.getUniformLocation( _mainShader, 'u_canvas' ), 2 );
-    g.uniform1f( g.getUniformLocation( _mainShader, 'u_lerpTime' ), _tickAccTime / s_millisPerTick );
-    g.uniform2f( g.getUniformLocation( _mainShader, 'u_resolution' ), s_renderWidth, s_renderHeight );
-
-    fullScreenDraw( _mainShader );
+    // ----- Post-processing update ------------------------------
 
     g.useProgram( _postShader );
 
@@ -160,17 +212,21 @@ let frame = () =>
 
     g.activeTexture( gl_TEXTURE0 );
     g.bindTexture( gl_TEXTURE_2D, _drawFramebuffer[1] );
+    g.activeTexture( gl_TEXTURE1 );
+    g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
 
     g.uniform2f( g.getUniformLocation( _postShader, 'u_resolution' ), s_fullWidth, s_fullHeight );
-    g.uniform1f( g.getUniformLocation( _postShader, 'u_time' ), _previousTime/1000 );
+    g.uniform2f( g.getUniformLocation( _postShader, 'u_time' ), _veryStartTime, newTime );
     g.uniform1i( g.getUniformLocation( _postShader, 'u_tex' ), 0 );
+    g.uniform1i( g.getUniformLocation( _postShader, 'u_canvas' ), 1 );
 
     fullScreenDraw( _postShader );
 };
 
 // =================================================================================================
 
-document.onkeydown = k => { startAudio(), _inputs[k.keyCode] = 1, (k.keyCode==32&&(setSynthMenuMode())); };
+C0.onclick = () => _startTime || ( _veryStartTime = _startTime = _previousTime, startAudio() );
+document.onkeydown = k => _inputs[k.keyCode] = 1;
 document.onkeyup = k => delete _inputs[k.keyCode];
 
 // =================================================================================================
@@ -186,57 +242,21 @@ _fullScreenTriVertBuffer = g.createBuffer()!;
 g.bindBuffer( gl_ARRAY_BUFFER, _fullScreenTriVertBuffer );
 g.bufferData( gl_ARRAY_BUFFER, Uint8Array.of(1, 1, 1, 128, 128, 1), gl_STATIC_DRAW );
 
-x_fb = g.createFramebuffer()!;
-x_tex = g.createTexture()!;
+_drawFramebuffer = [g.createFramebuffer()!,g.createTexture()!];
 
-g.bindFramebuffer( gl_FRAMEBUFFER, x_fb );
-g.bindTexture( gl_TEXTURE_2D, x_tex );
+g.bindFramebuffer( gl_FRAMEBUFFER, _drawFramebuffer[0] );
+g.bindTexture( gl_TEXTURE_2D, _drawFramebuffer[1] );
 g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, s_renderWidth, s_renderHeight, 0, gl_RGBA, gl_FLOAT, null );
 
 g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_MIN_FILTER, gl_LINEAR );
 g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_S, gl_CLAMP_TO_EDGE );
 g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_T, gl_CLAMP_TO_EDGE );
-g.framebufferTexture2D( gl_FRAMEBUFFER, gl_COLOR_ATTACHMENT0, gl_TEXTURE_2D, x_tex, 0 );
+g.framebufferTexture2D( gl_FRAMEBUFFER, gl_COLOR_ATTACHMENT0, gl_TEXTURE_2D, _drawFramebuffer[1], 0 );
 
-_drawFramebuffer = [x_fb, x_tex];
+_stateFramebuffers = [[g.createFramebuffer()!,g.createTexture()!],[g.createFramebuffer()!,g.createTexture()!]];
 
-let Z = 0;
-
-_stateFramebuffers = [0, 1].map(i =>
-(
-    x_fb = g.createFramebuffer()!,
-    x_tex = g.createTexture()!,
-
-    g.bindFramebuffer( gl_FRAMEBUFFER, x_fb ),
-    g.bindTexture( gl_TEXTURE_2D, x_tex ),
-    g.texImage2D( gl_TEXTURE_2D, 0, gl_RGB, s_totalStateSize, 1, 0, gl_RGB, gl_FLOAT, Float32Array.of(
-    // Initial state
-        0, 0, 0, 
-
-        0, 1, 0, 
-        0, 1, Z, 
-        0, 0, 0, 
-
-        s_wheelBaseWidth, 1, 0, 
-        s_wheelBaseWidth, 1, Z,
-        0, 0, 0, 
-
-        s_wheelBaseWidth, 1, s_wheelBaseLength,
-        s_wheelBaseWidth, 1, s_wheelBaseLength+Z,
-        0, 0, 0,
-
-        0, 1, s_wheelBaseLength,
-        0, 1, s_wheelBaseLength+Z,
-        0, 0, 0,
-    )),
-
-    g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_MIN_FILTER, gl_NEAREST ),
-    g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_S, gl_CLAMP_TO_EDGE ),
-    g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_T, gl_CLAMP_TO_EDGE ),
-    g.framebufferTexture2D( gl_FRAMEBUFFER, gl_COLOR_ATTACHMENT0, gl_TEXTURE_2D, x_tex, 0 ),
-
-    [x_fb, x_tex]
-));
+resetState();
+_veryStartTime = _startTime = 0;
 
 // =================================================================================================
 // https://jsfiddle.net/p49wuce2/

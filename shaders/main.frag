@@ -191,7 +191,7 @@ void m1()
             vel = lossyReflect( vel, normal, i < 2 ? g_carForwardDir : g_steerForwardDir, .2, 1., .1 );
             ST.wheelLastPos[i] = ST.wheelPos[i] - vel;
 
-            if( u_modeTitle && ST.wheelPos[i].z < 20. || u_inputs.x > 0. || u_inputs.y > 0. )
+            if( u_modeTitle && ST.wheelPos[i].z < -9999. || u_inputs.x > 0. || u_inputs.y > 0. )
             {
                 vec3 xs = cross( normal, i < 2 ? g_carForwardDir : g_steerForwardDir );
                 vec3 groundedFwd = normalize( cross( xs, normal ));
