@@ -1,12 +1,12 @@
 import { main_vert, main_frag, post_frag } from "./shaders.gen";
 import { DEBUG } from "./debug.gen";
 import { gl_VERTEX_SHADER, gl_FRAGMENT_SHADER, gl_ARRAY_BUFFER, gl_STATIC_DRAW, gl_FRAMEBUFFER, gl_TEXTURE_2D, gl_RGBA, gl_UNSIGNED_BYTE, gl_LINEAR, gl_CLAMP_TO_EDGE, gl_TEXTURE_WRAP_S, gl_TEXTURE_WRAP_T, gl_TEXTURE_MIN_FILTER, gl_COLOR_ATTACHMENT0, gl_NEAREST, gl_FLOAT, gl_TRIANGLES, gl_BYTE, gl_TEXTURE0, gl_TEXTURE_MAG_FILTER, gl_TEXTURE1, gl_RGB, gl_TEXTURE2 } from "./glConsts";
-import { startAudio } from "./synth";
+import { startAudio, setSynthMenuMode } from "./synth";
 
 // =================================================================================================
 
-declare const a: HTMLCanvasElement;
-declare const b: HTMLCanvasElement;
+declare const C0: HTMLCanvasElement;
+declare const C1: HTMLCanvasElement;
 declare const g: WebGLRenderingContext;
 declare const c: CanvasRenderingContext2D;
 declare const s_totalStateSize: number;
@@ -170,7 +170,7 @@ let frame = () =>
 
 // =================================================================================================
 
-document.onkeydown = k => ( startAudio(), _inputs[k.keyCode] = 1 );
+document.onkeydown = k => { startAudio(), _inputs[k.keyCode] = 1, (k.keyCode==32&&(setSynthMenuMode())); };
 document.onkeyup = k => delete _inputs[k.keyCode];
 
 // =================================================================================================
@@ -268,11 +268,11 @@ c.lineTo(Y+X+200,100);
 c.lineTo(Y+X+200,150);
 c.stroke();
 
-b.style.letterSpacing = '-2px';
+C1.style.letterSpacing = '-2px';
 c.font = 'bold 64px monospace';
 c.fillText('kph',Y+410,250);
 
-b.style.letterSpacing = '0px';
+C1.style.letterSpacing = '0px';
 c.fillStyle = '#ff0';
 c.font = 'bold 24px monospace';
 c.fillText( 'PRESS SPACE', 180, 330 );
@@ -282,7 +282,7 @@ g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
 g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_MIN_FILTER, gl_LINEAR );
 g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_S, gl_CLAMP_TO_EDGE );
 g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_T, gl_CLAMP_TO_EDGE );
-g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, gl_RGBA, gl_UNSIGNED_BYTE, b );
+g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, gl_RGBA, gl_UNSIGNED_BYTE, C1 );
 
 // =================================================================================================
 

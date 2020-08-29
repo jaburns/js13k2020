@@ -37,7 +37,7 @@ const hashWebglIdentifiers = ( js, and2dContext ) =>
         contextVariableName: 'g',
         contextType: 1,
         reassignVars: true,
-        varsNotReassigned: ['a','b','g','c'],
+        varsNotReassigned: ['A','b','g','c'],
         useES6: true,
     })[2].contents;
 
@@ -50,7 +50,7 @@ const hashWebglIdentifiers = ( js, and2dContext ) =>
             contextVariableName: 'c',
             contextType: 0,
             reassignVars: true,
-            varsNotReassigned: ['a','b','g','c'],
+            varsNotReassigned: ['A','b','g','c'],
             useES6: true,
         })[2].contents;
 

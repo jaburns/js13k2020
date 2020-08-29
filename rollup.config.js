@@ -17,8 +17,8 @@ export default {
       unsafe_math: true,
     },
     mangle: {
-      reserved: ['a','b','g','c'],
-      properties: true, // { debug: true }, // ( enabling debug on property mangle makes error messages slightly more readable )
+      reserved: ['C0','C1','g','c'],
+      properties: true,
     },
     format: {
       quote_style: 1
