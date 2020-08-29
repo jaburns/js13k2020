@@ -24,6 +24,7 @@ const enum KeyCode
     Down = 40,
     Left = 37,
     Right = 39,
+    Space = 32,
 };
 
 const enum Mode
@@ -39,17 +40,19 @@ type Framebuffer = [WebGLFramebuffer,WebGLTexture];
 let _tickAccTime = 0;
 let _inputs: {[k: number]: 1} = {};
 let _previousTime: number;
+let _veryStartTime: number = 0;
 let _startTime: number;
-let _veryStartTime: number;
 
 let _fullScreenTriVertBuffer: WebGLBuffer;
 
 let _mainShader: WebGLProgram;
 let _stateShader: WebGLProgram;
-let _postShader: WebGLProgram;
+let _post0Shader: WebGLProgram;
+let _post1Shader: WebGLProgram;
 let _canvasTexture: WebGLTexture;
 
-let _drawFramebuffer: Framebuffer;
+let _draw0Framebuffer: Framebuffer;
+let _draw1Framebuffer: Framebuffer;
 let _stateFramebuffers: Framebuffer[];
 let _curStateBufferIndex: number = 0;
 
@@ -102,25 +105,25 @@ let resetState = () =>
     {
         g.bindFramebuffer( gl_FRAMEBUFFER, fb );
         g.bindTexture( gl_TEXTURE_2D, tex );
-        g.texImage2D( gl_TEXTURE_2D, 0, gl_RGB, s_totalStateSize, 1, 0, gl_RGB, gl_FLOAT, Float32Array.of(
+        g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, s_totalStateSize, 1, 0, gl_RGBA, gl_FLOAT, Float32Array.of(
         // Initial state
-            0, 0, 0, 
+            0, 0, 0, 0,
 
-            0, 1, 0, 
-            0, 1, z, 
-            0, 0, 0, 
+            0, 1, 0, 0,
+            0, 1, z, 0,
+            0, 0, 0, 0,
 
-            s_wheelBaseWidth, 1, 0, 
-            s_wheelBaseWidth, 1, z,
-            0, 0, 0, 
+            s_wheelBaseWidth, 1, 0, 0,
+            s_wheelBaseWidth, 1, z,0,
+            0, 0, 0, 0,
 
-            s_wheelBaseWidth, 1, s_wheelBaseLength,
-            s_wheelBaseWidth, 1, s_wheelBaseLength+z,
-            0, 0, 0,
+            s_wheelBaseWidth, 1, s_wheelBaseLength,0,
+            s_wheelBaseWidth, 1, s_wheelBaseLength+z,0,
+            0, 0, 0,0,
 
-            0, 1, s_wheelBaseLength,
-            0, 1, s_wheelBaseLength+z,
-            0, 0, 0,
+            0, 1, s_wheelBaseLength,0,
+            0, 1, s_wheelBaseLength+z,0,
+            0, 0, 0,0,
         ));
 
         g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_MIN_FILTER, gl_NEAREST );
@@ -128,6 +131,17 @@ let resetState = () =>
         g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_T, gl_CLAMP_TO_EDGE );
         g.framebufferTexture2D( gl_FRAMEBUFFER, gl_COLOR_ATTACHMENT0, gl_TEXTURE_2D, tex, 0 );
     });
+};
+
+// =================================================================================================
+
+let updateCanvasTexture = () =>
+{
+    g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
+    g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_MIN_FILTER, gl_LINEAR );
+    g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_S, gl_CLAMP_TO_EDGE );
+    g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_T, gl_CLAMP_TO_EDGE );
+    g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, gl_RGBA, gl_UNSIGNED_BYTE, C1 );
 };
 
 // =================================================================================================
@@ -154,6 +168,7 @@ let frame = () =>
     if( _startTime )
     {
         _tickAccTime += deltaTime*1000;
+
         while( _tickAccTime >= s_millisPerTick )
         {
             _tickAccTime -= s_millisPerTick;
@@ -171,7 +186,7 @@ let frame = () =>
 
             g.uniform4f( g.getUniformLocation( _stateShader, 'u_inputs' ), ~~_inputs[KeyCode.Up], ~~_inputs[KeyCode.Down], ~~_inputs[KeyCode.Left], ~~_inputs[KeyCode.Right] );
             g.uniform1i( g.getUniformLocation( _stateShader, 'u_modeState' ), 1 );
-            g.uniform1i( g.getUniformLocation( _stateShader, 'u_modeTitle' ), ~(_mode != Mode.Menu) );
+            g.uniform1i( g.getUniformLocation( _stateShader, 'u_modeTitle' ), ~~(_mode == Mode.Menu) );
             g.uniform1i( g.getUniformLocation( _stateShader, 'u_state' ), 0 );
 
             fullScreenDraw( _stateShader );
@@ -179,12 +194,21 @@ let frame = () =>
 
         // ----- Frame update ------------------------------
 
-        if( _mode == Mode.Menu && newTime > _startTime + 8 )
-            resetState();
+        if( _mode == Mode.Menu )
+        {
+            if( newTime > _startTime + 8 ) resetState();
+            if( _inputs[ KeyCode.Space ]) {
+                _mode = Mode.Race;
+                c.clearRect(0, 0, s_renderWidth, s_renderHeight);
+                updateCanvasTexture();
+                setSynthMenuMode(0);
+                resetState();
+            }
+        }
 
         g.useProgram( _mainShader );
 
-        g.bindFramebuffer( gl_FRAMEBUFFER, _drawFramebuffer[0] );
+        g.bindFramebuffer( gl_FRAMEBUFFER, _draw0Framebuffer[0] );
         g.viewport( 0, 0, s_renderWidth, s_renderHeight );
 
         g.activeTexture( gl_TEXTURE0 );
@@ -193,7 +217,7 @@ let frame = () =>
         g.bindTexture( gl_TEXTURE_2D, _stateFramebuffers[1-_curStateBufferIndex][1] );
 
         g.uniform1i( g.getUniformLocation( _mainShader, 'u_modeState' ), 0 );
-        g.uniform1i( g.getUniformLocation( _mainShader, 'u_modeTitle' ),  ~(_mode != Mode.Menu) );
+        g.uniform1i( g.getUniformLocation( _mainShader, 'u_modeTitle' ), ~~(_mode == Mode.Menu) );
         g.uniform1f( g.getUniformLocation( _mainShader, 'u_time' ), newTime - _startTime );
         g.uniform1i( g.getUniformLocation( _mainShader, 'u_state' ), 0 );
         g.uniform1i( g.getUniformLocation( _mainShader, 'u_prevState' ), 1 );
@@ -205,22 +229,34 @@ let frame = () =>
 
     // ----- Post-processing update ------------------------------
 
-    g.useProgram( _postShader );
+    g.useProgram( _post0Shader );
+
+    g.bindFramebuffer( gl_FRAMEBUFFER, _draw1Framebuffer[0] );
+    g.viewport( 0, 0, s_renderWidth, s_renderHeight );
+
+    g.activeTexture( gl_TEXTURE0 );
+    g.bindTexture( gl_TEXTURE_2D, _draw0Framebuffer[1] );
+    g.activeTexture( gl_TEXTURE1 );
+    g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
+
+    g.uniform2f( g.getUniformLocation( _post0Shader, 'u_time' ), _veryStartTime, newTime );
+    g.uniform1i( g.getUniformLocation( _post0Shader, 'u_tex' ), 0 );
+    g.uniform1i( g.getUniformLocation( _post0Shader, 'u_canvas' ), 1 );
+
+    fullScreenDraw( _post0Shader );
+
+    g.useProgram( _post1Shader );
 
     g.bindFramebuffer( gl_FRAMEBUFFER, null );
     g.viewport( 0, 0, s_fullWidth, s_fullHeight );
 
     g.activeTexture( gl_TEXTURE0 );
-    g.bindTexture( gl_TEXTURE_2D, _drawFramebuffer[1] );
-    g.activeTexture( gl_TEXTURE1 );
-    g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
+    g.bindTexture( gl_TEXTURE_2D, _draw1Framebuffer[1] );
 
-    g.uniform2f( g.getUniformLocation( _postShader, 'u_resolution' ), s_fullWidth, s_fullHeight );
-    g.uniform2f( g.getUniformLocation( _postShader, 'u_time' ), _veryStartTime, newTime );
-    g.uniform1i( g.getUniformLocation( _postShader, 'u_tex' ), 0 );
-    g.uniform1i( g.getUniformLocation( _postShader, 'u_canvas' ), 1 );
+    g.uniform2f( g.getUniformLocation( _post1Shader, 'u_time' ), _veryStartTime, newTime );
+    g.uniform1i( g.getUniformLocation( _post1Shader, 'u_tex' ), 0 );
 
-    fullScreenDraw( _postShader );
+    fullScreenDraw( _post1Shader );
 };
 
 // =================================================================================================
@@ -233,76 +269,90 @@ document.onkeyup = k => delete _inputs[k.keyCode];
 
 g.getExtension('OES_texture_float');
 g.getExtension('OES_texture_float_linear');
+//g.getExtension('WEBGL_color_buffer_float'); // Needed only to suppress warning in firefox.
 
 _mainShader = buildShader( main_vert, main_frag );
 _stateShader = buildShader( main_vert, main_frag, 'm1' );
-_postShader = buildShader( main_vert, post_frag );
+_post0Shader = buildShader( main_vert, post_frag, 'm0' );
+_post1Shader = buildShader( main_vert, post_frag, 'm1' );
 
 _fullScreenTriVertBuffer = g.createBuffer()!;
 g.bindBuffer( gl_ARRAY_BUFFER, _fullScreenTriVertBuffer );
 g.bufferData( gl_ARRAY_BUFFER, Uint8Array.of(1, 1, 1, 128, 128, 1), gl_STATIC_DRAW );
 
-_drawFramebuffer = [g.createFramebuffer()!,g.createTexture()!];
+_draw0Framebuffer = [g.createFramebuffer()!,g.createTexture()!];
+_draw1Framebuffer = [g.createFramebuffer()!,g.createTexture()!];
 
-g.bindFramebuffer( gl_FRAMEBUFFER, _drawFramebuffer[0] );
-g.bindTexture( gl_TEXTURE_2D, _drawFramebuffer[1] );
+g.bindFramebuffer( gl_FRAMEBUFFER, _draw0Framebuffer[0] );
+g.bindTexture( gl_TEXTURE_2D, _draw0Framebuffer[1] );
 g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, s_renderWidth, s_renderHeight, 0, gl_RGBA, gl_FLOAT, null );
 
 g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_MIN_FILTER, gl_LINEAR );
 g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_S, gl_CLAMP_TO_EDGE );
 g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_T, gl_CLAMP_TO_EDGE );
-g.framebufferTexture2D( gl_FRAMEBUFFER, gl_COLOR_ATTACHMENT0, gl_TEXTURE_2D, _drawFramebuffer[1], 0 );
+g.framebufferTexture2D( gl_FRAMEBUFFER, gl_COLOR_ATTACHMENT0, gl_TEXTURE_2D, _draw0Framebuffer[1], 0 );
+
+g.bindFramebuffer( gl_FRAMEBUFFER, _draw1Framebuffer[0] );
+g.bindTexture( gl_TEXTURE_2D, _draw1Framebuffer[1] );
+g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, s_renderWidth, s_renderHeight, 0, gl_RGBA, gl_UNSIGNED_BYTE, null );
+
+g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_MIN_FILTER, gl_LINEAR );
+g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_S, gl_CLAMP_TO_EDGE );
+g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_T, gl_CLAMP_TO_EDGE );
+g.framebufferTexture2D( gl_FRAMEBUFFER, gl_COLOR_ATTACHMENT0, gl_TEXTURE_2D, _draw1Framebuffer[1], 0 );
 
 _stateFramebuffers = [[g.createFramebuffer()!,g.createTexture()!],[g.createFramebuffer()!,g.createTexture()!]];
 
 resetState();
-_veryStartTime = _startTime = 0;
+_startTime = 0;
 
 // =================================================================================================
-// https://jsfiddle.net/p49wuce2/
 
-c.strokeStyle = '#f00';
+let Y = -50, X = 205;
+
+[[40,'#f00'],[20,'#700']].map(([lw, ss]: [number, string]) =>
+{
+    c.strokeStyle = ss;
+    c.lineWidth = lw;
+    c.beginPath();
+    c.moveTo(Y+185,250);
+    c.lineTo(Y+185,200);
+    c.lineTo(Y+125,200);
+    c.lineTo(Y+205,100);
+    c.lineTo(Y+205,150);
+    c.stroke();
+    c.beginPath();
+    c.moveTo(Y+250,100);
+    c.lineTo(Y+250,230);
+    c.lineTo(Y+310,230);
+    c.lineTo(Y+310,100);
+    c.lineTo(Y+250,100);
+    c.lineTo(Y+250,230);
+    c.stroke();
+    c.beginPath();
+    c.moveTo(Y+X+185,250);
+    c.lineTo(Y+X+185,200);
+    c.lineTo(Y+X+125,200);
+    c.lineTo(Y+X+205,100);
+    c.lineTo(Y+X+205,150);
+    c.stroke();
+});
+
 c.fillStyle = '#f00';
-c.lineWidth = 40;
-let Y = -50, X = 210;
-c.beginPath();
-c.moveTo(Y+180,250);
-c.lineTo(Y+180,200);
-c.lineTo(Y+120,200);
-c.lineTo(Y+200,100);
-c.lineTo(Y+200,150);
-c.stroke();
-
-c.beginPath();
-c.moveTo(Y+250,100);
-c.lineTo(Y+250,230);
-c.lineTo(Y+310,230);
-c.lineTo(Y+310,100);
-c.lineTo(Y+250,100);
-c.stroke();
-c.beginPath();
-c.moveTo(Y+X+180,250);
-c.lineTo(Y+X+180,200);
-c.lineTo(Y+X+120,200);
-c.lineTo(Y+X+200,100);
-c.lineTo(Y+X+200,150);
-c.stroke();
-
 C1.style.letterSpacing = '-2px';
 c.font = 'bold 64px monospace';
 c.fillText('kph',Y+410,250);
 
 C1.style.letterSpacing = '0px';
-c.fillStyle = '#ff0';
+c.fillStyle = '#0ff';
 c.font = 'bold 24px monospace';
 c.fillText( 'PRESS SPACE', 180, 330 );
 
+c.font = 'bold 16px monospace';
+c.fillText( 'USE ARROW KEYS TO DRIVE', 145, 360 );
+
 _canvasTexture = g.createTexture()!;
-g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
-g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_MIN_FILTER, gl_LINEAR );
-g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_S, gl_CLAMP_TO_EDGE );
-g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_T, gl_CLAMP_TO_EDGE );
-g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, gl_RGBA, gl_UNSIGNED_BYTE, C1 );
+updateCanvasTexture();
 
 // =================================================================================================
 

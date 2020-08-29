@@ -61,10 +61,7 @@ float2 sdObj1( float3 p, float3 s, float twist )
 
     return min2(
         float2( sdBox( p, float3(s.x,.5,s.z)), 0. ),
-        float2( min(
-            sdVerticalCapsule( p - float3(-s.x-.5,0,0), s.z, 1. ),
-            sdVerticalCapsule( p - float3(s.x+.5,0,0), s.z, 1. )
-        ), 1. )
+        float2( sdVerticalCapsule( vec3(abs(p.x),p.y,p.z) - float3(s.x-.5,0,0), s.z, 1. ), 1. )
     );
 }
 

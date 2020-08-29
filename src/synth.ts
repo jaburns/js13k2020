@@ -23,7 +23,7 @@ let leadnote = [
     2*F,2*G,D,F,G,F,G,F, 0,0,D,F,G,F,G,F, G,F,2*AS,2*C,2*D,0,2*C,2*D, 2*F,2*G,D,F,G,F,G,F, 0,0,D,F,G,F,G,F, 0,0,D,F,G,F,G,F, 2*G,2*F,2*D,2*F,2*D,2*C,2*AS,2*C, 2*F,2*D,2*C,2*D,2*C,2*AS,G,2*AS,
 ];
 
-let biquadFilter = () =>
+let biquadFilter = ( hpf?: 1|0 ) =>
 {
     let x1: number = 0;
     let x2: number = 0;
@@ -42,10 +42,9 @@ let biquadFilter = () =>
         let cs = Math.cos(omega);
         let alpha = sn * Math.sinh(Math.log(2) * omega / sn);
 
-        let b0 = (1 - cs) /2;
-        let b1 = 1 - cs;
-        let b2 = (1 - cs) /2;
-
+        let b0 = (hpf ? 1 + cs : 1 - cs) / 2;
+        let b1 = (hpf ? -1 : 1) - cs;
+        let b2 = (hpf ? 1+cs : 1-cs) / 2;
         let a0 = 1 + alpha;
         let a1 = -2 * cs;
         let a2 = 1 - alpha;
@@ -72,6 +71,8 @@ let biquadFilter = () =>
 
 let clamp01 = (x: number) =>
     x < 0 ? 0 : x > 1 ? 1 : x;
+let clamp11 = (x: number) =>
+    x < -1 ? -1 : x > 1 ? 1 : x;
 
 let smoothstep = (edge0: number, edge1: number, x: number) =>
 {
@@ -99,13 +100,36 @@ let kick = ( time: number, tempo: number ) =>
     return .6 * attack * decay * Math.sin( 220. * Math.pow( time, .65 ));
 };
 
-// let taylorSquareWave = ( x: number, harmonics: number ): number =>
-// {
-//     let result = 0;
-//     for( let i = 1; i <= harmonics; i += 2 )
-//         result += 4 / Math.PI / i * Math.sin( i * x );
-//     return result;
-// };
+let taylorSquareWave = ( x: number, i: number, imax: number ): number =>
+{
+    let result = 0;
+    for( ; i <= imax; i += 2 )
+        result += 4 / Math.PI / i * Math.sin( i * x );
+    return result;
+};
+
+let addCrtBuzz = ( y: Float32Array, noise: Float32Array ) =>
+{
+    for( let i = 0; i < s_audioBufferSize; ++i )
+    {
+        let t = (_sampleOffset + i) / s_audioSampleRate - .1;
+        if( t < 0 ) {
+            y[i] = 0;
+            continue;
+        }
+
+        let t1 = 2.*Math.PI*60*t;
+        let t2 = (t1 % (2*Math.PI)) / (2*Math.PI);
+        let a = 1 - (2*t2-1) * (2*t2-1);
+        let t3 = t2 + .01*a;
+        y[i] += .5 * taylorSquareWave( t3, 1, 5 ) * Math.exp( -3 * t );
+
+        if( t < .25 )
+            y[i] += 2*noise[i] * Math.exp( -30 * 4*t );
+        else if( t < .5 )
+            y[i] += 2*noise[i] * Math.exp( -30 * 8*(t-.25) );
+    }
+};
 
 let pad = ( time: number, tempo: number, f?: number ) =>
 {
@@ -146,6 +170,8 @@ let buffAdd = ( x: Float32Array, x1: Float32Array | 0, y: Float32Array ) =>
 };
 
 let drums = new Float32Array( s_audioBufferSize );
+let crtClickIn = new Float32Array( s_audioBufferSize );
+let crtClickOut = new Float32Array( s_audioBufferSize );
 let rawBass = new Float32Array( s_audioBufferSize );
 let outBass = new Float32Array( s_audioBufferSize );
 let fullMusicBuffer = new Float32Array( s_audioBufferSize );
@@ -153,6 +179,7 @@ let menuMusicBuffer = new Float32Array( s_audioBufferSize );
 
 let bassLpf = biquadFilter();
 let menuLpf = biquadFilter();
+let clickFilter = biquadFilter();
 
 let audioTick = ( y: Float32Array ) =>
 {
@@ -182,10 +209,19 @@ let audioTick = ( y: Float32Array ) =>
     buffAdd( drums, outBass, fullMusicBuffer );
     menuLpf( 200, fullMusicBuffer, menuMusicBuffer );
 
+    if( _sampleOffset < 100000 )
+    {
+        for (let i = 0; i < s_audioBufferSize; ++i)
+            crtClickIn[i] = 1-2*Math.random();
+        clickFilter( 4000, crtClickIn, crtClickOut );
+        
+        addCrtBuzz( menuMusicBuffer, crtClickOut );
+    }
+
     _sampleOffset += s_audioBufferSize;
 
     for (let i = 0; i < s_audioBufferSize; ++i)
-        y[i] = _menuModeT*fullMusicBuffer[i] + (1-_menuModeT)*menuMusicBuffer[i];
+        y[i] = clamp11(.5*(_menuModeT*fullMusicBuffer[i] + (1-_menuModeT)*menuMusicBuffer[i]));
 };
 
 export let setSynthMenuMode = (x: 1|0) => _synthMenuMode = x;

@@ -19,6 +19,13 @@ const run = cmd =>
         process.exit( code );
 };
 
+const replaceSimple = (x, y, z) =>
+{
+    const idx = x.indexOf( y );
+    if( idx < 0 ) return x;
+    return x.substr( 0, idx ) + z + x.substr( idx + y.length );
+};
+
 const applyStateMap = code =>
 {
     for( let k in definitionsJson.constants )
@@ -164,7 +171,7 @@ const wrapWithHTML = js =>
         .join('')
         .trim();
 
-    return htmlTemplate.replace('__CODE__', js.trim());
+    return replaceSimple(htmlTemplate, '__CODE__', js.trim());
 };
 
 const main = () =>
