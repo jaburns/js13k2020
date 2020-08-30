@@ -56,8 +56,7 @@
                 return x % y;
             }
 
-            #include "trackData.cginc"
-            //asdf
+            #include "trackData.gen.cginc"
 
             float2 map( float3 p )
             {
