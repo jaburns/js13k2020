@@ -20,23 +20,6 @@ const float i_PI = 3.14159;
 const float i_PRECISION = 1.;
 const int i_ITERATIONS = 150;
 
-// ----- From Shane's "Jagged Plain" demo: https://www.shadertoy.com/view/4tSXRm -----
-vec3 tri( vec3 x )
-{
-    return abs(x-floor(x)-.5);
-} 
-float surfFunc( vec3 p )
-{
-    float n = dot(tri(p*.15 + tri(p.yzx*.075)), vec3(.444));
-    p = p*1.5773 - n;
-    p.yz = vec2(p.y + p.z, p.z - p.y) * .866;
-    p.xz = vec2(p.x + p.z, p.z - p.x) * .866;
-    n += dot(tri(p*.225 + tri(p.yzx*.1125)), vec3(.222));     
-    return abs(n-.5)*1.9 + (1.-abs(sin(n*9.)))*.05;
-}
-// -----------------------------------------------------------------------------------
-
-
 vec2 mul( mat2 m, vec2 v )
 {
     return m * v; // TODO move this notation conversion in to the build process
@@ -72,7 +55,7 @@ float sdBody( vec3 p )
 vec2 map( vec3 p )
 {
     vec2 world = track( p );
-    //world = min2( world, vec2(p.y,2) );
+    world = min2( world, vec2(p.y,2) );
 
     if( u_modeState ) return world;
 
@@ -85,31 +68,6 @@ vec2 map( vec3 p )
     return world;
 }
 
-struct March
-{
-    vec3 pos;
-    float dist;
-    float mat;
-    float ao;
-};
-
-March march( vec3 ro, vec3 rd )
-{
-    vec2 dist;
-    float totalDist = 0.0;
-    
-    int j = 0;
-    for( int i = 0; i < i_ITERATIONS; ++i )
-    {
-        j = i;
-        dist = map( ro );
-        if( dist.x < i_EPS || totalDist > 200. ) break;
-        totalDist += i_PRECISION * dist.x;
-        ro += i_PRECISION * rd * dist.x;
-    }
-    
-    return March( ro, dist.x < i_EPS ? totalDist : -1.0, dist.y, float(j) / 90. );
-}
 
 vec3 getNorm(vec3 p)
 {
@@ -219,31 +177,23 @@ void m1()
     }
 }
 
-float shadowMarch( in vec3 ro, in vec3 rd, float mint, float maxt )
-{
-    float k = 20.;
-    float res = 1.0;
-    float t = mint;
-
-    for( int i = 0; i < i_ITERATIONS; ++i )
-    {
-        if( t >= maxt ) break;
-        vec2 h = map(ro + rd*t);
-        if( h.x < 0.001 ) return 0.0;
-        res = min( res, k*h.x/t );
-        t += h.x;
-    }
-
-    return res;
-}
-
-//let togl = (x) => {let r = x.substr(0,2),g=x.substr(2,2),b=x.substr(4,2); return 'vec3('+([parseInt(r,16)+'.',parseInt(g,16)+'.',parseInt(b,16)+'.'].join(','))+')/255.;'}
-const vec3 i_COLOR_ROAD =vec3(58.,61.,68.)/255.; // 3a3d44
-const vec3 i_COLOR_BUMPER = vec3(178.,8.,93.)/255.; // b2085d
-const vec3 i_COLOR_GRASS = vec3(13.,233.,73.)/255.; // 0d8549
-const vec3 i_COLOR_CAR = 1.-vec3(249.,193.,28.)/255.; // f9c11c
-const vec3 i_COLOR_FOG = vec3(.8,.9,1);
-const vec3 i_COLOR_SKY = .5*vec3(64.,146.,254)/255.;
+// float shadowMarch( in vec3 ro, in vec3 rd, float mint, float maxt )
+// {
+//     float k = 20.;
+//     float res = 1.0;
+//     float t = mint;
+// 
+//     for( int i = 0; i < i_ITERATIONS; ++i )
+//     {
+//         if( t >= maxt ) break;
+//         vec2 h = map(ro + rd*t);
+//         if( h.x < 0.001 ) return 0.0;
+//         res = min( res, k*h.x/t );
+//         t += h.x;
+//     }
+// 
+//     return res;
+// }
 
 void m0()
 {
@@ -280,20 +230,28 @@ void m0()
     vec3 c = ro + f * zoom;
     vec3 i = c + uv.x * r + uv.y * u;
     vec3 rd = normalize(i - ro);
-    
-    March m = march( ro, rd );
-    vec3 norm = vec3( 0 );
-    float depth = 0.;
 
-    if( m.dist > 0. )
+    vec2 dist;
+    float totalDist = 0.0;
+    
+    for( int i = 0; i < i_ITERATIONS; ++i )
     {
-        vec3 nm = getNorm( m.pos );
-        norm = nm;
-        gl_FragColor = vec4( norm, 1. + float(int(m.mat)) );
+        dist = map( ro );
+        if( dist.x < i_EPS || totalDist >= 200. ) break;
+        // totalDist += i_PRECISION * dist.x;
+        // ro += i_PRECISION * rd * dist.x;
+        totalDist += i_PRECISION * dist.x;
+        ro += i_PRECISION * rd * dist.x;
+    }
+
+    if( dist.x < i_EPS )
+    {
+        vec3 norm = getNorm( ro );
+        float packDist = (norm.z > 0. ? 1. : -1.) * totalDist;
+        gl_FragColor = vec4( norm.xy, packDist, dist.y );
     }
     else
     {
-        gl_FragColor = vec4( norm, 0 );
+        gl_FragColor = vec4( 0, 0, 200, 0 );
     }
-    
 }

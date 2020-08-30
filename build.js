@@ -123,6 +123,7 @@ const convertHLSLtoGLSL = hlsl => hlsl
     .replace(/float3/g, 'vec3')
     .replace(/float4/g, 'vec4')
     .replace(/lerp/g, 'mix')
+    .replace(/frac/g, 'fract')
     .replace(/atan2/g, 'atan')
     .replace(/transpose_hlsl_only/g, '');
 

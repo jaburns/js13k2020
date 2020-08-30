@@ -7,7 +7,13 @@ float sdBox( vec2 p, vec2 b )
     vec2 d = abs(p)-b;
     return length(max(d,0.0)) + min(max(d.x,d.y),0.0);
 }
-float easeOutCubic(float x) { float x1 = (1. - x); return 1. - x1*x1*x1; }
+
+float sign1( float x )
+{
+    return x >= 0. ? 1. : -1.;
+}
+
+//let togl = (x) => {let r = x.substr(0,2),g=x.substr(2,2),b=x.substr(4,2); return 'vec3('+([parseInt(r,16)+'.',parseInt(g,16)+'.',parseInt(b,16)+'.'].join(','))+')/255.;'}
 
 void m0()
 {
@@ -25,23 +31,39 @@ void m0()
 // =================================================================================================
 //  Render the game from the g buffer
     
-    vec4 sample   = texture2D( u_tex, uv + uvDelta * vec2(-0,-0) );
-    vec4 sampleU  = texture2D( u_tex, uv + uvDelta * vec2(-0, 1) );
-    vec4 sampleR  = texture2D( u_tex, uv + uvDelta * vec2( 1,-0) );
-    vec4 sampleUR = texture2D( u_tex, uv + uvDelta * vec2( 1, 1) );
+    vec4 sample0  = texture2D( u_tex, uv + uvDelta * vec2(0, 0) );
+    vec4 sample1  = texture2D( u_tex, uv + uvDelta * vec2(0, 1) );
+    vec4 sample2  = texture2D( u_tex, uv + uvDelta * vec2(1, 0) );
+    vec4 sample3  = texture2D( u_tex, uv + uvDelta * vec2(1, 1) );
 
-    float d0 = sample.w - sampleUR.w;
-    float d1 = sampleR.w - sampleU.w;
+    float depth0 = abs(sample0.z);
+    float depth1 = abs(sample1.z);
+    float depth2 = abs(sample2.z);
+    float depth3 = abs(sample3.z);
 
-    float edgeDepth = sqrt(d0*d0 + d1*d1) * 100.;
-    edgeDepth = edgeDepth > 50. ? 1. : 0.;
+    float material0 = depth0 < 200. ? sample0.w : 0.;
+    float material1 = depth1 < 200. ? sample1.w : 0.;
+    float material2 = depth2 < 200. ? sample2.w : 0.;
+    float material3 = depth3 < 200. ? sample3.w : 0.;
 
-    vec3 n0 = sample.xyz - sampleUR.xyz;
-    vec3 n1 = sampleR.xyz - sampleU.xyz;
+    vec3 normal0 = vec3( sample0.xy, sqrt(1. - sample0.x*sample0.x - sample0.y*sample0.y) * sign(sample0.z) );
+    vec3 normal1 = vec3( sample1.xy, sqrt(1. - sample1.x*sample1.x - sample1.y*sample1.y) * sign(sample1.z) );
+    vec3 normal2 = vec3( sample2.xy, sqrt(1. - sample2.x*sample2.x - sample2.y*sample2.y) * sign(sample2.z) );
+    vec3 normal3 = vec3( sample3.xy, sqrt(1. - sample3.x*sample3.x - sample3.y*sample3.y) * sign(sample3.z) );
+
+    float d0 = material0 - material3;
+    float d1 = material2 - material1;
+
+    float edgeMat = sqrt( d0*d0 + d1*d1 );
+    edgeMat = edgeMat > .5 ? 1. : 0.;
+
+    vec3 n0 = normal0 - normal3;
+    vec3 n1 = normal2 - normal1;
     float edgeNormal = sqrt(dot( n0, n0 ) + dot( n1, n1 ));
-    //edgeNormal = edgeNormal > .9 ? 1. : 0.;
+    edgeNormal = edgeNormal > .9 ? 1. : 0.;
 
-    vec3 gameColor = vec3( max( edgeNormal, edgeDepth ));
+    vec3 gameColor = max( edgeNormal, edgeMat ) * vec3( 1, 0, 1 );
+    //vec3 gameColor = vec3( depth0 < 200. ? .01*depth0 : 0. );
 
 // =================================================================================================
 //  Compose the canvas
@@ -89,8 +111,8 @@ void m0()
 void m1()
 {
     vec2 uv = gl_FragCoord.xy / vec2( s_fullWidth, s_fullHeight );
-         //gl_FragColor = texture2D( u_tex, uv );
-         //return;
+
+    //gl_FragColor=texture2D(u_tex,uv);return;
 
     // curve
     uv = (uv - 0.5) * 2.0;

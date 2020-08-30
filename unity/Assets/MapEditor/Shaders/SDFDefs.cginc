@@ -60,7 +60,7 @@ float2 sdObj1( float3 p, float3 s, float twist )
         p.xy = mul(rot( 1./twist*(p.z+s.z) ), p.xy);
 
     return min2(
-        float2( sdBox( p, float3(s.x,.5,s.z)), 0. ),
+        float2( sdBox( p, float3(s.x,.5,s.z)), (frac(.4*(p.x))<.5?0.:2.)-(frac(.4*(p.z))<.5?0.:2.) ),
         float2( sdVerticalCapsule( vec3(abs(p.x),p.y,p.z) - float3(s.x-.5,0,0), s.z, 1. ), 1. )
     );
 }
