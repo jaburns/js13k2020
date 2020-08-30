@@ -123,7 +123,7 @@ let resetState = () =>
 
             0, 1, s_wheelBaseLength,0,
             0, 1, s_wheelBaseLength+z,0,
-            0, 0, 0,0,
+            0, 0, 0, 0,
         ));
 
         g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_MIN_FILTER, gl_NEAREST );

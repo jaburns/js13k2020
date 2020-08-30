@@ -51,6 +51,10 @@
             {
                 return transpose( m );
             }
+            float mod( float x, float y )
+            {
+                return x % y;
+            }
 
             #include "SDFDefs.cginc"
             #include "MapDefs.cginc"

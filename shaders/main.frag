@@ -7,7 +7,7 @@ uniform bool u_modeState;
 uniform bool u_modeTitle;
 uniform vec4 u_inputs;
 
-vec3 g_state[14];
+vec3 g_state[s_totalStateSize];
 vec3 g_carCenterPt;
 vec3 g_carForwardDir;
 vec3 g_carDownDir;
@@ -55,15 +55,18 @@ float sdBody( vec3 p )
 vec2 map( vec3 p )
 {
     vec2 world = track( p );
-    world = min2( world, vec2(p.y,2) );
 
-    if( u_modeState ) return world;
+    if( u_modeState )
+    {
+        world = min2( world, vec2(p.y,1) );
+        return world;
+    }
 
-    world = min2( world, vec2(sdBody(p),3));
-    world = min2( world, vec2(sdWheel( p , ST.wheelPos[0], g_wheelRot ),3));
-    world = min2( world, vec2(sdWheel( p , ST.wheelPos[1], g_wheelRot ),3));
-    world = min2( world, vec2(sdWheel( p , ST.wheelPos[2], g_steerRot ),3));
-    world = min2( world, vec2(sdWheel( p , ST.wheelPos[3], g_steerRot ),3));
+    world = min2( world, vec2(sdBody(p),4));
+    world = min2( world, vec2(sdWheel( p , ST.wheelPos[0], g_wheelRot ),4));
+    world = min2( world, vec2(sdWheel( p , ST.wheelPos[1], g_wheelRot ),4));
+    world = min2( world, vec2(sdWheel( p , ST.wheelPos[2], g_steerRot ),4));
+    world = min2( world, vec2(sdWheel( p , ST.wheelPos[3], g_steerRot ),4));
 
     return world;
 }
@@ -177,24 +180,6 @@ void m1()
     }
 }
 
-// float shadowMarch( in vec3 ro, in vec3 rd, float mint, float maxt )
-// {
-//     float k = 20.;
-//     float res = 1.0;
-//     float t = mint;
-// 
-//     for( int i = 0; i < i_ITERATIONS; ++i )
-//     {
-//         if( t >= maxt ) break;
-//         vec2 h = map(ro + rd*t);
-//         if( h.x < 0.001 ) return 0.0;
-//         res = min( res, k*h.x/t );
-//         t += h.x;
-//     }
-// 
-//     return res;
-// }
-
 void m0()
 {
     for( int i = 0; i < s_totalStateSize; ++i )
@@ -205,29 +190,26 @@ void m0()
 
     initGlobals();
 
-    vec2 uv = (gl_FragCoord.xy - .5*u_resolution)/u_resolution.y;
+    vec2 uv = (gl_FragCoord.xy - .5*vec2(s_renderWidth., s_renderHeight.))/s_renderHeight.;
 
-    vec3 ro, lookAt;
+    vec3 ro, lookDir;
     if( u_modeTitle )
     {
         ro = vec3(10,10,80);
-        lookAt = g_carCenterPt + vec3(0,1,0);
+        lookDir = g_carCenterPt + vec3(0,1,0);
     }
     else
     {
         vec3 fwdxz = normalize(vec3(g_carForwardDir.x, 0, g_carForwardDir.z));
         ro = g_carCenterPt + vec3(0,2,0) - 7.*fwdxz;
-        lookAt = g_carCenterPt + vec3(0,1,0);
+        lookDir = g_carCenterPt + vec3(0,1,0);
     }
 
-    float zoom = 1.;
-    //vec3 ro = vec3(0);
-    vec3 upGuess = vec3(0,1,0);
-    vec3 f = normalize(lookAt - ro);
-    //vec3 r = normalize(cross(-g_carDownDir, f));
-    vec3 r = normalize(cross(upGuess, f));
+    vec3 roo = ro;
+    vec3 f = normalize(lookDir - ro);
+    vec3 r = normalize(cross(vec3(0,1,0), f));
     vec3 u = cross(f, r);
-    vec3 c = ro + f * zoom;
+    vec3 c = ro + f;
     vec3 i = c + uv.x * r + uv.y * u;
     vec3 rd = normalize(i - ro);
 
@@ -237,21 +219,72 @@ void m0()
     for( int i = 0; i < i_ITERATIONS; ++i )
     {
         dist = map( ro );
-        if( dist.x < i_EPS || totalDist >= 200. ) break;
+        if( dist.x < i_EPS || totalDist >= 200. || ro.y < 0. ) break;
         // totalDist += i_PRECISION * dist.x;
         // ro += i_PRECISION * rd * dist.x;
         totalDist += i_PRECISION * dist.x;
         ro += i_PRECISION * rd * dist.x;
     }
 
-    if( dist.x < i_EPS )
-    {
-        vec3 norm = getNorm( ro );
-        float packDist = (norm.z > 0. ? 1. : -1.) * totalDist;
-        gl_FragColor = vec4( norm.xy, packDist, dist.y );
+    vec3 normal = vec3( 0 ) ;
+    float material = 0.;
+
+    float ph = -roo.y / rd.y;
+    if(  rd.y < 0. && (  totalDist >= 200. || ph > 0.0 && ph < totalDist )) {
+        ro = roo + ph*rd;
+        normal = vec3( 0, 1, 0 );
+        material = 1.;
     }
-    else
+    else if( dist.x < i_EPS )
     {
-        gl_FragColor = vec4( 0, 0, 200, 0 );
+        normal = getNorm( ro );
+        material = dist.y;
     }
+    else if( rd.y < 0. )
+    {
+        ro = roo + ph*rd;
+        normal = vec3( 0, 1, 0 );
+        material = 1.;
+    }
+
+    if( material == 1. )
+    {
+        vec3 rep = floor(ro / 4. + .01);
+        material += .5 * mod(rep.x + rep.y + rep.z, 2.);
+        float lightness = exp( -.01 * length(ro - roo) );
+        material += .4 * lightness;
+    }
+
+    if( material == 0. )
+    {
+        float sunDot = dot( rd, normalize( vec3( -.5, .3, 1 )));
+        if( sunDot > .97 ) {
+            material = rd.y;
+        } else {
+            material = .5 + .5*rd.y;
+        }
+    }
+
+    if( material > 1. )
+    {
+        rd = normalize( vec3( -.5, .3, 1 ));
+        float mint = .1, maxt = 30.;
+        float k = 20.;
+        float res = 1.0;
+        float t = mint;
+        for( int i = 0; i < i_ITERATIONS; ++i )
+        {
+            if( t >= maxt ) break;
+            vec2 h = map(ro + rd*t);
+            if( h.x < 0.001 ) {
+                material *= -1.;
+                break;
+            }
+            res = min( res, k*h.x/t );
+            t += h.x;
+        }
+        //if( res < .1 ) 
+    }
+
+    gl_FragColor = vec4( normal, material );
 }

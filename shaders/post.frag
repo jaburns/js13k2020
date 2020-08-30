@@ -13,6 +13,13 @@ float sign1( float x )
     return x >= 0. ? 1. : -1.;
 }
 
+vec3 sun( float y, vec3 sky )
+{
+    y += .02;
+    float lightness = y < .5 ? pow(.5+.5*sin(200.*y*y), 5.) : 0.;
+    return mix(mix(vec3(1,0,1), vec3(1),2.*y), y*sky, lightness );
+}
+
 //let togl = (x) => {let r = x.substr(0,2),g=x.substr(2,2),b=x.substr(4,2); return 'vec3('+([parseInt(r,16)+'.',parseInt(g,16)+'.',parseInt(b,16)+'.'].join(','))+')/255.;'}
 
 void m0()
@@ -31,39 +38,49 @@ void m0()
 // =================================================================================================
 //  Render the game from the g buffer
     
-    vec4 sample0  = texture2D( u_tex, uv + uvDelta * vec2(0, 0) );
-    vec4 sample1  = texture2D( u_tex, uv + uvDelta * vec2(0, 1) );
-    vec4 sample2  = texture2D( u_tex, uv + uvDelta * vec2(1, 0) );
-    vec4 sample3  = texture2D( u_tex, uv + uvDelta * vec2(1, 1) );
+    vec4 sample0 = texture2D( u_tex, uv + uvDelta * vec2(-0, -0) );
+    vec4 sample1 = texture2D( u_tex, uv + uvDelta * vec2(-0, 1) );
+    vec4 sample2 = texture2D( u_tex, uv + uvDelta * vec2(1, -0) );
+    vec4 sample3 = texture2D( u_tex, uv + uvDelta * vec2(1, 1) );
 
-    float depth0 = abs(sample0.z);
-    float depth1 = abs(sample1.z);
-    float depth2 = abs(sample2.z);
-    float depth3 = abs(sample3.z);
-
-    float material0 = depth0 < 200. ? sample0.w : 0.;
-    float material1 = depth1 < 200. ? sample1.w : 0.;
-    float material2 = depth2 < 200. ? sample2.w : 0.;
-    float material3 = depth3 < 200. ? sample3.w : 0.;
-
-    vec3 normal0 = vec3( sample0.xy, sqrt(1. - sample0.x*sample0.x - sample0.y*sample0.y) * sign(sample0.z) );
-    vec3 normal1 = vec3( sample1.xy, sqrt(1. - sample1.x*sample1.x - sample1.y*sample1.y) * sign(sample1.z) );
-    vec3 normal2 = vec3( sample2.xy, sqrt(1. - sample2.x*sample2.x - sample2.y*sample2.y) * sign(sample2.z) );
-    vec3 normal3 = vec3( sample3.xy, sqrt(1. - sample3.x*sample3.x - sample3.y*sample3.y) * sign(sample3.z) );
+    float material0 = abs( sample0.w );
+    float material1 = abs( sample1.w );
+    float material2 = abs( sample2.w );
+    float material3 = abs( sample3.w );
 
     float d0 = material0 - material3;
     float d1 = material2 - material1;
 
     float edgeMat = sqrt( d0*d0 + d1*d1 );
-    edgeMat = edgeMat > .5 ? 1. : 0.;
+    edgeMat = edgeMat > .1 ? 1. : 0.;
 
-    vec3 n0 = normal0 - normal3;
-    vec3 n1 = normal2 - normal1;
+    vec3 n0 = sample0.xyz - sample3.xyz;
+    vec3 n1 = sample2.xyz - sample1.xyz;
     float edgeNormal = sqrt(dot( n0, n0 ) + dot( n1, n1 ));
     edgeNormal = edgeNormal > .9 ? 1. : 0.;
 
-    vec3 gameColor = max( edgeNormal, edgeMat ) * vec3( 1, 0, 1 );
-    //vec3 gameColor = vec3( depth0 < 200. ? .01*depth0 : 0. );
+    float edge = .1 + .9*max( edgeNormal, edgeMat );
+
+    float maxMat = max( material0, max( material1, max( material2, material3 )));
+    vec3 gameColor = vec3( .1 * maxMat );
+    if( maxMat >= 1. && maxMat < 2. )
+        gameColor = edge * vec3( 1, 0, 1 ) * mod( maxMat, .5 ) / .4;
+    else if( maxMat >= 4. )
+        gameColor = edge * vec3( 0, 1, 0 );
+    else if( maxMat >= 3. )
+        gameColor = edge * vec3( 0, .5, 1 );
+    else if( maxMat >= 2. )
+        gameColor = edge * vec3( 0, 0, 1 );
+    else if( maxMat < 1. )
+    {
+        if( maxMat < .5 )
+            gameColor = sun( maxMat / .5, vec3( .5, 0, 1 ));
+        else 
+            gameColor = ((maxMat - .5) / .5) * vec3( .5, 0, 1 );
+    }
+
+    if( sample0.w < 0. || sample1.w < 0. || sample2.w < 0. || sample3.w < 0. )
+        gameColor *= .4;
 
 // =================================================================================================
 //  Compose the canvas

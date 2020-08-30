@@ -43,25 +43,28 @@ float sdCappedCylinder( float3 p, float h, float r )
 float2 opSmoothUnion2( float2 d1, float2 d2, float k )
 {
     float h = clamp( .5 + .5*(d2.x-d1.x)/k, 0., 1. );
-    return lerp( d2, d1, h ) - k*h*(1.-h);
+    return float2( lerp( d2.x, d1.x, h ) - k*h*(1.-h), d1.y );
 }
 // Box
 float2 sdObj0( float3 p, float3 s )
 {
     p.z -= s.z;
-    return float2( sdBox( p, s ), 0. );
+    float3 rep = floor(p / 4. + .01);
+    return float2( sdBox( p, s ), 2. + .5 * mod(rep.x + rep.y + rep.z, 2.));
 }
 
 // Straight Track
 float2 sdObj1( float3 p, float3 s, float twist )
 {
     p.z -= s.z;
-    if( twist > 1. )
+    if( abs(twist) > 1. )
         p.xy = mul(rot( 1./twist*(p.z+s.z) ), p.xy);
 
+    float3 rep = floor(p / 4. + .01);
+
     return min2(
-        float2( sdBox( p, float3(s.x,.5,s.z)), (frac(.4*(p.x))<.5?0.:2.)-(frac(.4*(p.z))<.5?0.:2.) ),
-        float2( sdVerticalCapsule( vec3(abs(p.x),p.y,p.z) - float3(s.x-.5,0,0), s.z, 1. ), 1. )
+        float2( sdBox( p, float3(s.x,.5,s.z)), 2. + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
+        float2( sdVerticalCapsule( float3(abs(p.x),p.yz) - float3(s.x,0,0), s.z, 1. ), 3. + .5 * mod(rep.x + rep.y + rep.z, 2.) )
     );
 }
 
@@ -73,28 +76,32 @@ float sdBox2D( float2 p, float2 b )
     float2 d = abs(p)-b;
     return length(max(d,0.0)) + min(max(d.x,d.y),0.0);
 }
-float2 primitive( float2 p, float bank )
+
+float2 primitive( float2 p, float sx, float bank, float pz )
 {
     p = mul(rot(bank) , p);
-    return min2(
-        float2( sdBox2D( p, float2( 4, .5 )), 0. ),
-        float2( min(
-            length(p - float2(4.5,0)) - 1.,
-            length(p + float2(4.5,0)) - 1.
-        ), 1. )
-    );
 
+    float3 rep = floor( float3(p.xy, pz) / 4. + .01);
+
+    return min2(
+        float2( sdBox2D( p, float2( 4, .5 )), 2. + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
+        float2( length(float2(abs(p.x)-4.,p.y)) - 1., 3. + .5 * mod(rep.x + rep.y + rep.z, 2.) )
+    );
 }
-float2 opRevolution( float3 p, float radius, float bank )
+
+float2 opRevolution( float3 p, float sx, float radius, float bank )
 {
-    float2 q = float2( length(p.xz) - radius, p.y );
-    return primitive(q, bank);
+    float len = length(p.xz);
+    float2 q = float2( len - radius, p.y );
+    float theta = atan2( p.z, p.x ) * len;
+    return primitive(q, sx, bank, theta);
 }
-float2 opExtrusion( float3 p, float radius, float bank )
+
+float2 opExtrusion( float3 p, float sx, float radius, float bank )
 {
     p.x -= radius;
-    float2 d = primitive(p.xy, bank);
-    float2 w = float2( d.x, abs(p.z)); // -1);
+    float2 d = primitive(p.xy, sx, bank, 0.);
+    float2 w = float2( d.x, abs(p.z));
     return float2(min(max(w.x,w.y),0.0) + length(max(w,0.0)), d.y);
 }
 
@@ -105,10 +112,11 @@ float2 sdObj2( float3 p, float3 s, float radius, float bank )
         radius *= -1.;
         p.x *= -1.;
     }
+
     //p -= float3(0,0,s.z);
     p.x += radius;
-    float2 d = p.x > 0. && p.z > 0. ? opRevolution( p, radius, bank ) : float2(10000.,0.); // sdObj0( p, s );
-    float2 d1 = opExtrusion( p, radius, bank );
-    float2 d2 = opExtrusion( p.zyx, radius, bank );
+    float2 d = p.x > 0. && p.z > 0. ? opRevolution( p, s.x, radius, bank ) : float2(10000.,0.); // sdObj0( p, s );
+    float2 d1 = opExtrusion( p, s.x, radius, bank );
+    float2 d2 = opExtrusion( p.zyx, s.x, radius, bank );
     return min2(d,min2(d1,d2));
 }
