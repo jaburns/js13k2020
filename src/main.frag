@@ -53,7 +53,7 @@ float sdBody( vec3 p )
 
 vec2 map( vec3 p )
 {
-    vec2 world = track( p );
+    vec2 world = txx( p );
 
     if( u_modeState )
     {

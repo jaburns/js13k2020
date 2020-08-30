@@ -130,9 +130,9 @@ const convertHLSLtoGLSL = hlsl => hlsl
 const insertWorldSDFCode = shaderCode =>
 {
     const sdfDefs = convertHLSLtoGLSL( fs.readFileSync( 'src/sdfDefs.hlsl', 'utf8' ));
-    const mapDefs = fs.readFileSync( 'src/tracks.glsl', 'utf8' );
+    const tracks = sh.ls( 'tracks' ).map( x => fs.readFileSync( 'tracks/' + x, 'utf8' )).join('\n')
 
-    return shaderCode.replace( '#pragma INCLUDE_WORLD_SDF', sdfDefs + '\n' + mapDefs + '\n' );
+    return shaderCode.replace( '#pragma INCLUDE_WORLD_SDF', sdfDefs + '\n' + tracks + '\n' );
 };
 
 const preprocessShader = shaderCode =>
@@ -150,7 +150,10 @@ const generateShaderFile = () =>
         }
     });
 
-    run( MONO_RUN + 'tools/shader_minifier.exe --no-renaming-list main,m0,m1,MS --format js -o build/shaders.js --preserve-externals '+(DEBUG ? '--preserve-all-globals' : '')+' shadersTmp/*' );
+    // TODO get these from the tracks folder
+    const tracks = ['t00','t01','t02','t03','t04','t05','t06','t07','t08','t09'].join(',');
+
+    run( MONO_RUN + 'tools/shader_minifier.exe --no-renaming-list main,m0,m1,MS,'+tracks+' --format js -o build/shaders.js --preserve-externals '+(DEBUG ? '--preserve-all-globals' : '')+' shadersTmp/*' );
     let shaderCode = fs.readFileSync('build/shaders.js', 'utf8');
     buildShaderExternalNameMap( shaderCode );
     shaderCode = minifyShaderExternalNames( shaderCode );

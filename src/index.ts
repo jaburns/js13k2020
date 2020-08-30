@@ -76,7 +76,7 @@ let buildShader = ( vert: string, frag: string, main?: string ): WebGLProgram =>
             console.error( 'Vertex shader error', log, vert );
     }
 
-    g.shaderSource( fs, 'precision highp float;'+frag.replace(main||'m0','main') );
+    g.shaderSource( fs, 'precision highp float;'+frag.replace(main||'m0','main').replace('t01','txx') );
     g.compileShader( fs );
 
     if( DEBUG )

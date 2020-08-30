@@ -60,41 +60,16 @@
 
             float2 map( float3 p )
             {
-                return track( p );
+                return min2( t00( p ), float2( p.y, -1. ));
             }
 
-            #define ITERATIONS  100
-            #define EPSILON      0.0001
-            #define MAX_DIST    100.
-            #define PI 3.14159265358979
-
-            struct MarchResult
+            float3 getNorm(float3 p)
             {
-                float3 pos;
-                float dist;
-                float mat;
-                float ao;
-            };
-
-            MarchResult march(float3 ro, float3 rd)
-            {
-                float totalDist = 0.0;
-                float2 distMat;
-                
-                int i;
-                for (i = 0; i < ITERATIONS; ++i) {
-                    distMat = map(ro);
-                    if (distMat.x < EPSILON || totalDist > MAX_DIST) break;        
-                    totalDist += distMat.x;
-                    ro += rd * distMat.x;
-                }
-                
-                MarchResult ret;
-                ret.pos = ro;
-                ret.dist = distMat.x < EPSILON ? totalDist : -1.;
-                ret.mat = distMat.y;
-                ret.ao = 1. - float(i)/100.;
-                return ret;
+                float2 e = float2(0.001, 0);
+                return normalize(float3(
+                    map(p + e.xyy).x - map(p - e.xyy).x,
+                    map(p + e.yxy).x - map(p - e.yxy).x,
+                    map(p + e.yyx).x - map(p - e.yyx).x));
             }
 
             float4 frag( v2f i ) : SV_Target
@@ -107,19 +82,22 @@
                 float3 ii = c + i.uv.x * r + i.uv.y * u;
                 float3 rd = normalize(ii - ro);
 
-                MarchResult m = march(ro, rd);
-
-                float3 LIGHT = float3(255., 165., 0.) / 255.;
-                
-                float vis = 0.;
-                if (m.dist >= 0.) {
-                    vis = exp(-.05 * m.dist) * m.ao;
-                    if( m.mat > 0. ) LIGHT = 1. - LIGHT;
+                float totalDist = 0.0;
+                float2 distMat;
+                for (int i = 0; i < 100; ++i) {
+                    distMat = map(ro);
+                    if (distMat.x < .001 || totalDist > 200.) break;        
+                    totalDist += distMat.x;
+                    ro += rd * distMat.x;
                 }
-                
-                float3 DARK = lerp(float3(97., 8., 52.) / 255., float3(0,0,0), .2);
-                
-                return float4(lerp(DARK, LIGHT, vis), 0);
+
+                if( distMat.x < .001 && distMat.y >= 0. )
+                {
+                    float3 norm = getNorm( ro );
+                    return float4( .5 + .5*norm, 1 );
+                }
+
+                return float4( 0,0,0,0 );
             }
 
         ENDCG
