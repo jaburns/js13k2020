@@ -129,8 +129,8 @@ const convertHLSLtoGLSL = hlsl => hlsl
 
 const insertWorldSDFCode = shaderCode =>
 {
-    const sdfDefs = convertHLSLtoGLSL( fs.readFileSync( 'unity/Assets/MapEditor/Shaders/SDFDefs.cginc', 'utf8' ));
-    const mapDefs = fs.readFileSync( 'unity/Assets/MapEditor/Shaders/MapDefs.glsl.txt', 'utf8' );
+    const sdfDefs = convertHLSLtoGLSL( fs.readFileSync( 'src/sdfDefs.hlsl', 'utf8' ));
+    const mapDefs = fs.readFileSync( 'src/tracks.glsl', 'utf8' );
 
     return shaderCode.replace( '#pragma INCLUDE_WORLD_SDF', sdfDefs + '\n' + mapDefs + '\n' );
 };

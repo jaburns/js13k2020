@@ -56,8 +56,8 @@
                 return x % y;
             }
 
-            #include "SDFDefs.cginc"
-            #include "MapDefs.cginc"
+            #include "trackData.cginc"
+            //asdf
 
             float2 map( float3 p )
             {

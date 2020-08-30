@@ -68,9 +68,6 @@ float2 sdObj1( float3 p, float3 s, float twist )
     );
 }
 
-
-
-
 float sdBox2D( float2 p, float2 b )
 {
     float2 d = abs(p)-b;
