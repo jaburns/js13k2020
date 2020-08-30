@@ -1,4 +1,3 @@
-uniform vec2 u_resolution;
 uniform sampler2D u_state;
 uniform sampler2D u_prevState;
 uniform float u_time;

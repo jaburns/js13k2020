@@ -222,7 +222,6 @@ let frame = () =>
         g.uniform1i( g.getUniformLocation( _mainShader, 'u_state' ), 0 );
         g.uniform1i( g.getUniformLocation( _mainShader, 'u_prevState' ), 1 );
         g.uniform1f( g.getUniformLocation( _mainShader, 'u_lerpTime' ), _tickAccTime / s_millisPerTick );
-        g.uniform2f( g.getUniformLocation( _mainShader, 'u_resolution' ), s_renderWidth, s_renderHeight );
 
         fullScreenDraw( _mainShader );
     }
