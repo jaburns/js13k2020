@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+curl -X POST \
+  --form bundle=@out.zip \
+  --form category=desktop \
+  https://iw8sii1h9b.execute-api.eu-west-1.amazonaws.com/stage/analyze-bundle \
+  | jq

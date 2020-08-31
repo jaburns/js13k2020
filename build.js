@@ -202,11 +202,11 @@ const main = () =>
     if( !DEBUG ) x = hashWebglIdentifiers( x, true );
     x = wrapWithHTML( x );
     x = applyStateMap( x );
-    fs.writeFileSync( 'build/out.html', x );
+    fs.writeFileSync( 'build/index.html', x );
 
     if( !DEBUG )
     {
-        run( advzipPath + ' --shrink-insane -i 10 -a out.zip build/out.html' );
+        run( advzipPath + ' --shrink-insane -i 10 -a out.zip build/index.html' );
 
         const zipStat = fs.statSync('out.zip');
         const percent = Math.floor((zipStat.size / 13312) * 100);
