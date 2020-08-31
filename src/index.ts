@@ -34,6 +34,7 @@ const enum Mode
 }
 
 type Framebuffer = [WebGLFramebuffer,WebGLTexture];
+type Track = [WebGLProgram,WebGLProgram];
 
 // =================================================================================================
 
@@ -45,8 +46,8 @@ let _startTime: number;
 
 let _fullScreenTriVertBuffer: WebGLBuffer;
 
-let _mainShader: WebGLProgram;
-let _stateShader: WebGLProgram;
+let _trackShaders: Track[];
+let _trackIndex: number = 0;
 let _post0Shader: WebGLProgram;
 let _post1Shader: WebGLProgram;
 let _canvasTexture: WebGLTexture;
@@ -60,7 +61,7 @@ let _mode: Mode = Mode.Menu;
 
 // =================================================================================================
 
-let buildShader = ( vert: string, frag: string, main?: string ): WebGLProgram =>
+let buildShader = ( vert: string, frag: string, main: string, track?: string ): WebGLProgram =>
 {
     let vs = g.createShader( gl_VERTEX_SHADER )!;
     let fs = g.createShader( gl_FRAGMENT_SHADER )!;
@@ -76,7 +77,7 @@ let buildShader = ( vert: string, frag: string, main?: string ): WebGLProgram =>
             console.error( 'Vertex shader error', log, vert );
     }
 
-    g.shaderSource( fs, 'precision highp float;'+frag.replace(main||'m0','main').replace('t01','txx') );
+    g.shaderSource( fs, 'precision highp float;'+frag.replace(main,'main').replace('t'+track!,'txx') );
     g.compileShader( fs );
 
     if( DEBUG )
@@ -175,7 +176,7 @@ let frame = () =>
 
         // ----- Fixed update tick ------------------------------
 
-            g.useProgram( _stateShader );
+            g.useProgram( _trackShaders[_trackIndex][1] );
             g.bindFramebuffer( gl_FRAMEBUFFER, _stateFramebuffers[1-_curStateBufferIndex][0] );
             g.viewport( 0, 0, s_totalStateSize, 1 );
 
@@ -184,12 +185,12 @@ let frame = () =>
 
             _curStateBufferIndex = 1 - _curStateBufferIndex;
 
-            g.uniform4f( g.getUniformLocation( _stateShader, 'u_inputs' ), ~~_inputs[KeyCode.Up], ~~_inputs[KeyCode.Down], ~~_inputs[KeyCode.Left], ~~_inputs[KeyCode.Right] );
-            g.uniform1i( g.getUniformLocation( _stateShader, 'u_modeState' ), 1 );
-            g.uniform1i( g.getUniformLocation( _stateShader, 'u_modeTitle' ), ~~(_mode == Mode.Menu) );
-            g.uniform1i( g.getUniformLocation( _stateShader, 'u_state' ), 0 );
+            g.uniform4f( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_inputs' ), ~~_inputs[KeyCode.Up], ~~_inputs[KeyCode.Down], ~~_inputs[KeyCode.Left], ~~_inputs[KeyCode.Right] );
+            g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_modeState' ), 1 );
+            g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_modeTitle' ), ~~(_mode == Mode.Menu) );
+            g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_state' ), 0 );
 
-            fullScreenDraw( _stateShader );
+            fullScreenDraw( _trackShaders[_trackIndex][1] );
         }
 
         // ----- Frame update ------------------------------
@@ -199,6 +200,7 @@ let frame = () =>
             if( newTime > _startTime + 8 ) resetState();
             if( _inputs[ KeyCode.Space ]) {
                 _mode = Mode.Race;
+                _trackIndex = 1;
                 c.clearRect(0, 0, s_renderWidth, s_renderHeight);
                 updateCanvasTexture();
                 setSynthMenuMode(0);
@@ -206,7 +208,7 @@ let frame = () =>
             }
         }
 
-        g.useProgram( _mainShader );
+        g.useProgram( _trackShaders[_trackIndex][0] );
 
         g.bindFramebuffer( gl_FRAMEBUFFER, _draw0Framebuffer[0] );
         g.viewport( 0, 0, s_renderWidth, s_renderHeight );
@@ -216,14 +218,14 @@ let frame = () =>
         g.activeTexture( gl_TEXTURE1 );
         g.bindTexture( gl_TEXTURE_2D, _stateFramebuffers[1-_curStateBufferIndex][1] );
 
-        g.uniform1i( g.getUniformLocation( _mainShader, 'u_modeState' ), 0 );
-        g.uniform1i( g.getUniformLocation( _mainShader, 'u_modeTitle' ), ~~(_mode == Mode.Menu) );
-        g.uniform1f( g.getUniformLocation( _mainShader, 'u_time' ), newTime - _startTime );
-        g.uniform1i( g.getUniformLocation( _mainShader, 'u_state' ), 0 );
-        g.uniform1i( g.getUniformLocation( _mainShader, 'u_prevState' ), 1 );
-        g.uniform1f( g.getUniformLocation( _mainShader, 'u_lerpTime' ), _tickAccTime / s_millisPerTick );
+        g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_modeState' ), 0 );
+        g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_modeTitle' ), ~~(_mode == Mode.Menu) );
+        g.uniform1f( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_time' ), newTime - _startTime );
+        g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_state' ), 0 );
+        g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_prevState' ), 1 );
+        g.uniform1f( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_lerpTime' ), _tickAccTime / s_millisPerTick );
 
-        fullScreenDraw( _mainShader );
+        fullScreenDraw( _trackShaders[_trackIndex][0] );
     }
 
     // ----- Post-processing update ------------------------------
@@ -238,7 +240,7 @@ let frame = () =>
     g.activeTexture( gl_TEXTURE1 );
     g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
 
-    g.uniform2f( g.getUniformLocation( _post0Shader, 'u_time' ), _veryStartTime, newTime );
+    g.uniform3f( g.getUniformLocation( _post0Shader, 'u_time' ), _veryStartTime, newTime, _startTime );
     g.uniform1i( g.getUniformLocation( _post0Shader, 'u_tex' ), 0 );
     g.uniform1i( g.getUniformLocation( _post0Shader, 'u_canvas' ), 1 );
 
@@ -252,7 +254,7 @@ let frame = () =>
     g.activeTexture( gl_TEXTURE0 );
     g.bindTexture( gl_TEXTURE_2D, _draw1Framebuffer[1] );
 
-    g.uniform2f( g.getUniformLocation( _post1Shader, 'u_time' ), _veryStartTime, newTime );
+    g.uniform3f( g.getUniformLocation( _post1Shader, 'u_time' ), _veryStartTime, newTime, _startTime );
     g.uniform1i( g.getUniformLocation( _post1Shader, 'u_tex' ), 0 );
 
     fullScreenDraw( _post1Shader );
@@ -270,8 +272,10 @@ g.getExtension('OES_texture_float');
 g.getExtension('OES_texture_float_linear');
 //g.getExtension('WEBGL_color_buffer_float'); // Needed only to suppress warning in firefox.
 
-_mainShader = buildShader( main_vert, main_frag );
-_stateShader = buildShader( main_vert, main_frag, 'm1' );
+_trackShaders = ['00','01'].map( x => ([
+    buildShader( main_vert, main_frag, 'm0', x ),
+    buildShader( main_vert, main_frag, 'm1', x )
+]));
 _post0Shader = buildShader( main_vert, post_frag, 'm0' );
 _post1Shader = buildShader( main_vert, post_frag, 'm1' );
 

@@ -1,6 +1,6 @@
 uniform sampler2D u_tex;
 uniform sampler2D u_canvas;
-uniform vec2 u_time;
+uniform vec3 u_time;
 
 float sdBox( vec2 p, vec2 b )
 {
@@ -34,6 +34,12 @@ void m0()
 
     vec2 uvDelta = 1. / vec2(s_renderWidth., s_renderHeight.);
     vec2 uv = gl_FragCoord.xy * uvDelta;
+    float t = u_time.y - u_time.x - .1;
+    float t1 = 4.*(u_time.y - u_time.z);
+    t1*=t1;
+
+    if( t > 1. && t1 < 1. )
+        uv.x += (1.-t1)*.3*sin(15.*(uv.y+t1));
 
 // =================================================================================================
 //  Render the game from the g buffer
@@ -96,6 +102,7 @@ void m0()
 //  CRT power-on effect
 
     float t = u_time.y - u_time.x - .1;
+    float t1 = 4.*(u_time.y - u_time.z);
     if( t < 1. )
     {
         vec4 c = outColor;
@@ -117,6 +124,11 @@ void m0()
             if( sdBox( uv2, vec2(10., t)) < 0. )
                 outColor = mix(vec4(1), c, t);
         }
+    }
+    else if( t1 < 1. )
+    {
+        outColor = mix( length(outColor)*vec4(0,1,0,1), outColor, t1 );
+        outColor += (1.-t1)*vec4(.5);
     }
 
     gl_FragColor = outColor;
