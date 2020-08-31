@@ -19,11 +19,6 @@ const float i_PI = 3.14159;
 const float i_PRECISION = 1.;
 const int i_ITERATIONS = 150;
 
-vec2 mul( mat2 m, vec2 v )
-{
-    return m * v; // TODO move this notation conversion in to the build process
-}
-
 #pragma INCLUDE_WORLD_SDF
 
 mat3 transpose( mat3 m )
@@ -282,7 +277,6 @@ void m0()
             res = min( res, k*h.x/t );
             t += h.x;
         }
-        //if( res < .1 ) 
     }
 
     gl_FragColor = vec4( normal, material );

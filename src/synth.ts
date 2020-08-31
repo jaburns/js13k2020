@@ -115,19 +115,19 @@ let addCrtBuzz = ( y: Float32Array, noise: Float32Array ) =>
         let t = (_sampleOffset + i) / s_audioSampleRate - .1;
         if( t < 0 ) {
             y[i] = 0;
-            continue;
         }
+        else
+        {
+            let t1 = 2*Math.PI*60*t;
+            let t2 = (t1 % (2*Math.PI)) / (2*Math.PI);
+            let t3 = t2 + .01*(1 - (2*t2-1) * (2*t2-1));
+            y[i] += .5 * taylorSquareWave( t3, 1, 5 ) * Math.exp( -3 * t );
 
-        let t1 = 2.*Math.PI*60*t;
-        let t2 = (t1 % (2*Math.PI)) / (2*Math.PI);
-        let a = 1 - (2*t2-1) * (2*t2-1);
-        let t3 = t2 + .01*a;
-        y[i] += .5 * taylorSquareWave( t3, 1, 5 ) * Math.exp( -3 * t );
-
-        if( t < .25 )
-            y[i] += 2*noise[i] * Math.exp( -30 * 4*t );
-        else if( t < .5 )
-            y[i] += 2*noise[i] * Math.exp( -30 * 8*(t-.25) );
+            if( t < .25 )
+                y[i] += 2*noise[i] * Math.exp( -30 * 4*t );
+            else if( t < .5 )
+                y[i] += 2*noise[i] * Math.exp( -30 * 8*(t-.25) );
+        }
     }
 };
 

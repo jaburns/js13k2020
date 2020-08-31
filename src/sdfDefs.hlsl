@@ -58,7 +58,7 @@ float2 sdObj1( float3 p, float3 s, float twist )
 {
     p.z -= s.z;
     if( abs(twist) > 1. )
-        p.xy = mul(rot( 1./twist*(p.z+s.z) ), p.xy);
+        p.xy = mul(rot( 1./twist*(p.z+s.z) ), p.xy);  //GLSL// p.xy *= rot( 1./twist*(p.z+s.z) );
 
     float3 rep = floor(p / 4. + .01);
 
@@ -76,7 +76,7 @@ float sdBox2D( float2 p, float2 b )
 
 float2 primitive( float2 p, float sx, float bank, float pz )
 {
-    p = mul(rot(bank) , p);
+    p = mul(rot(bank) , p);  //GLSL//  p *= rot(bank);
 
     float3 rep = floor( float3(p.xy, pz) / 4. + .01);
 

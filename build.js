@@ -116,16 +116,32 @@ const convertStateAccessNotation = shaderCode =>
     return shaderCode;
 };
 
-const convertHLSLtoGLSL = hlsl => hlsl
-    .replace(/float3x3/g, 'mat3')
-    .replace(/float2x2/g, 'mat2')
-    .replace(/float2/g, 'vec2')
-    .replace(/float3/g, 'vec3')
-    .replace(/float4/g, 'vec4')
-    .replace(/lerp/g, 'mix')
-    .replace(/frac/g, 'fract')
-    .replace(/atan2/g, 'atan')
-    .replace(/transpose_hlsl_only/g, '');
+const convertHLSLtoGLSL = hlsl =>
+{
+    const glslOverride = '//GLSL//';
+
+    let lines = hlsl
+        .replace(/float3x3/g, 'mat3')
+        .replace(/float2x2/g, 'mat2')
+        .replace(/float2/g, 'vec2')
+        .replace(/float3/g, 'vec3')
+        .replace(/float4/g, 'vec4')
+        .replace(/lerp/g, 'mix')
+        .replace(/frac/g, 'fract')
+        .replace(/atan2/g, 'atan')
+        .replace(/transpose_hlsl_only/g, '')
+        .split('\n');
+
+    lines = lines.map( x =>
+    {
+        const idx = x.indexOf(glslOverride);
+        return idx >= 0
+            ? x.substr( idx + glslOverride.length )
+            : x;
+    });
+
+    return lines.join('\n');
+}
 
 const insertWorldSDFCode = shaderCode =>
 {
