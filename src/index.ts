@@ -115,15 +115,15 @@ let resetState = () =>
             0, 0, 0, 0,
 
             s_wheelBaseWidth, 1, 0, 0,
-            s_wheelBaseWidth, 1, z,0,
+            s_wheelBaseWidth, 1, z, 0,
             0, 0, 0, 0,
 
-            s_wheelBaseWidth, 1, s_wheelBaseLength,0,
-            s_wheelBaseWidth, 1, s_wheelBaseLength+z,0,
-            0, 0, 0,0,
+            s_wheelBaseWidth, 1, s_wheelBaseLength,   0,
+            s_wheelBaseWidth, 1, s_wheelBaseLength+z, 0,
+            0, 0, 0, 0,
 
-            0, 1, s_wheelBaseLength,0,
-            0, 1, s_wheelBaseLength+z,0,
+            0, 1, s_wheelBaseLength,   0,
+            0, 1, s_wheelBaseLength+z, 0,
             0, 0, 0, 0,
         ));
 

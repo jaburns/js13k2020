@@ -169,6 +169,13 @@ let buffAdd = ( x: Float32Array, x1: Float32Array | 0, y: Float32Array ) =>
         y[i] = x[i] + (x1?x1[i]:0);
 };
 
+const enum SFX
+{
+    Boot = 0,
+    Reset = 1,
+    Collision = 2,
+}
+
 let drums = new Float32Array( s_audioBufferSize );
 let crtClickIn = new Float32Array( s_audioBufferSize );
 let crtClickOut = new Float32Array( s_audioBufferSize );

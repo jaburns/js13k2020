@@ -30,21 +30,62 @@ mat3 transpose( mat3 m )
     );
 }
 
-float sdTorus( vec3 p, vec2 t )
+
+
+
+float sdCappedCylinder1( vec3 p, float h, float r )
 {
-    vec2 q = vec2(length(p.zy)-t.x,p.x);
-    return length(q)-t.y;
+    vec2 d = abs(vec2(length(p.yz),p.x)) - vec2(h,r);
+    return min(max(d.x,d.y),0.0) + length(max(d,0.0)) - .1;
+}
+float sdCapsule1( vec3 p, vec3 a, vec3 b, float r )
+{
+    vec3 pa = p - a, ba = b - a;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+    return length( pa - ba*h ) - r;
+}
+float sdUnevenCapsule( vec2 p, float r1, float r2, float h )
+{
+    p.x = abs(p.x);
+    float b = (r1-r2)/h;
+    float a = sqrt(1.0-b*b);
+    float k = dot(p,vec2(-b,a));
+    if( k < 0.0 ) return length(p) - r1;
+    if( k > a*h ) return length(p-vec2(0.0,h)) - r2;
+    return dot(p, vec2(a,b) ) - r1;
+}
+float sdUnevenCapsule3d( in vec3 p, float r1, float r2, float l, float h )
+{
+    float d = sdUnevenCapsule(p.xz, r1, r2, l);
+    vec2 w = vec2( d, abs(p.y) - h );
+    return min(max(w.x,w.y),0.0) + length(max(w,0.0));
+}
+float sdEllipsoid( vec3 p, vec3 r )
+{
+    float k0 = length(p/r);
+    float k1 = length(p/(r*r));
+    return k0*(k0-1.0)/k1;
+}
+vec2 sdWheel( vec3 p )
+{
+    float d = sdCappedCylinder1(p,.3,.1);
+    return vec2( d, 4 );
+}
+vec2 sdBody( vec3 p )
+{
+    p.z *= -1.;
+    vec2 d = vec2(
+        p.z < 1.2 ? sdEllipsoid( p-vec3(0,0,-.05), vec3(.3, .25, 1.5)) : 1000.,
+        4.5
+    );
+    d = min2(d, vec2(sdEllipsoid(p-vec3(0,0,.4), vec3(.3, .4, .6)), 5 ));
+    
+    d = min2(d, vec2(sdUnevenCapsule3d( p-vec3(0,0,-.25), .35, .55, 1., .15 ), 5.5 ));
+    d = min2(d, vec2(sdBox(p-vec3(0,0,1.), vec3(.45,.15,.25)), 5.5 ));
+
+    return d;
 }
 
-float sdWheel( vec3 p, vec3 pos, mat3 rot )
-{
-    return sdTorus( rot*(p - pos), vec2( .3, .2));
-}
-
-float sdBody( vec3 p )
-{
-    return sdBox( g_wheelRot*(p - g_carCenterPt), vec3(.4, .2, 1.));
-}
 
 vec2 map( vec3 p )
 {
@@ -56,11 +97,14 @@ vec2 map( vec3 p )
         return world;
     }
 
-    world = min2( world, vec2(sdBody(p),4));
-    world = min2( world, vec2(sdWheel( p , ST.wheelPos[0], g_wheelRot ),4));
-    world = min2( world, vec2(sdWheel( p , ST.wheelPos[1], g_wheelRot ),4));
-    world = min2( world, vec2(sdWheel( p , ST.wheelPos[2], g_steerRot ),4));
-    world = min2( world, vec2(sdWheel( p , ST.wheelPos[3], g_steerRot ),4));
+    world = min2( world, sdBody(g_wheelRot*(p - g_carCenterPt)));
+    world = min2( world, sdWheel( g_wheelRot*(p - ST.wheelPos[0])));
+    world = min2( world, sdWheel( g_wheelRot*(p - ST.wheelPos[1])));
+    world = min2( world, sdWheel( g_steerRot*(p - ST.wheelPos[2])));
+    world = min2( world, sdWheel( g_steerRot*(p - ST.wheelPos[3])));
+    
+    world = min2(world, vec2(  sdCapsule1( p, ST.wheelPos[2], ST.wheelPos[3], .08 ), 6 ));
+    world = min2(world, vec2(  sdCapsule1( p, ST.wheelPos[0], ST.wheelPos[1], .08 ), 6 ));
 
     return world;
 }
@@ -138,9 +182,9 @@ void m1()
         float dist = map( ST.wheelPos[i] ).x;
         vec3 normal = getNorm( ST.wheelPos[i] );
 
-        if( dist < .5 )
+        if( dist < s_wheelRadius )
         {
-            ST.wheelPos[i] += (.5-dist)*normal;
+            ST.wheelPos[i] += (s_wheelRadius-dist)*normal;
 
             vec3 vel = ST.wheelPos[i] - ST.wheelLastPos[i];
             vel = lossyReflect( vel, normal, i < 2 ? g_carForwardDir : g_steerForwardDir, .2, 1., .1 );
@@ -156,10 +200,10 @@ void m1()
     }
 
     distConstraint( ST.wheelPos[0], ST.wheelPos[1], s_wheelBaseWidth );
-    distConstraint( ST.wheelPos[0], ST.wheelPos[2], sqrt(s_wheelBaseWidth*s_wheelBaseWidth + s_wheelBaseLength*s_wheelBaseLength) );
-    distConstraint( ST.wheelPos[0], ST.wheelPos[3], s_wheelBaseLength );
-    distConstraint( ST.wheelPos[1], ST.wheelPos[2], s_wheelBaseLength );
-    distConstraint( ST.wheelPos[1], ST.wheelPos[3], sqrt(s_wheelBaseWidth*s_wheelBaseWidth + s_wheelBaseLength*s_wheelBaseLength) );
+    distConstraint( ST.wheelPos[0], ST.wheelPos[2], sqrt(s_wheelBaseWidth*s_wheelBaseWidth + s_wheelBaseLength.*s_wheelBaseLength.) );
+    distConstraint( ST.wheelPos[0], ST.wheelPos[3], s_wheelBaseLength. );
+    distConstraint( ST.wheelPos[1], ST.wheelPos[2], s_wheelBaseLength. );
+    distConstraint( ST.wheelPos[1], ST.wheelPos[3], sqrt(s_wheelBaseWidth*s_wheelBaseWidth + s_wheelBaseLength.*s_wheelBaseLength.) );
     distConstraint( ST.wheelPos[2], ST.wheelPos[3], s_wheelBaseWidth );
 
 // ------------------------

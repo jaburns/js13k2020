@@ -2,8 +2,9 @@
     "constants": {
         "s_totalStateSize": "¯\\_(ツ)_/¯",
 
-        "s_wheelBaseWidth": 1.3,
-        "s_wheelBaseLength": 1.8,
+        "s_wheelBaseWidth": 1.6,
+        "s_wheelBaseLength": 2,
+        "s_wheelRadius": 0.4,
 
         "s_ticksPerSecond": 30,
         "s_sqrTicksPerSecond": 900,
