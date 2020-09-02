@@ -49,6 +49,8 @@ void m0()
     vec4 sample2 = texture2D( u_tex, uv + uvDelta * vec2(1, -0) );
     vec4 sample3 = texture2D( u_tex, uv + uvDelta * vec2(1, 1) );
 
+    //gl_FragColor = sample0.w/7.;return;
+
     float material0 = abs( sample0.w );
     float material1 = abs( sample1.w );
     float material2 = abs( sample2.w );

@@ -19,21 +19,25 @@
         "s_audioSampleRate": 22050,
         "s_tempo": 0.45,
 
-        "s_wheelStructSize": 3
+        "s_wheelStructSize": 4
     },
     "stateFields": [
         "s_steeringState",
         "s_wheelPos0",
         "s_wheelLastPos0",
         "s_wheelForceCache0",
+        "s_wheelRotation0",
         "s_wheelPos1",
         "s_wheelLastPos1",
         "s_wheelForceCache1",
+        "s_wheelRotation1",
         "s_wheelPos2",
         "s_wheelLastPos2",
         "s_wheelForceCache2",
+        "s_wheelRotation2",
         "s_wheelPos3",
         "s_wheelLastPos3",
-        "s_wheelForceCache3"
+        "s_wheelForceCache3",
+        "s_wheelRotation3"
     ]
 }

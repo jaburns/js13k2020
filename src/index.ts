@@ -98,7 +98,7 @@ let buildShader = ( vert: string, frag: string, main: string, track?: string ): 
 
 let resetState = () =>
 {
-    let z = _mode == Mode.Menu ? -.65 : 0;
+    let z = _mode == Mode.Menu ? -1. : 0;
 
     _startTime = _previousTime;
 
@@ -113,17 +113,21 @@ let resetState = () =>
             0, 1, 0, 0,
             0, 1, z, 0,
             0, 0, 0, 0,
+            0, 0, 0, 0,
 
             s_wheelBaseWidth, 1, 0, 0,
             s_wheelBaseWidth, 1, z, 0,
+            0, 0, 0, 0,
             0, 0, 0, 0,
 
             s_wheelBaseWidth, 1, s_wheelBaseLength,   0,
             s_wheelBaseWidth, 1, s_wheelBaseLength+z, 0,
             0, 0, 0, 0,
+            0, 0, 0, 0,
 
             0, 1, s_wheelBaseLength,   0,
             0, 1, s_wheelBaseLength+z, 0,
+            0, 0, 0, 0,
             0, 0, 0, 0,
         ));
 
