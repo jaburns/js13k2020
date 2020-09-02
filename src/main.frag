@@ -161,7 +161,7 @@ void initGlobals()
     g_wheelRot = transpose( wheelRotFwd );
 
     g_steerForwardDir = vec3( 0, 0, 1 );
-    g_steerForwardDir.xz *= rot( ST.steeringState.x );
+    g_steerForwardDir.xz *= rot( ST.carState.x );
     g_steerForwardDir = wheelRotFwd * g_steerForwardDir;
 
     g_steerRot = transpose( mat3( cross( g_carDownDir, g_steerForwardDir ), g_carDownDir, g_steerForwardDir ));
@@ -172,15 +172,17 @@ void m1()
     for( int i = 0; i < s_totalStateSize; ++i )
         g_state[i] = texture2D(u_state, vec2( (float(i)+.5)/s_totalStateSize.)).xyz;
 
-    ST.steeringState.x = u_modeTitle ? 0. : u_inputs.z > 0. ? i_PI/32. : u_inputs.w > 0. ? -i_PI / 32. : 0.;
-
     initGlobals();
 
 // ----- State update -----
 
+    vec3 carVel = g_carCenterPt - g_carLastCenterPt;
+    ST.carState.x = u_modeTitle ? 0. : u_inputs.z > 0. ? i_PI/32. : u_inputs.w > 0. ? -i_PI / 32. : 0.;
+    ST.carState.y = length( carVel );
+
     for( int i = 0; i < 4; ++i )
     {
-        vec3 posStep = ST.wheelPos[i] - ST.wheelLastPos[i]  + (ST.wheelForceCache[i] - vec3(0,20.,0)) / s_sqrTicksPerSecond.;
+        vec3 posStep = ST.wheelPos[i] - ST.wheelLastPos[i]  + (ST.wheelForceCache[i] - vec3(0,s_gravity,0)) / s_sqrTicksPerSecond.;
         ST.wheelLastPos[i] = ST.wheelPos[i];
         ST.wheelPos[i] += posStep;
         ST.wheelForceCache[i] = vec3( 0 );
@@ -203,12 +205,11 @@ void m1()
                 ST.wheelForceCache[i] = 10. * groundedFwd * ( u_modeTitle || u_inputs.x > 0. ? 1. : -.5 );
             }
 
-            ST.wheelRotation[i].y = length( g_carCenterPt - g_carLastCenterPt ) * s_wheelRadius * sign(dot(g_carCenterPt - g_carLastCenterPt, g_carForwardDir));
+            ST.wheelRotation[i].y = ST.carState.y * s_wheelRadius * sign(dot(carVel, g_carForwardDir));
         }
 
         ST.wheelRotation[i].x += ST.wheelRotation[i].y;
     }
-
 
     distConstraint( ST.wheelPos[0], ST.wheelPos[1], s_wheelBaseWidth );
     distConstraint( ST.wheelPos[0], ST.wheelPos[2], sqrt(s_wheelBaseWidth*s_wheelBaseWidth + s_wheelBaseLength.*s_wheelBaseLength.) );

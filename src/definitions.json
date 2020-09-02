@@ -1,10 +1,12 @@
 {
     "constants": {
         "s_totalStateSize": "¯\\_(ツ)_/¯",
+        "s_totalStateSizeX4": "¯\\_(ツ)_/¯",
 
         "s_wheelBaseWidth": 1.6,
         "s_wheelBaseLength": 2,
         "s_wheelRadius": 0.4,
+        "s_gravity": 20,
 
         "s_ticksPerSecond": 30,
         "s_sqrTicksPerSecond": 900,
@@ -21,8 +23,12 @@
 
         "s_wheelStructSize": 4
     },
+    "/*": [
+        "s_carState.x => current steering angle",
+        "s_carState.y => current car speed "
+    ],
     "stateFields": [
-        "s_steeringState",
+        "s_carState",
         "s_wheelPos0",
         "s_wheelLastPos0",
         "s_wheelForceCache0",

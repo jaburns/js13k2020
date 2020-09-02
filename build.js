@@ -200,6 +200,7 @@ const wrapWithHTML = js =>
 const main = () =>
 {
     definitionsJson.constants.s_totalStateSize = definitionsJson.stateFields.length;
+    definitionsJson.constants.s_totalStateSizeX4 = 4 * definitionsJson.stateFields.length;
 
     sh.cd( __dirname );
     sh.mkdir( '-p', 'build' );

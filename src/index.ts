@@ -1,7 +1,7 @@
 import { main_vert, main_frag, post_frag } from "./shaders.gen";
 import { DEBUG } from "./debug.gen";
 import { gl_VERTEX_SHADER, gl_FRAGMENT_SHADER, gl_ARRAY_BUFFER, gl_STATIC_DRAW, gl_FRAMEBUFFER, gl_TEXTURE_2D, gl_RGBA, gl_UNSIGNED_BYTE, gl_LINEAR, gl_CLAMP_TO_EDGE, gl_TEXTURE_WRAP_S, gl_TEXTURE_WRAP_T, gl_TEXTURE_MIN_FILTER, gl_COLOR_ATTACHMENT0, gl_NEAREST, gl_FLOAT, gl_TRIANGLES, gl_BYTE, gl_TEXTURE0, gl_TEXTURE_MAG_FILTER, gl_TEXTURE1, gl_RGB, gl_TEXTURE2 } from "./glConsts";
-import { startAudio, setSynthMenuMode } from "./synth";
+import { startAudio, setSynthMenuMode, setEngineSoundFromCarSpeed } from "./synth";
 
 // =================================================================================================
 
@@ -56,6 +56,7 @@ let _draw0Framebuffer: Framebuffer;
 let _draw1Framebuffer: Framebuffer;
 let _stateFramebuffers: Framebuffer[];
 let _curStateBufferIndex: number = 0;
+let _stateCPUbuffer: Float32Array = new Float32Array( 4 * s_totalStateSize );
 
 let _mode: Mode = Mode.Menu;
 
@@ -195,6 +196,9 @@ let frame = () =>
             g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_state' ), 0 );
 
             fullScreenDraw( _trackShaders[_trackIndex][1] );
+
+            g.readPixels( 0, 0, s_totalStateSize, 1, gl_RGBA, gl_FLOAT, _stateCPUbuffer );
+            setEngineSoundFromCarSpeed( _stateCPUbuffer[1] );
         }
 
         // ----- Frame update ------------------------------

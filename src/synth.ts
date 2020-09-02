@@ -6,6 +6,8 @@ let _synthMenuMode: 1|0 = 1;
 let _menuModeT = 0;
 let _sampleOffset = 0;
 let _songPos: number;
+let _engineSoundT = 0;
+let _engineSpeed = 0;
 
 let AS = 466.16;
 let C = 523.25;
@@ -131,6 +133,10 @@ let addCrtBuzz = ( y: Float32Array, noise: Float32Array ) =>
     }
 };
 
+let genEngineSound = ( y: Float32Array ) =>
+{
+};
+
 let pad = ( time: number, tempo: number, f?: number ) =>
 {
     f = (Math.floor( time / tempo / 16/*note.length*/ ) % 4 === 3 ? bass1 : bass0)[ Math.floor( time / tempo ) % 16 ]
@@ -163,12 +169,6 @@ let addNote = ( noteFn: (secs: number, tempo: number, cfg0?: number, cfg1?: numb
     }
 };
 
-let buffAdd = ( x: Float32Array, x1: Float32Array | 0, y: Float32Array ) =>
-{
-    for (let i = 0; i < s_audioBufferSize; ++i)
-        y[i] = x[i] + (x1?x1[i]:0);
-};
-
 const enum SFX
 {
     Boot = 0,
@@ -183,9 +183,12 @@ let rawBass = new Float32Array( s_audioBufferSize );
 let outBass = new Float32Array( s_audioBufferSize );
 let fullMusicBuffer = new Float32Array( s_audioBufferSize );
 let menuMusicBuffer = new Float32Array( s_audioBufferSize );
+let engineIn = new Float32Array( s_audioBufferSize );
+let engineOut = new Float32Array( s_audioBufferSize );
 
 let bassLpf = biquadFilter();
 let menuLpf = biquadFilter();
+let engineLpf = biquadFilter();
 let clickFilter = biquadFilter();
 
 let audioTick = ( y: Float32Array ) =>
@@ -213,7 +216,15 @@ let audioTick = ( y: Float32Array ) =>
     if( _songPos % 256 >= 128 )
         addNote( lead, drums, .5*s_tempo );
 
-    buffAdd( drums, outBass, fullMusicBuffer );
+    // Engine sound
+    for (let i = 0; i < s_audioBufferSize; ++i)
+        engineIn[i] = _menuModeT * .2 * sqr( _engineSoundT += 0.02*_engineSpeed );
+    engineLpf( 300, engineIn, engineOut );
+
+    // Compose buffers
+    for (let i = 0; i < s_audioBufferSize; ++i)
+        fullMusicBuffer[i] = drums[i] + outBass[i] + .8*engineOut[i];
+
     menuLpf( 200, fullMusicBuffer, menuMusicBuffer );
 
     if( _sampleOffset < 100000 )
@@ -231,6 +242,8 @@ let audioTick = ( y: Float32Array ) =>
         y[i] = clamp11(.5*(_menuModeT*fullMusicBuffer[i] + (1-_menuModeT)*menuMusicBuffer[i]));
 };
 
+// TODO don't need a function to just set a var if we inline the synth module in to index
+export let setEngineSoundFromCarSpeed = (speed: number) => _engineSpeed = speed;
 export let setSynthMenuMode = (x: 1|0) => _synthMenuMode = x;
 
 export let startAudio = () =>
