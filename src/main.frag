@@ -8,12 +8,12 @@ uniform vec4 u_inputs;
 
 vec3 g_state[s_totalStateSize];
 vec3 g_carCenterPt;
+vec3 g_carLastCenterPt;
 vec3 g_carForwardDir;
 vec3 g_carDownDir;
 vec3 g_steerForwardDir;
 mat3 g_wheelRot;
 mat3 g_steerRot;
-bool g_getWheelMaterial;
 
 const float i_EPS = 0.01;
 const float i_PI = 3.14159;
@@ -67,19 +67,11 @@ float sdEllipsoid( vec3 p, vec3 r )
     float k1 = length(p/(r*r));
     return k0*(k0-1.0)/k1;
 }
-vec2 sdWheel( vec3 p )
+vec2 sdWheel( vec3 p, float theta )
 {
-    float material = 4.;
-
-    if( g_getWheelMaterial )
-    {
-        vec2 p1 = rot( u_time ) * p.yz;
-        float atn = abs(atan(p1.x/p1.y));
-        if( length(p.yz) < .3 )
-            material = 4.;
-        else
-            material = atn < .125*3.14159 || atn > .375*3.14159 ? 5. : 4.5;
-    }
+    vec2 p1 = rot( theta ) * p.yz;
+    float atn = abs(atan(p1.x/p1.y));
+    float material = length(p.yz) < .3 ? 4. : atn < .125*3.14159 || atn > .375*3.14159 ? 5. : 4.5;
 
     float d = sdCappedCylinder1(p,.3,.1);
     return vec2( d, material );
@@ -111,10 +103,10 @@ vec2 map( vec3 p )
     }
 
     world = min2( world, sdBody(g_wheelRot*(p - g_carCenterPt)));
-    world = min2( world, sdWheel( g_wheelRot*(p - ST.wheelPos[0])));
-    world = min2( world, sdWheel( g_wheelRot*(p - ST.wheelPos[1])));
-    world = min2( world, sdWheel( g_steerRot*(p - ST.wheelPos[2])));
-    world = min2( world, sdWheel( g_steerRot*(p - ST.wheelPos[3])));
+    world = min2( world, sdWheel( g_wheelRot*(p - ST.wheelPos[0]), ST.wheelRotation[0].x));
+    world = min2( world, sdWheel( g_wheelRot*(p - ST.wheelPos[1]), ST.wheelRotation[1].x));
+    world = min2( world, sdWheel( g_steerRot*(p - ST.wheelPos[2]), ST.wheelRotation[2].x));
+    world = min2( world, sdWheel( g_steerRot*(p - ST.wheelPos[3]), ST.wheelRotation[3].x));
     
     world = min2(world, vec2(  sdCapsule1( p, ST.wheelPos[2], ST.wheelPos[3], .08 ), 6 ));
     world = min2(world, vec2(  sdCapsule1( p, ST.wheelPos[0], ST.wheelPos[1], .08 ), 6 ));
@@ -163,6 +155,7 @@ void initGlobals()
 
     g_carForwardDir = normalize( ST.wheelPos[2] - ST.wheelPos[1] );
     g_carCenterPt = ( ST.wheelPos[0] + ST.wheelPos[1] + ST.wheelPos[2] + ST.wheelPos[3] ) / 4.;
+    g_carLastCenterPt = ( ST.wheelLastPos[0] + ST.wheelLastPos[1] + ST.wheelLastPos[2] + ST.wheelLastPos[3] ) / 4.;
 
     mat3 wheelRotFwd = mat3( cross( g_carDownDir, g_carForwardDir ), g_carDownDir, g_carForwardDir );
     g_wheelRot = transpose( wheelRotFwd );
@@ -172,8 +165,6 @@ void initGlobals()
     g_steerForwardDir = wheelRotFwd * g_steerForwardDir;
 
     g_steerRot = transpose( mat3( cross( g_carDownDir, g_steerForwardDir ), g_carDownDir, g_steerForwardDir ));
-
-    g_getWheelMaterial = 0==0;
 }
 
 void m1()
@@ -211,8 +202,13 @@ void m1()
                 vec3 groundedFwd = normalize( cross( xs, normal ));
                 ST.wheelForceCache[i] = 10. * groundedFwd * ( u_modeTitle || u_inputs.x > 0. ? 1. : -.5 );
             }
+
+            ST.wheelRotation[i].y = length( g_carCenterPt - g_carLastCenterPt ) * s_wheelRadius * sign(dot(g_carCenterPt - g_carLastCenterPt, g_carForwardDir));
         }
+
+        ST.wheelRotation[i].x += ST.wheelRotation[i].y;
     }
+
 
     distConstraint( ST.wheelPos[0], ST.wheelPos[1], s_wheelBaseWidth );
     distConstraint( ST.wheelPos[0], ST.wheelPos[2], sqrt(s_wheelBaseWidth*s_wheelBaseWidth + s_wheelBaseLength.*s_wheelBaseLength.) );
