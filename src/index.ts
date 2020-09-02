@@ -141,6 +141,19 @@ let resetState = () =>
 
 // =================================================================================================
 
+let drawHUD = () =>
+{
+    c.clearRect(0, 0, s_renderWidth, s_renderHeight);
+
+    c.fillStyle = '#0ff';
+    c.font = 'bold 24px monospace';
+    c.fillText( Math.floor(100*_stateCPUbuffer[1])+' kph', 180, 330 );
+
+    updateCanvasTexture();
+};
+
+// =================================================================================================
+
 let updateCanvasTexture = () =>
 {
     g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
@@ -199,6 +212,9 @@ let frame = () =>
 
             g.readPixels( 0, 0, s_totalStateSize, 1, gl_RGBA, gl_FLOAT, _stateCPUbuffer );
             setEngineSoundFromCarSpeed( _stateCPUbuffer[1] );
+
+            if( _mode != Mode.Menu )
+                drawHUD();
         }
 
         // ----- Frame update ------------------------------
@@ -209,8 +225,6 @@ let frame = () =>
             if( _inputs[ KeyCode.Space ]) {
                 _mode = Mode.Race;
                 _trackIndex = 1;
-                c.clearRect(0, 0, s_renderWidth, s_renderHeight);
-                updateCanvasTexture();
                 setSynthMenuMode(0);
                 resetState();
             }
