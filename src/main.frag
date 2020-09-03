@@ -176,9 +176,20 @@ void m1()
 
 // ----- State update -----
 
+    const float i_STEER_RATE = .03;
+
     vec3 carVel = g_carCenterPt - g_carLastCenterPt;
-    ST.carState.x = u_modeTitle ? 0. : u_inputs.z > 0. ? i_PI/32. : u_inputs.w > 0. ? -i_PI / 32. : 0.;
     ST.carState.y = length( carVel );
+    float maxSteer = mix( .15, .02, .5*clamp( ST.carState.y, 0., 2. ));
+
+    if( u_modeTitle )
+        ST.carState.x = 0.;
+    else if( u_inputs.z > 0. )
+        ST.carState.x += min( i_STEER_RATE, maxSteer - ST.carState.x );
+    else if( u_inputs.w > 0. )
+        ST.carState.x -= min( i_STEER_RATE, maxSteer + ST.carState.x );
+    else
+        ST.carState.x -= sign( ST.carState.x ) * min( abs( ST.carState.x ), i_STEER_RATE );
 
     for( int i = 0; i < 4; ++i )
     {
@@ -194,21 +205,25 @@ void m1()
         {
             ST.wheelPos[i] += (s_wheelRadius-dist)*normal;
 
+            float lateralFriction = .1;
+            if( u_inputs.y < 0. ) lateralFriction = i < 2 ? .8 : .6;
+
             vec3 vel = ST.wheelPos[i] - ST.wheelLastPos[i];
-            vel = lossyReflect( vel, normal, i < 2 ? g_carForwardDir : g_steerForwardDir, .2, 1., .1 );
+            vel = lossyReflect( vel, normal, i < 2 ? g_carForwardDir : g_steerForwardDir, .2, .995, lateralFriction );
             ST.wheelLastPos[i] = ST.wheelPos[i] - vel;
 
-            if( u_modeTitle && ST.wheelPos[i].z < -9999. || u_inputs.x > 0. || u_inputs.y > 0. )
+            if( !u_modeTitle && ( u_inputs.x > 0. || u_inputs.y > 0. ))
             {
                 vec3 xs = cross( normal, i < 2 ? g_carForwardDir : g_steerForwardDir );
                 vec3 groundedFwd = normalize( cross( xs, normal ));
-                ST.wheelForceCache[i] = 10. * groundedFwd * ( u_modeTitle || u_inputs.x > 0. ? 1. : -.5 );
+                ST.wheelForceCache[i] = 10. * groundedFwd * ( u_inputs.x > 0. ? 1. : -.5 );
             }
 
             ST.wheelRotation[i].y = ST.carState.y * s_wheelRadius * sign(dot(carVel, g_carForwardDir));
         }
 
-        ST.wheelRotation[i].x += ST.wheelRotation[i].y;
+        if(!( u_inputs.y < 0. && i < 2 ))
+            ST.wheelRotation[i].x += ST.wheelRotation[i].y;
     }
 
     distConstraint( ST.wheelPos[0], ST.wheelPos[1], s_wheelBaseWidth );
@@ -318,20 +333,16 @@ void m0()
     if( material > 1. )
     {
         rd = normalize( vec3( -.5, .3, 1 ));
-        float mint = .1, maxt = 30.;
-        float k = 20.;
-        float res = 1.0;
-        float t = mint;
-        for( int i = 0; i < i_ITERATIONS; ++i )
+        float t = .1;
+        for( int i = 0; i < 50; ++i )
         {
-            if( t >= maxt ) break;
-            vec2 h = map(ro + rd*t);
-            if( h.x < 0.001 ) {
+            if( t >= 30. ) break;
+            float d = map( ro + rd*t ).x;
+            if( d < 0.001 ) {
                 material *= -1.;
                 break;
             }
-            res = min( res, k*h.x/t );
-            t += h.x;
+            t += max( .1, d );
         }
     }
 

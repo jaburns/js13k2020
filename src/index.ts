@@ -25,6 +25,7 @@ const enum KeyCode
     Left = 37,
     Right = 39,
     Space = 32,
+    R = 82,
 };
 
 const enum Mode
@@ -145,9 +146,9 @@ let drawHUD = () =>
 {
     c.clearRect(0, 0, s_renderWidth, s_renderHeight);
 
-    c.fillStyle = '#0ff';
+    c.fillStyle = '#f00';
     c.font = 'bold 24px monospace';
-    c.fillText( Math.floor(100*_stateCPUbuffer[1])+' kph', 180, 330 );
+    c.fillText( Math.floor(100*_stateCPUbuffer[1])+' kph', 50, 350 );
 
     updateCanvasTexture();
 };
@@ -182,6 +183,7 @@ let frame = () =>
 
     let newTime = performance.now()/1000;
     let deltaTime = newTime - _previousTime;
+    let ticked = 0;
     _previousTime = newTime;
 
     if( _startTime )
@@ -190,6 +192,7 @@ let frame = () =>
 
         while( _tickAccTime >= s_millisPerTick )
         {
+            ticked = 1;
             _tickAccTime -= s_millisPerTick;
 
         // ----- Fixed update tick ------------------------------
@@ -203,13 +206,16 @@ let frame = () =>
 
             _curStateBufferIndex = 1 - _curStateBufferIndex;
 
-            g.uniform4f( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_inputs' ), ~~_inputs[KeyCode.Up], ~~_inputs[KeyCode.Down], ~~_inputs[KeyCode.Left], ~~_inputs[KeyCode.Right] );
+            g.uniform4f( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_inputs' ), ~~_inputs[KeyCode.Up], _inputs[KeyCode.Space] ? -1 : _inputs[KeyCode.Down] ? 1 : 0, ~~_inputs[KeyCode.Left], ~~_inputs[KeyCode.Right] );
             g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_modeState' ), 1 );
             g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_modeTitle' ), ~~(_mode == Mode.Menu) );
             g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_state' ), 0 );
 
             fullScreenDraw( _trackShaders[_trackIndex][1] );
+        }
 
+        if( ticked )
+        {
             g.readPixels( 0, 0, s_totalStateSize, 1, gl_RGBA, gl_FLOAT, _stateCPUbuffer );
             setEngineSoundFromCarSpeed( _stateCPUbuffer[1] );
 
@@ -221,8 +227,11 @@ let frame = () =>
 
         if( _mode == Mode.Menu )
         {
-            if( newTime > _startTime + 8 ) resetState();
-            if( _inputs[ KeyCode.Space ]) {
+            if( newTime > _startTime + 8 )
+                resetState();
+
+            if( _inputs[ KeyCode.Space ])
+            {
                 _mode = Mode.Race;
                 _trackIndex = 1;
                 setSynthMenuMode(0);
@@ -278,6 +287,7 @@ let frame = () =>
 
     g.uniform3f( g.getUniformLocation( _post1Shader, 'u_time' ), _veryStartTime, newTime, _startTime );
     g.uniform1i( g.getUniformLocation( _post1Shader, 'u_tex' ), 0 );
+    g.uniform1i( g.getUniformLocation( _post1Shader, 'u_modeTitle' ), ~~(_mode == Mode.Menu) );
 
     fullScreenDraw( _post1Shader );
 };
@@ -285,7 +295,7 @@ let frame = () =>
 // =================================================================================================
 
 C0.onclick = () => _startTime || ( _veryStartTime = _startTime = _previousTime, startAudio() );
-document.onkeydown = k => _inputs[k.keyCode] = 1;
+document.onkeydown = k => { _inputs[k.keyCode] = 1; k.keyCode == KeyCode.R && !k.repeat && resetState(); }
 document.onkeyup = k => delete _inputs[k.keyCode];
 
 // =================================================================================================

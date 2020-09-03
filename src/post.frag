@@ -1,6 +1,7 @@
 uniform sampler2D u_tex;
 uniform sampler2D u_canvas;
 uniform vec3 u_time;
+uniform bool u_modeTitle;
 
 float sdBox( vec2 p, vec2 b )
 {
@@ -93,7 +94,7 @@ void m0()
 // =================================================================================================
 //  Compose the canvas
 
-    float hide = uv.y > .1 && uv.y < .3 ? fract(u_time.y/.45) > .25?.7:0. : .7;
+    float hide = u_modeTitle && uv.y > .1 && uv.y < .3 ? fract(u_time.y/.45) > .25?.7:0. : .7;
     vec3 hudColor = hide * texture2D( u_canvas, vec2( uv.x + (uv.y > .3 ? .5-.27-.5*uv.y : 0. ), 1.-uv.y )).rgb;
 
 // =================================================================================================
