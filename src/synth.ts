@@ -4,10 +4,15 @@ declare const s_tempo: number;
 
 let _synthMenuMode: 1|0 = 1;
 let _menuModeT = 0;
-let _sampleOffset = 0;
+let _sampleOffset = -1;
 let _songPos: number;
 let _engineSoundT = 0;
 let _engineSpeed = 0;
+
+let _lastResetOffset = 0;
+let _lastClickOffset = 0;
+let _lastBonkOffset = 0;
+let _lastWinOffset = 0;
 
 let AS = 466.16;
 let C = 523.25;
@@ -24,6 +29,16 @@ let leadnote = [
     2*F,2*G,D,F,G,F,G,F, 0,0,0,0,0,0,0,0, 0,0,D,F,G,F,G,F, 2*AS,0,0,0,0,0,0,0, 0,0,D,F,G,F,G,F, 0,0,0,0,0,0,0,0, 0,0,D,F,G,F,G,F, G,F,2*AS,2*C,2*D,0,2*C,2*D,
     2*F,2*G,D,F,G,F,G,F, 0,0,D,F,G,F,G,F, G,F,2*AS,2*C,2*D,0,2*C,2*D, 2*F,2*G,D,F,G,F,G,F, 0,0,D,F,G,F,G,F, 0,0,D,F,G,F,G,F, 2*G,2*F,2*D,2*F,2*D,2*C,2*AS,2*C, 2*F,2*D,2*C,2*D,2*C,2*AS,G,2*AS,
 ];
+
+let drums = new Float32Array( s_audioBufferSize );
+let crtClickIn = new Float32Array( s_audioBufferSize );
+let crtClickOut = new Float32Array( s_audioBufferSize );
+let rawBass = new Float32Array( s_audioBufferSize );
+let outBass = new Float32Array( s_audioBufferSize );
+let fullMusicBuffer = new Float32Array( s_audioBufferSize );
+let menuMusicBuffer = new Float32Array( s_audioBufferSize );
+let engineIn = new Float32Array( s_audioBufferSize );
+let engineOut = new Float32Array( s_audioBufferSize );
 
 let biquadFilter = ( hpf?: 1|0 ) =>
 {
@@ -110,33 +125,6 @@ let taylorSquareWave = ( x: number, i: number, imax: number ): number =>
     return result;
 };
 
-let addCrtBuzz = ( y: Float32Array, noise: Float32Array ) =>
-{
-    for( let i = 0; i < s_audioBufferSize; ++i )
-    {
-        let t = (_sampleOffset + i) / s_audioSampleRate - .1;
-        if( t < 0 ) {
-            y[i] = 0;
-        }
-        else
-        {
-            let t1 = 2*Math.PI*60*t;
-            let t2 = (t1 % (2*Math.PI)) / (2*Math.PI);
-            let t3 = t2 + .01*(1 - (2*t2-1) * (2*t2-1));
-            y[i] += .5 * taylorSquareWave( t3, 1, 5 ) * Math.exp( -3 * t );
-
-            if( t < .25 )
-                y[i] += 2*noise[i] * Math.exp( -30 * 4*t );
-            else if( t < .5 )
-                y[i] += 2*noise[i] * Math.exp( -30 * 8*(t-.25) );
-        }
-    }
-};
-
-let genEngineSound = ( y: Float32Array ) =>
-{
-};
-
 let pad = ( time: number, tempo: number, f?: number ) =>
 {
     f = (Math.floor( time / tempo / 16/*note.length*/ ) % 4 === 3 ? bass1 : bass0)[ Math.floor( time / tempo ) % 16 ]
@@ -169,6 +157,31 @@ let addNote = ( noteFn: (secs: number, tempo: number, cfg0?: number, cfg1?: numb
     }
 };
 
+let addHeavyClick = ( y: Float32Array, sampleOffset: number ) =>
+{
+    for( let i = 0; i < s_audioBufferSize; ++i )
+    {
+        let t = (sampleOffset + i) / s_audioSampleRate;
+
+        if( t < .1 )
+            y[i] += 8*crtClickOut[1.5*i%s_audioBufferSize>>0] * Math.exp( -30 * 2*t );
+        else
+            y[i] += 2*crtClickOut[2*i%s_audioBufferSize] * Math.exp( -30 * 8*(t-.1) );
+    }
+};
+
+let addCrtBuzz = ( y: Float32Array, sampleOffset: number ) =>
+{
+    for( let i = 0; i < s_audioBufferSize; ++i )
+    {
+        let t = (sampleOffset + i) / s_audioSampleRate;
+        let t1 = 2*Math.PI*60*t;
+        let t2 = (t1 % (2*Math.PI)) / (2*Math.PI);
+        let t3 = t2 + .01*(1 - (2*t2-1) * (2*t2-1));
+        y[i] += .5 * taylorSquareWave( t3, 1, 5 ) * Math.exp( -3 * t );
+    }
+};
+
 const enum SFX
 {
     Boot = 0,
@@ -176,23 +189,23 @@ const enum SFX
     Collision = 2,
 }
 
-let drums = new Float32Array( s_audioBufferSize );
-let crtClickIn = new Float32Array( s_audioBufferSize );
-let crtClickOut = new Float32Array( s_audioBufferSize );
-let rawBass = new Float32Array( s_audioBufferSize );
-let outBass = new Float32Array( s_audioBufferSize );
-let fullMusicBuffer = new Float32Array( s_audioBufferSize );
-let menuMusicBuffer = new Float32Array( s_audioBufferSize );
-let engineIn = new Float32Array( s_audioBufferSize );
-let engineOut = new Float32Array( s_audioBufferSize );
-
 let bassLpf = biquadFilter();
 let menuLpf = biquadFilter();
 let engineLpf = biquadFilter();
 let clickFilter = biquadFilter();
 
+for (let i = 0; i < s_audioBufferSize; ++i)
+    crtClickIn[i] = 1-2*Math.random();
+clickFilter( 2000, crtClickIn, crtClickOut );
+
 let audioTick = ( y: Float32Array ) =>
 {
+    if( _sampleOffset < 0 )
+    {
+        _sampleOffset = 0;
+        return;
+    } 
+
     if( _synthMenuMode && _menuModeT > 0 ) _menuModeT = Math.max( 0, _menuModeT - 0.05 );
     if( !_synthMenuMode && _menuModeT < 1 ) _menuModeT = Math.min( 1, _menuModeT + 0.05 );
 
@@ -227,24 +240,41 @@ let audioTick = ( y: Float32Array ) =>
 
     menuLpf( 200, fullMusicBuffer, menuMusicBuffer );
 
-    if( _sampleOffset < 100000 )
-    {
-        for (let i = 0; i < s_audioBufferSize; ++i)
-            crtClickIn[i] = 1-2*Math.random();
-        clickFilter( 4000, crtClickIn, crtClickOut );
-        
-        addCrtBuzz( menuMusicBuffer, crtClickOut );
-    }
-
     _sampleOffset += s_audioBufferSize;
 
     for (let i = 0; i < s_audioBufferSize; ++i)
         y[i] = clamp11(.5*(_menuModeT*fullMusicBuffer[i] + (1-_menuModeT)*menuMusicBuffer[i]));
+
+    if( _sampleOffset < 50000 )
+    {
+        addHeavyClick( y, _sampleOffset );
+        addCrtBuzz( y, _sampleOffset )
+    }
+
+    if( _lastResetOffset > 0 && _sampleOffset - _lastResetOffset < 50000 )
+        addCrtBuzz( y, _sampleOffset - _lastResetOffset );
+
+    if( _lastClickOffset > 0 && _sampleOffset - _lastClickOffset < 50000 )
+        addHeavyClick( y, _sampleOffset - _lastClickOffset );
 };
 
-// TODO don't need a function to just set a var if we inline the synth module in to index
-export let setEngineSoundFromCarSpeed = (speed: number) => _engineSpeed = speed;
-export let setSynthMenuMode = (x: 1|0) => _synthMenuMode = x;
+export let setEngineSoundFromCarSpeed = (speed: number) =>
+    _engineSpeed = speed;
+
+export let setSynthMenuMode = (x: 1|0) =>
+    _synthMenuMode = x;
+
+export let playResetSound = () =>
+    _lastResetOffset = _sampleOffset;
+
+export let playClickSound = () =>
+    _lastClickOffset = _sampleOffset;
+
+export let playBonkSound = () =>
+    _lastBonkOffset = _sampleOffset;
+
+export let playWinSound = () =>
+    _lastWinOffset = _sampleOffset;
 
 export let startAudio = () =>
 {

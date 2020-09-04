@@ -3,7 +3,7 @@ uniform sampler2D u_prevState;
 uniform float u_time;
 uniform float u_lerpTime;
 uniform bool u_modeState;
-uniform bool u_modeTitle;
+uniform int u_menuMode; // 0 -> in-game, 1 -> in-menu, 2 -> boot screen
 uniform vec4 u_inputs;
 
 vec3 g_state[s_totalStateSize];
@@ -182,7 +182,7 @@ void m1()
     ST.carState.y = length( carVel );
     float maxSteer = mix( .15, .02, .5*clamp( ST.carState.y, 0., 2. ));
 
-    if( u_modeTitle )
+    if( u_menuMode > 0 )
         ST.carState.x = 0.;
     else if( u_inputs.z > 0. )
         ST.carState.x += min( i_STEER_RATE, maxSteer - ST.carState.x );
@@ -212,7 +212,7 @@ void m1()
             vel = lossyReflect( vel, normal, i < 2 ? g_carForwardDir : g_steerForwardDir, .2, .995, lateralFriction );
             ST.wheelLastPos[i] = ST.wheelPos[i] - vel;
 
-            if( !u_modeTitle && ( u_inputs.x > 0. || u_inputs.y > 0. ))
+            if( u_menuMode == 0 && ( u_inputs.x > 0. || u_inputs.y > 0. ))
             {
                 vec3 xs = cross( normal, i < 2 ? g_carForwardDir : g_steerForwardDir );
                 vec3 groundedFwd = normalize( cross( xs, normal ));
@@ -258,7 +258,7 @@ void m0()
     vec2 uv = (gl_FragCoord.xy - .5*vec2(s_renderWidth., s_renderHeight.))/s_renderHeight.;
 
     vec3 ro, lookDir;
-    if( u_modeTitle )
+    if( u_menuMode == 2 )
     {
         ro = vec3(10,10,80);
         lookDir = g_carCenterPt + vec3(0,1,0);
