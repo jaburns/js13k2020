@@ -226,7 +226,7 @@ void main()
             ST.wheelPos[i] += (s_wheelRadius-dist)*normal;
 
             float lateralFriction = .1;
-            if( u_inputs.y < 0. ) lateralFriction = i < 2 ? .8 : .6;
+            if( u_menuMode == 0 && u_inputs.y < 0. ) lateralFriction = i < 2 ? .8 : .6;
 
             vec3 vel = ST.wheelPos[i] - ST.wheelLastPos[i];
             vel = lossyReflect( vel, normal, i < 2 ? g_carForwardDir : g_steerForwardDir, .2, .995, lateralFriction );
