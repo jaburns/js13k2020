@@ -10,15 +10,9 @@ vec3 g_state[s_totalStateSize];
 vec3 g_carCenterPt;
 vec3 g_carLastCenterPt;
 vec3 g_carForwardDir;
-vec3 g_carDownDir;
 vec3 g_steerForwardDir;
 mat3 g_wheelRot;
 mat3 g_steerRot;
-
-const float i_EPS = 0.01;
-const float i_PI = 3.14159;
-const float i_PRECISION = 1.;
-const int i_ITERATIONS = 150;
 
 #pragma INCLUDE_WORLD_SDF
 
@@ -30,6 +24,20 @@ mat3 transpose( mat3 m )
         m[0][2], m[1][2], m[2][2]
     );
 }
+
+
+
+
+vec2 sdGoal( vec3 p, vec3 center, vec2 euler )
+{
+    p -= center;
+    p.yz *= rot( euler.x );
+    p.xz *= rot( euler.y );
+
+    vec2 q = vec2( length(p.xy) - 5., p.z );
+    return vec2( length(q) - .5, 8.5 );
+}
+
 
 
 
@@ -91,16 +99,20 @@ vec2 sdBody( vec3 p )
     return d;
 }
 
-
 vec2 map( vec3 p )
 {
-    vec2 world = txx( p );
+    vec2 world = Xmap( p );
 
     if( u_modeState )
     {
         world = min2( world, vec2(p.y,1) );
         return world;
     }
+
+    world = min2( world, sdGoal( p, Xc0, Xf0 ) );
+    world = min2( world, sdGoal( p, Xc1, Xf1 ) );
+    world = min2( world, sdGoal( p, Xc2, Xf2 ) );
+    world = min2( world, sdGoal( p, Xc3, Xf3 ) );
 
     world = min2( world, sdBody(g_wheelRot*(p - g_carCenterPt)));
     world = min2( world, sdWheel( g_wheelRot*(p - ST.wheelPos[0]), ST.wheelRotation[0].x));
@@ -114,7 +126,6 @@ vec2 map( vec3 p )
     return world;
 }
 
-
 vec3 getNorm(vec3 p)
 {
     vec2 e = vec2(0.001, 0);
@@ -123,6 +134,52 @@ vec3 getNorm(vec3 p)
         map(p + e.yxy).x - map(p - e.yxy).x,
         map(p + e.yyx).x - map(p - e.yyx).x));
 }
+
+void initGlobals()
+{
+    vec3 carDownDir = normalize(
+        normalize(cross( ST.wheelPos[0] - ST.wheelPos[3], ST.wheelPos[2] - ST.wheelPos[3] )) -
+        normalize(cross( ST.wheelPos[0] - ST.wheelPos[1], ST.wheelPos[2] - ST.wheelPos[1] ))
+    );
+
+    if( carDownDir.y > 0. ) carDownDir *= -1.;
+
+    g_carForwardDir = normalize( ST.wheelPos[2] - ST.wheelPos[1] );
+    g_carCenterPt = ( ST.wheelPos[0] + ST.wheelPos[1] + ST.wheelPos[2] + ST.wheelPos[3] ) / 4.;
+
+    mat3 wheelRotFwd = mat3( cross( carDownDir, g_carForwardDir ), carDownDir, g_carForwardDir );
+    g_wheelRot = transpose( wheelRotFwd );
+
+    g_steerForwardDir = vec3( 0, 0, 1 );
+    g_steerForwardDir.xz *= rot( ST.carState.x );
+    g_steerForwardDir = wheelRotFwd * g_steerForwardDir;
+
+    g_steerRot = transpose( mat3( cross( carDownDir, g_steerForwardDir ), carDownDir, g_steerForwardDir ));
+
+/*
+bit flags shadertoy
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    float num = 784006.;
+    
+    
+    
+    
+    vec2 uv = fragCoord/iResolution.xy;
+    float bit = floor(uv.x * 22.);
+    
+
+   	bool on = false;
+    if( mod( num / pow(2.,bit), 2. ) >= 1. )
+        on = true;
+    
+    fragColor = vec4(.25 + .75*bit / 22.) * (on ? vec4(0,1,0,0) : vec4(1,0,0,0));
+}
+*/
+}
+
+#ifdef XA
 
 vec3 lossyReflect( vec3 v, vec3 n, vec3 guess_u, float bounce, float frictionU, float frictionV )
 {
@@ -144,30 +201,7 @@ void distConstraint( inout vec3 pos0, inout vec3 pos1, float dist )
     pos1 -= fixVec;
 }
 
-void initGlobals()
-{
-    g_carDownDir = normalize(
-        normalize(cross( ST.wheelPos[0] - ST.wheelPos[3], ST.wheelPos[2] - ST.wheelPos[3] )) -
-        normalize(cross( ST.wheelPos[0] - ST.wheelPos[1], ST.wheelPos[2] - ST.wheelPos[1] ))
-    );
-
-    if( g_carDownDir.y > 0. ) g_carDownDir *= -1.;
-
-    g_carForwardDir = normalize( ST.wheelPos[2] - ST.wheelPos[1] );
-    g_carCenterPt = ( ST.wheelPos[0] + ST.wheelPos[1] + ST.wheelPos[2] + ST.wheelPos[3] ) / 4.;
-    g_carLastCenterPt = ( ST.wheelLastPos[0] + ST.wheelLastPos[1] + ST.wheelLastPos[2] + ST.wheelLastPos[3] ) / 4.;
-
-    mat3 wheelRotFwd = mat3( cross( g_carDownDir, g_carForwardDir ), g_carDownDir, g_carForwardDir );
-    g_wheelRot = transpose( wheelRotFwd );
-
-    g_steerForwardDir = vec3( 0, 0, 1 );
-    g_steerForwardDir.xz *= rot( ST.carState.x );
-    g_steerForwardDir = wheelRotFwd * g_steerForwardDir;
-
-    g_steerRot = transpose( mat3( cross( g_carDownDir, g_steerForwardDir ), g_carDownDir, g_steerForwardDir ));
-}
-
-void m1()
+void main()
 {
     for( int i = 0; i < s_totalStateSize; ++i )
         g_state[i] = texture2D(u_state, vec2( (float(i)+.5)/s_totalStateSize.)).xyz;
@@ -178,7 +212,9 @@ void m1()
 
     const float i_STEER_RATE = .03;
 
-    vec3 carVel = g_carCenterPt - g_carLastCenterPt;
+    vec3 carLastCenterPt = ( ST.wheelLastPos[0] + ST.wheelLastPos[1] + ST.wheelLastPos[2] + ST.wheelLastPos[3] ) / 4.;
+
+    vec3 carVel = g_carCenterPt - carLastCenterPt;
     ST.carState.y = length( carVel );
     float maxSteer = mix( .15, .02, .5*clamp( ST.carState.y, 0., 2. ));
 
@@ -245,7 +281,9 @@ void m1()
     }
 }
 
-void m0()
+#else
+
+void main()
 {
     for( int i = 0; i < s_totalStateSize; ++i )
         g_state[i] = mix(
@@ -279,16 +317,16 @@ void m0()
     vec3 rd = normalize(i - ro);
 
     vec2 dist;
-    float totalDist = 0.0;
-    
-    for( int i = 0; i < i_ITERATIONS; ++i )
+    float totalDist = 0.0, distStep;
+
+    const float i_EPS = 0.01;
+    for( int i = 0; i < 100; ++i )
     {
         dist = map( ro );
         if( dist.x < i_EPS || totalDist >= 200. || ro.y < 0. ) break;
-        // totalDist += i_PRECISION * dist.x;
-        // ro += i_PRECISION * rd * dist.x;
-        totalDist += i_PRECISION * dist.x;
-        ro += i_PRECISION * rd * dist.x;
+        distStep = dist.x; // distStep = max( .1, dist.x ); // TODO Make better use of min march distance, if dist ends up negative lerp to how far through an assumed-flat surface
+        totalDist += distStep;
+        ro += rd * distStep;
     }
 
     vec3 normal = vec3( 0 ) ;
@@ -348,3 +386,5 @@ void m0()
 
     gl_FragColor = vec4( normal, material );
 }
+
+#endif

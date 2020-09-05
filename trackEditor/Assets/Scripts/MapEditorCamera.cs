@@ -99,6 +99,29 @@ public class MapEditorCamera : MonoBehaviour
         return addParams( call, obj.parames );
     }
 
+    static List<string> getCheckpointDefs( string trackNumber, bool glsl )
+    {
+        var objs = FindObjectsOfType<MapCheckpoint>();
+
+        if( objs.Length != 4 ) 
+            throw new System.Exception("Need 4 checkpoints");
+
+        var result = new List<string>();
+
+        for( int i = 0; i < 4; ++i )
+        {
+            var x = objs[i];
+            var fwd = x.transform.rotation.eulerAngles * Mathf.Deg2Rad;
+
+            result.Add(
+                string.Format("const "+(glsl?"vec3":"float3")+" Xc"+i+" = "+(glsl?"vec3":"float3")+"({0},{1},{2});\n", smallNum(x.transform.position.x), smallNum(x.transform.position.y), smallNum(x.transform.position.z)) +
+                string.Format("const "+(glsl?"vec2":"float2")+" Xf"+i+" = "+(glsl?"vec2":"float2")+"({0},{1});", smallNum(fwd.x), smallNum(fwd.y))
+            );
+        }
+
+        return result;
+    }
+
     static public string GenShader( bool glsl, string trackNumber )
     {
         var calls = new List<string>();
@@ -124,9 +147,13 @@ public class MapEditorCamera : MonoBehaviour
             )
         ).ToList();
 
-        return (glsl ? "vec2" : "float2") +" t"+trackNumber+"( "+(glsl ? "vec3" : "float3")+" p )\n" +
+        var checkPoints = getCheckpointDefs( trackNumber, glsl );
+
+        var sdfFunc = (glsl ? "vec2" : "float2") +" Xmap( "+(glsl ? "vec3" : "float3")+" p )\n" +
         "{\n" +
             "return " + joinCalls( "min2({0},{1})", items.Select( x => genBoxShader( x, glsl )).Concat(smoothCalls).ToList() ) + ";\n" +
         "}";
+
+        return string.Join( "\n", checkPoints ) + "\n" + sdfFunc;
     }
 }

@@ -146,13 +146,44 @@ const convertHLSLtoGLSL = hlsl =>
 const insertWorldSDFCode = shaderCode =>
 {
     const sdfDefs = convertHLSLtoGLSL( fs.readFileSync( 'src/sdfDefs.hlsl', 'utf8' ));
-    const tracks = sh.ls( 'tracks' ).map( x => fs.readFileSync( 'tracks/' + x, 'utf8' )).join('\n')
+    const tracks = sh.ls( 'tracks' )
+        .map( x => '#ifdef T' + x.replace(/[^0-9]/g, '') + '\n' + fs.readFileSync( 'tracks/' + x, 'utf8' ) + '\n' + '#endif' )
+        .join('\n')
+        .split('\n')
+        .map( x => x.trim().startsWith('const') ? '' : x )
+        .join('\n');
 
     return shaderCode.replace( '#pragma INCLUDE_WORLD_SDF', sdfDefs + '\n' + tracks + '\n' );
 };
 
 const preprocessShader = shaderCode =>
     applyStateMap( convertStateAccessNotation( insertWorldSDFCode( shaderCode )));
+
+const reinsertTrackConstants = shaderGenTS =>
+{
+    const lines = shaderGenTS.split('\n');
+
+    sh.ls( 'tracks' ).forEach( x =>
+    {
+        const trackId = x.replace(/[^0-9]/g, '');
+        const consts = fs.readFileSync( 'tracks/' + x, 'utf8' )
+            .split('\n')
+            .filter( x => x.trim().startsWith('const') )
+            .map( x => '"' + x + '" +' )
+            .join('\n');
+
+        for( let i = 0; i < lines.length; ++i )
+        {
+            if( lines[i].indexOf('T'+trackId) >= 0 )
+            {
+                lines.splice( i+1, 0, consts );
+                break;
+            }
+        }
+    });
+
+    return lines.join('\n');
+}
 
 const generateShaderFile = () =>
 {
@@ -166,10 +197,7 @@ const generateShaderFile = () =>
         }
     });
 
-    // TODO get these from the tracks folder
-    const tracks = ['t00','t01','t02','t03','t04','t05','t06','t07','t08','t09'].join(',');
-
-    run( MONO_RUN + 'tools/shader_minifier.exe --no-renaming-list main,m0,m1,MS,'+tracks+' --format js -o build/shaders.js --preserve-externals '+(DEBUG ? '--preserve-all-globals' : '')+' shadersTmp/*' );
+    run( MONO_RUN + 'tools/shader_minifier.exe --no-renaming-list main,Xmap --format js -o build/shaders.js --preserve-externals '+(DEBUG ? '--preserve-all-globals' : '')+' shadersTmp/*' );
     let shaderCode = fs.readFileSync('build/shaders.js', 'utf8');
     buildShaderExternalNameMap( shaderCode );
     shaderCode = minifyShaderExternalNames( shaderCode );
@@ -179,7 +207,12 @@ const generateShaderFile = () =>
         .map( x => x.replace(/^var/, 'export let'))
         .join('\n');
 
-    fs.writeFileSync('src/shaders.gen.ts', shaderCode);
+    shaderCode = reinsertTrackConstants( shaderCode );
+
+    if( DEBUG )
+        shaderCode = shaderCode.replace(/" \+/g, '\\n" +');
+
+    fs.writeFileSync( 'src/shaders.gen.ts', shaderCode );
 
     sh.rm( '-rf', 'shadersTmp' );
 };

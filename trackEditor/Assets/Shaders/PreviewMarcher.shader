@@ -60,7 +60,7 @@
 
             float2 map( float3 p )
             {
-                return min2( t00( p ), float2( p.y, -1. ));
+                return min2( Xmap( p ), float2( p.y, -1. ));
             }
 
             float3 getNorm(float3 p)

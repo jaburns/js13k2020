@@ -68,7 +68,7 @@ let _menuMode: 0|1|2 = 0;
 
 // =================================================================================================
 
-let buildShader = ( vert: string, frag: string, main: string, track?: string ): WebGLProgram =>
+let buildShader = ( vert: string, frag: string, defs: string[] ): WebGLProgram =>
 {
     let vs = g.createShader( gl_VERTEX_SHADER )!;
     let fs = g.createShader( gl_FRAGMENT_SHADER )!;
@@ -84,14 +84,18 @@ let buildShader = ( vert: string, frag: string, main: string, track?: string ): 
             console.error( 'Vertex shader error', log, vert );
     }
 
-    g.shaderSource( fs, 'precision highp float;'+frag.replace(main,'main').replace('t'+track!,'txx') );
+    g.shaderSource( fs, defs.map( x => '#define '+x ).join('\n')+'\nprecision highp float;'+frag );
     g.compileShader( fs );
 
     if( DEBUG )
     {
         let log = g.getShaderInfoLog(fs);
         if( log === null || log.length > 0 && log.indexOf('ERROR') >= 0 )
+        {
             console.error( 'Fragment shader error', log, fs );
+            const shader = defs.map( x => '#define '+x ).join('\n')+'\nprecision highp float;'+frag;
+            console.log(shader.split('\n').map( (x,i) => i + ' :: ' + x ).join('\n'));
+        }
     }
 
     g.attachShader( ss, vs );
@@ -115,6 +119,7 @@ let resetState = () =>
         g.bindTexture( gl_TEXTURE_2D, tex );
         g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, s_totalStateSize, 1, 0, gl_RGBA, gl_FLOAT, Float32Array.of(
         // Initial state
+            0, 0, 0, 0,
             0, 0, 0, 0,
 
             0, 1, 0, 0,
@@ -149,13 +154,20 @@ let resetState = () =>
 
 let drawHUD = () =>
 {
+    let Y = -50, X = 205;// TODO inline;
+    let t = _previousTime - _startTime;
+    let tSec = t % 60 >> 0;
+    let tCent = t * 100 % 100 >> 0;
+    let timeText = ( t / 60 >> 0 ) + ':' +
+        ( tSec > 9 ? '' : '0' ) + tSec + ':' +
+        ( tCent > 9 ? '' : '0' ) + tCent;
+
     c.clearRect(0, 0, s_renderWidth, s_renderHeight);
 
     if( _bootMode && _menuMode == MenuMode.NoMenu )
     {
-        let Y = -50, X = 205;
 
-        [[40,'#f00'],[20,'#700']].map(([lw, ss]: [number, string]) =>
+        [[40,'#b00'],[20,'#500']].map(([lw, ss]: [number, string]) =>
         {
             c.strokeStyle = ss;
             c.lineWidth = lw;
@@ -183,7 +195,7 @@ let drawHUD = () =>
             c.stroke();
         });
 
-        c.fillStyle = '#f00';
+        c.fillStyle = '#b00';
         C1.style.letterSpacing = '-2px';
         c.font = 'bold 64px monospace';
         c.fillText('kph',Y+410,250);
@@ -191,7 +203,7 @@ let drawHUD = () =>
 
         if(( _previousTime / s_tempo ) % 1 > .25 )
         {
-            c.fillStyle = '#0ff';
+            c.fillStyle = '#0bb';
             c.font = 'bold 24px monospace';
             c.fillText( 'PRESS ENTER', 180, 330 );
         }
@@ -210,9 +222,15 @@ let drawHUD = () =>
     }
     else
     {
-        c.fillStyle = '#f00';
         c.font = 'bold 24px monospace';
-        c.fillText( Math.floor(100*_stateCPUbuffer[1])+' kph', 50, 350 );
+        c.fillStyle = '#0bb';
+        c.fillText( timeText, 375, 350 );
+        //c.strokeStyle = '#000';
+        //c.lineWidth = 5;
+        //c.strokeText( timeText, 180, 50 );
+
+        c.fillStyle = '#b2d';
+        c.fillText( Math.floor(100*_stateCPUbuffer[1])+' kph', 35, 350 );
     }
 
     g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
@@ -284,7 +302,7 @@ let frame = () =>
         if( _bootMode && newTime > _startTime + 8 )
             resetState();
 
-        if( newTime > _startTime + 10 )
+        if( newTime > _startTime + 100 )
         {
             _menuMode = MenuMode.PostRace;
             setSynthMenuMode(1);
@@ -409,11 +427,11 @@ g.getExtension('OES_texture_float_linear');
 //g.getExtension('WEBGL_color_buffer_float'); // Needed only to suppress warning in firefox.
 
 _trackShaders = ['00','01'].map( x => ([
-    buildShader( main_vert, main_frag, 'm0', x ),
-    buildShader( main_vert, main_frag, 'm1', x )
+    buildShader( main_vert, main_frag, ['T'+x]),
+    buildShader( main_vert, main_frag, ['XA','T'+x])
 ]));
-_post0Shader = buildShader( main_vert, post_frag, 'm0' );
-_post1Shader = buildShader( main_vert, post_frag, 'm1' );
+_post0Shader = buildShader( main_vert, post_frag, ['XA'] );
+_post1Shader = buildShader( main_vert, post_frag, [] );
 
 _fullScreenTriVertBuffer = g.createBuffer()!;
 g.bindBuffer( gl_ARRAY_BUFFER, _fullScreenTriVertBuffer );

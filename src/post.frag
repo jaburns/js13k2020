@@ -3,15 +3,12 @@ uniform sampler2D u_canvas;
 uniform vec3 u_time;
 uniform float u_skewY;
 
+#ifdef XA
+
 float sdBox( vec2 p, vec2 b )
 {
     vec2 d = abs(p)-b;
     return length(max(d,0.0)) + min(max(d.x,d.y),0.0);
-}
-
-float sign1( float x )
-{
-    return x >= 0. ? 1. : -1.;
 }
 
 vec3 sun( float y, vec3 sky )
@@ -23,7 +20,7 @@ vec3 sun( float y, vec3 sky )
 
 //let togl = (x) => {let r = x.substr(0,2),g=x.substr(2,2),b=x.substr(4,2); return 'vec3('+([parseInt(r,16)+'.',parseInt(g,16)+'.',parseInt(b,16)+'.'].join(','))+')/255.;'}
 
-void m0()
+void main()
 {
 // =================================================================================================
 
@@ -74,6 +71,10 @@ void m0()
     vec3 gameColor = vec3( .1 * maxMat );
     if( maxMat >= 1. && maxMat < 2. )
         gameColor = edge * vec3( 1, 0, 1 ) * mod( maxMat, .5 ) / .4;
+    else if( maxMat >= 8.4 )
+        gameColor = edge * vec3( 1, 1, 0 );
+    else if( maxMat >= 8. )
+        gameColor = vec3( 1, 1, .5 );
     else if( maxMat >= 4. )
         gameColor = edge * vec3( 0, 1, 0 );
     else if( maxMat >= 3. )
@@ -88,13 +89,13 @@ void m0()
             gameColor = ((maxMat - .5) / .5) * vec3( .5, 0, 1 );
     }
 
-    if( sample0.w < 0. || sample1.w < 0. || sample2.w < 0. || sample3.w < 0. )
+    if(( sample0.w < 0. || sample1.w < 0. || sample2.w < 0. || sample3.w < 0. ) && maxMat < 8. )
         gameColor *= .4;
 
 // =================================================================================================
 //  Compose the canvas
 
-    vec3 hudColor = .7 * texture2D( u_canvas, vec2( uv.x + (uv.y > u_skewY ? .23-.5*uv.y : 0. ), 1.-uv.y )).rgb;
+    vec3 hudColor = texture2D( u_canvas, vec2( uv.x + (uv.y > u_skewY ? .23-.5*uv.y : 0. ), 1.-uv.y )).rgb;
 
 // =================================================================================================
 
@@ -136,10 +137,12 @@ void m0()
     gl_FragColor = outColor;
 }
 
+#else
+
 // =================================================================================================
 // MattiasCRT effect by Mattias from https://www.shadertoy.com/view/Ms23DR
 // ---------------------------------------------------------------------------------
-void m1()
+void main()
 {
     vec2 uv = gl_FragCoord.xy / vec2( s_fullWidth, s_fullHeight );
 
@@ -182,3 +185,5 @@ void m1()
     col*=1.0-0.65*vec3(clamp((mod(gl_FragCoord.x, 2.0)-1.0)*2.0,0.0,1.0));
     gl_FragColor = vec4(col,1.0);
 }
+
+#endif
