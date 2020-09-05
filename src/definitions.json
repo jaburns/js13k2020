@@ -29,7 +29,8 @@
     ],
     "stateFields": [
         "s_carState",
-        "s_goalState",
+        "s_goalStateA",
+        "s_goalStateB",
         "s_wheelPos0",
         "s_wheelLastPos0",
         "s_wheelForceCache0",

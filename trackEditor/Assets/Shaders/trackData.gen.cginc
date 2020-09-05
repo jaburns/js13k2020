@@ -1,4 +1,14 @@
 // Generated from track editor script
+static const float i_MAT_ROAD = 2.;
+static const float i_MAT_BUMPER = 3.;
+static const float i_MAT_CHECKPOINT = 4.;
+static const float i_MAT_CAR0 = 15.;
+static const float i_MAT_CAR1 = 15.5;
+static const float i_MAT_CAR2 = 16.;
+static const float i_MAT_CAR3 = 16.5;
+static const float i_MAT_CAR4 = 17.;
+static const float i_MAT_CAR5 = 17.5;
+
 float3x3 quat( float x, float y, float z, float w ) {
     return transpose_hlsl_only(float3x3(
         1. - 2.*y*y - 2.*z*z,
@@ -29,16 +39,16 @@ float sdBox( float3 p, float3 b )
     return length(max(q,0.)) + min(max(q.x,max(q.y,q.z)),0.);
 }
 
+float sdBox2D( float2 p, float2 b )
+{
+    float2 d = abs(p) - b;
+    return length(max(d,0.)) + min(max(d.x,d.y),0.);
+}
+
 float sdVerticalCapsule( float3 p, float h, float r )
 {
     p.z -= clamp( p.z, -h, h );
     return length( p ) - r;
-}
-
-float sdCappedCylinder( float3 p, float h, float r )
-{
-    float2 d = abs(float2(length(p.yx),p.z)) - float2(r,h);
-    return min(max(d.x,d.y),0.) + length(max(d,0.));
 }
 
 float2 opSmoothUnion2( float2 d1, float2 d2, float k )
@@ -67,12 +77,6 @@ float2 sdObj1( float3 p, float3 s, float twist )
         float2( sdBox( p, float3(s.x,.5,s.z)), 2. + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
         float2( sdVerticalCapsule( float3(abs(p.x),p.yz) - float3(s.x,0,0), s.z, 1. ), 3. + .5 * mod(rep.x + rep.y + rep.z, 2.) )
     );
-}
-
-float sdBox2D( float2 p, float2 b )
-{
-    float2 d = abs(p)-b;
-    return length(max(d,0.0)) + min(max(d.x,d.y),0.0);
 }
 
 float2 primitive( float2 p, float sx, float bank, float pz )
@@ -119,15 +123,56 @@ float2 sdObj2( float3 p, float3 s, float radius, float bank )
     return min2(d,min2(d1,d2));
 }
 
-const float3 Xc0 = float3(0,-10,0);
-const float2 Xf0 = float2(0,0);
-const float3 Xc1 = float3(0,-10,0);
-const float2 Xf1 = float2(0,0);
-const float3 Xc2 = float3(0,-10,0);
-const float2 Xf2 = float2(0,0);
-const float3 Xc3 = float3(0,-10,0);
-const float2 Xf3 = float2(0,0);
+
+
+
+
+static const float i_thicc = .5;
+
+float sdHex( float2 p, float r )
+{
+    const float3 k = float3(-0.866025404,0.5,0.577350269);
+    p = abs(p);
+    p -= 2.0*min(dot(k.xy,p),0.0)*k.xy;
+    p -= float2(clamp(p.x, -k.z*r, k.z*r), r);
+    return length(p)*sign(p.y);
+}
+
+float sdPentagon( float2 p, float r )
+{
+    float dhex = sdHex( p, r );
+    r /= 0.866025404;
+    float dbox = sdBox2D( p - float2(0,r), float2(r,r) );
+    float d = max( dbox, dhex );
+    //float d = p.y < 0. ? dbox : dhex < 0. ? max( dbox, dhex ) : dhex;
+    
+    return abs( d ) - i_thicc;
+}
+
+float sdGoal1( float3 p )
+{
+    float     h = i_thicc;
+    float d = sdPentagon(p.xy, 4.);
+    float2 w = float2( d, abs(p.z) - h );
+    return min(max(w.x,w.y),0.0) + length(max(w,0.0));
+}
+float2 sdCheckpoint( float3 p, float3 center, float4 rot, float goalState )
+{
+    p -= center;
+    p = mul(quat(rot.x,rot.y,rot.z,rot.w), p); //GLSL// p = quat(rot.x,rot.y,rot.z,rot.w) * p;
+
+    float3 rep = floor(p / 4. + .01);
+    return float2( sdGoal1( p ), i_MAT_CHECKPOINT + .5 * mod(rep.x + rep.y + rep.z, 2.) );
+}
+#define Xc0 float3(0.44,0.13,53.7)
+#define Xf0 float4(0,0,0,1)
+#define Xc1 float3(23.58,8.11,162.77)
+#define Xf1 float4(0.12,-0.468,0.199,0.853)
+#define Xc2 float3(78.45,7.93,166.52)
+#define Xf2 float4(0,-0.707,0,0.707)
+#define Xc3 float3(43.6,-1.1,102)
+#define Xf3 float4(0,0.357,0,0.934)
 float2 Xmap( float3 p )
 {
-return min2(opSmoothUnion2(sdObj0( mul(quat(0.383,0,0,0.924),p-float3(0.5,-1.42,64.26)), float3(2.29,0.5,3.109)),sdObj1( mul(quat(0,0,0,1),p-float3(0.5,0,-130.6)), float3(4,0.5,100),0.),2),min2(sdObj1( mul(quat(0,0,0,1),p-float3(0.5,0,-130.6)), float3(4,0.5,100),0.),min2(sdObj0( mul(quat(0.383,0,0,0.924),p-float3(0.5,-1.42,64.26)), float3(2.29,0.5,3.109)),sdObj1( mul(quat(0,0,0,1),p-float3(0.5,5.65,87.7)), float3(4,0.5,100),0.))));
+return min2(opSmoothUnion2(sdObj0( mul(quat(0.313,0,0,0.95),p-float3(0.5,-2.73,62.27)), float3(2.29,0.5,5.093)),sdObj1( mul(quat(0,0,0,1),p-float3(0.5,0.17,-30.13)), float3(4,0.5,50),0.),2),min2(sdObj1( mul(quat(0,0,0,1),p-float3(0.5,0.17,-30.13)), float3(4,0.5,50),0.),min2(sdObj1( mul(quat(0,0.707,0,0.707),p-float3(80.5,8.2,166.31)), float3(4,0.5,20),-80.),min2(sdObj0( mul(quat(0.313,0,0,0.95),p-float3(0.5,-2.73,62.27)), float3(2.29,0.5,5.093)),min2(sdObj2( mul(quat(0,0,0,1),p-float3(0.5,8.2,126.32)), float3(4,0.5,20),-40.,-0.5),min2(sdObj0( mul(quat(0.109,-0.195,-0.44,0.87),p-float3(19.63,-2.73,93.83)), float3(5,5,5)),min2(sdObj1( mul(quat(0,0,0,1),p-float3(0.5,8.2,86.35)), float3(4,0.5,20),80.),min2(sdObj0( mul(quat(-0.25,-0.551,-0.688,0.401),p-float3(-71,-9.6,127.4)), float3(18.917,18.917,18.917)),sdObj0( mul(quat(0.119,0,0,0.993),p-float3(0.5,-2.19,-39.91)), float3(3.549,0.5,5.093))))))))));
 }

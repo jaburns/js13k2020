@@ -60,7 +60,12 @@
 
             float2 map( float3 p )
             {
-                return min2( Xmap( p ), float2( p.y, -1. ));
+                float2 world = min2( Xmap( p ), float2( p.y, -1. ));
+                world = min2( world, sdCheckpoint( p, Xc0, Xf0, 0. ) );
+                world = min2( world, sdCheckpoint( p, Xc1, Xf1, 0. ) );
+                world = min2( world, sdCheckpoint( p, Xc2, Xf2, 0. ) );
+                world = min2( world, sdCheckpoint( p, Xc3, Xf3, 0. ) );
+                return world;
             }
 
             float3 getNorm(float3 p)

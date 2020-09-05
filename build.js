@@ -130,6 +130,7 @@ const convertHLSLtoGLSL = hlsl =>
         .replace(/frac/g, 'fract')
         .replace(/atan2/g, 'atan')
         .replace(/transpose_hlsl_only/g, '')
+        .replace(/static /g, '')
         .split('\n');
 
     lines = lines.map( x =>

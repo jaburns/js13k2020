@@ -109,7 +109,7 @@ let buildShader = ( vert: string, frag: string, defs: string[] ): WebGLProgram =
 
 let resetState = () =>
 {
-    let z = -_bootMode * 2;
+    let z = -_bootMode * 1.2;
 
     _startTime = _previousTime;
 
@@ -120,7 +120,8 @@ let resetState = () =>
         g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, s_totalStateSize, 1, 0, gl_RGBA, gl_FLOAT, Float32Array.of(
         // Initial state
             0, 0, 0, 0,
-            0, 0, 0, 0,
+            0, 0, 1, 0,
+            1, 0, 0, 0,
 
             0, 1, 0, 0,
             0, 1, z, 0,

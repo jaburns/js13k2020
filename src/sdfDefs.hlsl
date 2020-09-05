@@ -1,3 +1,15 @@
+static const float i_MAT_ROAD = 2.;
+static const float i_MAT_BUMPER = 3.;
+static const float i_MAT_CHECKPOINT = 4.;
+static const float i_MAT_CHECKPOINT_GOT = 5.;
+static const float i_MAT_CAR0 = 15.;
+static const float i_MAT_CAR1 = 15.5;
+static const float i_MAT_CAR2 = 16.;
+static const float i_MAT_CAR3 = 16.5;
+static const float i_MAT_CAR4 = 17.;
+static const float i_MAT_CAR5 = 17.5;
+static const float i_MAT_CAR6 = 18.;
+
 float3x3 quat( float x, float y, float z, float w ) {
     return transpose_hlsl_only(float3x3(
         1. - 2.*y*y - 2.*z*z,
@@ -28,16 +40,16 @@ float sdBox( float3 p, float3 b )
     return length(max(q,0.)) + min(max(q.x,max(q.y,q.z)),0.);
 }
 
+float sdBox2D( float2 p, float2 b )
+{
+    float2 d = abs(p) - b;
+    return length(max(d,0.)) + min(max(d.x,d.y),0.);
+}
+
 float sdVerticalCapsule( float3 p, float h, float r )
 {
     p.z -= clamp( p.z, -h, h );
     return length( p ) - r;
-}
-
-float sdCappedCylinder( float3 p, float h, float r )
-{
-    float2 d = abs(float2(length(p.yx),p.z)) - float2(r,h);
-    return min(max(d.x,d.y),0.) + length(max(d,0.));
 }
 
 float2 opSmoothUnion2( float2 d1, float2 d2, float k )
@@ -50,7 +62,7 @@ float2 sdObj0( float3 p, float3 s )
 {
     p.z -= s.z;
     float3 rep = floor(p / 4. + .01);
-    return float2( sdBox( p, s ), 2. + .5 * mod(rep.x + rep.y + rep.z, 2.));
+    return float2( sdBox( p, s ), i_MAT_ROAD + .5 * mod(rep.x + rep.y + rep.z, 2.));
 }
 
 // Straight Track
@@ -63,15 +75,9 @@ float2 sdObj1( float3 p, float3 s, float twist )
     float3 rep = floor(p / 4. + .01);
 
     return min2(
-        float2( sdBox( p, float3(s.x,.5,s.z)), 2. + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
-        float2( sdVerticalCapsule( float3(abs(p.x),p.yz) - float3(s.x,0,0), s.z, 1. ), 3. + .5 * mod(rep.x + rep.y + rep.z, 2.) )
+        float2( sdBox( p, float3(s.x,.5,s.z)), i_MAT_ROAD + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
+        float2( sdVerticalCapsule( float3(abs(p.x),p.yz) - float3(s.x,0,0), s.z, 1. ), i_MAT_BUMPER + .5 * mod(rep.x + rep.y + rep.z, 2.) )
     );
-}
-
-float sdBox2D( float2 p, float2 b )
-{
-    float2 d = abs(p)-b;
-    return length(max(d,0.0)) + min(max(d.x,d.y),0.0);
 }
 
 float2 primitive( float2 p, float sx, float bank, float pz )
@@ -81,8 +87,8 @@ float2 primitive( float2 p, float sx, float bank, float pz )
     float3 rep = floor( float3(p.xy, pz) / 4. + .01);
 
     return min2(
-        float2( sdBox2D( p, float2( 4, .5 )), 2. + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
-        float2( length(float2(abs(p.x)-4.,p.y)) - 1., 3. + .5 * mod(rep.x + rep.y + rep.z, 2.) )
+        float2( sdBox2D( p, float2( 4, .5 )), i_MAT_ROAD + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
+        float2( length(float2(abs(p.x)-4.,p.y)) - 1., i_MAT_BUMPER + .5 * mod(rep.x + rep.y + rep.z, 2.) )
     );
 }
 
@@ -116,4 +122,46 @@ float2 sdObj2( float3 p, float3 s, float radius, float bank )
     float2 d1 = opExtrusion( p, s.x, radius, bank );
     float2 d2 = opExtrusion( p.zyx, s.x, radius, bank );
     return min2(d,min2(d1,d2));
+}
+
+
+
+
+
+static const float i_thicc = .4;
+
+float sdHex( float2 p, float r )
+{
+    const float3 k = float3(-0.866025404,0.5,0.577350269);
+    p = abs(p);
+    p -= 2.0*min(dot(k.xy,p),0.0)*k.xy;
+    p -= float2(clamp(p.x, -k.z*r, k.z*r), r);
+    return length(p)*sign(p.y);
+}
+
+float sdPentagon( float2 p, float r )
+{
+    float dhex = sdHex( p, r );
+    r /= 0.866025404;
+    float dbox = sdBox2D( p - float2(0,r), float2(r,r) );
+    float d = max( dbox, dhex );
+    //float d = p.y < 0. ? dbox : dhex < 0. ? max( dbox, dhex ) : dhex;
+    
+    return abs( d ) - i_thicc;
+}
+
+float sdGoal1( float3 p )
+{
+    float     h = i_thicc;
+    float d = sdPentagon(p.xy, 4.);
+    float2 w = float2( d, abs(p.z) - h );
+    return min(max(w.x,w.y),0.0) + length(max(w,0.0));
+}
+float2 sdCheckpoint( float3 p, float3 center, float4 rot, float goalState )
+{
+    p -= center;
+    p = mul(quat(rot.x,rot.y,rot.z,rot.w), p); //GLSL// p = quat(rot.x,rot.y,rot.z,rot.w) * p;
+
+    float3 rep = floor(p / 4. + .01);
+    return float2( sdGoal1( p ), (goalState > 0. ? i_MAT_CHECKPOINT_GOT : i_MAT_CHECKPOINT) + .5 * mod(rep.x + rep.y + rep.z, 2.) );
 }

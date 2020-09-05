@@ -28,15 +28,7 @@ mat3 transpose( mat3 m )
 
 
 
-vec2 sdGoal( vec3 p, vec3 center, vec2 euler )
-{
-    p -= center;
-    p.yz *= rot( euler.x );
-    p.xz *= rot( euler.y );
 
-    vec2 q = vec2( length(p.xy) - 5., p.z );
-    return vec2( length(q) - .5, 8.5 );
-}
 
 
 
@@ -79,23 +71,17 @@ vec2 sdWheel( vec3 p, float theta )
 {
     vec2 p1 = rot( theta ) * p.yz;
     float atn = abs(atan(p1.x/p1.y));
-    float material = length(p.yz) < .3 ? 4. : atn < .125*3.14159 || atn > .375*3.14159 ? 5. : 4.5;
-
+    float material = length(p.yz) < .3 ? i_MAT_CAR0 : atn < .125*3.14159 || atn > .375*3.14159 ? i_MAT_CAR1 : i_MAT_CAR2;
     float d = sdCappedCylinder1(p,.3,.1);
     return vec2( d, material );
 }
 vec2 sdBody( vec3 p )
 {
     p.z *= -1.;
-    vec2 d = vec2(
-        p.z < 1.2 ? sdEllipsoid( p-vec3(0,0,-.05), vec3(.3, .25, 1.5)) : 1000.,
-        6.5
-    );
-    d = min2(d, vec2(sdEllipsoid(p-vec3(0,0,.4), vec3(.3, .4, .6)), 7 ));
-    
-    d = min2(d, vec2(sdUnevenCapsule3d( p-vec3(0,0,-.25), .35, .55, 1., .15 ), 5.5 ));
-    d = min2(d, vec2(sdBox(p-vec3(0,0,1.), vec3(.45,.15,.25)), 5.5 ));
-
+    vec2 d = vec2( p.z < 1.2 ? sdEllipsoid( p-vec3(0,0,-.05), vec3(.3, .25, 1.5)) : 1000., i_MAT_CAR3 );
+    d = min2(d, vec2(sdEllipsoid(p-vec3(0,0,.4), vec3(.3, .4, .6)), i_MAT_CAR4 ));
+    d = min2(d, vec2(sdUnevenCapsule3d( p-vec3(0,0,-.25), .35, .55, 1., .15 ), i_MAT_CAR5 ));
+    d = min2(d, vec2(sdBox(p-vec3(0,0,1.), vec3(.45,.15,.25)), i_MAT_CAR5 ));
     return d;
 }
 
@@ -103,16 +89,16 @@ vec2 map( vec3 p )
 {
     vec2 world = Xmap( p );
 
+    world = min2( world, sdCheckpoint( p, Xc0, Xf0, ST.goalStateA.x ) );
+    world = min2( world, sdCheckpoint( p, Xc1, Xf1, ST.goalStateA.y ) );
+    world = min2( world, sdCheckpoint( p, Xc2, Xf2, ST.goalStateA.z ) );
+    world = min2( world, sdCheckpoint( p, Xc3, Xf3, ST.goalStateB.x ) );
+
     if( u_modeState )
     {
         world = min2( world, vec2(p.y,1) );
         return world;
     }
-
-    world = min2( world, sdGoal( p, Xc0, Xf0 ) );
-    world = min2( world, sdGoal( p, Xc1, Xf1 ) );
-    world = min2( world, sdGoal( p, Xc2, Xf2 ) );
-    world = min2( world, sdGoal( p, Xc3, Xf3 ) );
 
     world = min2( world, sdBody(g_wheelRot*(p - g_carCenterPt)));
     world = min2( world, sdWheel( g_wheelRot*(p - ST.wheelPos[0]), ST.wheelRotation[0].x));
@@ -120,8 +106,8 @@ vec2 map( vec3 p )
     world = min2( world, sdWheel( g_steerRot*(p - ST.wheelPos[2]), ST.wheelRotation[2].x));
     world = min2( world, sdWheel( g_steerRot*(p - ST.wheelPos[3]), ST.wheelRotation[3].x));
     
-    world = min2(world, vec2(  sdCapsule1( p, ST.wheelPos[2], ST.wheelPos[3], .08 ), 6 ));
-    world = min2(world, vec2(  sdCapsule1( p, ST.wheelPos[0], ST.wheelPos[1], .08 ), 6 ));
+    world = min2(world, vec2(  sdCapsule1( p, ST.wheelPos[2], ST.wheelPos[3], .08 ), i_MAT_CAR6 ));
+    world = min2(world, vec2(  sdCapsule1( p, ST.wheelPos[0], ST.wheelPos[1], .08 ), i_MAT_CAR6 ));
 
     return world;
 }
@@ -141,13 +127,20 @@ void initGlobals()
         normalize(cross( ST.wheelPos[0] - ST.wheelPos[3], ST.wheelPos[2] - ST.wheelPos[3] )) -
         normalize(cross( ST.wheelPos[0] - ST.wheelPos[1], ST.wheelPos[2] - ST.wheelPos[1] ))
     );
-
     if( carDownDir.y > 0. ) carDownDir *= -1.;
 
-    g_carForwardDir = normalize( ST.wheelPos[2] - ST.wheelPos[1] );
+    vec3 nonOrthoFwdDir = normalize(
+        normalize( ST.wheelPos[2] - ST.wheelPos[1] ) +
+        normalize( ST.wheelPos[3] - ST.wheelPos[0] )
+    );
+
+    vec3 carRightDir = normalize( cross( carDownDir, nonOrthoFwdDir ));
+
+    g_carForwardDir = cross( carRightDir, carDownDir );
+
     g_carCenterPt = ( ST.wheelPos[0] + ST.wheelPos[1] + ST.wheelPos[2] + ST.wheelPos[3] ) / 4.;
 
-    mat3 wheelRotFwd = mat3( cross( carDownDir, g_carForwardDir ), carDownDir, g_carForwardDir );
+    mat3 wheelRotFwd = mat3( carRightDir, carDownDir, g_carForwardDir );
     g_wheelRot = transpose( wheelRotFwd );
 
     g_steerForwardDir = vec3( 0, 0, 1 );
@@ -155,28 +148,6 @@ void initGlobals()
     g_steerForwardDir = wheelRotFwd * g_steerForwardDir;
 
     g_steerRot = transpose( mat3( cross( carDownDir, g_steerForwardDir ), carDownDir, g_steerForwardDir ));
-
-/*
-bit flags shadertoy
-
-void mainImage( out vec4 fragColor, in vec2 fragCoord )
-{
-    float num = 784006.;
-    
-    
-    
-    
-    vec2 uv = fragCoord/iResolution.xy;
-    float bit = floor(uv.x * 22.);
-    
-
-   	bool on = false;
-    if( mod( num / pow(2.,bit), 2. ) >= 1. )
-        on = true;
-    
-    fragColor = vec4(.25 + .75*bit / 22.) * (on ? vec4(0,1,0,0) : vec4(1,0,0,0));
-}
-*/
 }
 
 #ifdef XA

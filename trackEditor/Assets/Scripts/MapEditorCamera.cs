@@ -111,12 +111,19 @@ public class MapEditorCamera : MonoBehaviour
         for( int i = 0; i < 4; ++i )
         {
             var x = objs[i];
-            var fwd = x.transform.rotation.eulerAngles * Mathf.Deg2Rad;
+            var invQuat = Quaternion.Inverse( x.transform.rotation );
 
-            result.Add(
-                string.Format("const "+(glsl?"vec3":"float3")+" Xc"+i+" = "+(glsl?"vec3":"float3")+"({0},{1},{2});\n", smallNum(x.transform.position.x), smallNum(x.transform.position.y), smallNum(x.transform.position.z)) +
-                string.Format("const "+(glsl?"vec2":"float2")+" Xf"+i+" = "+(glsl?"vec2":"float2")+"({0},{1});", smallNum(fwd.x), smallNum(fwd.y))
-            );
+            if( glsl )
+
+                result.Add(
+                    string.Format("const vec3 Xc"+i+" = vec3({0},{1},{2});\n", smallNum(x.transform.position.x), smallNum(x.transform.position.y), smallNum(x.transform.position.z)) +
+                    string.Format("const vec4 Xf"+i+" = vec4({0},{1},{2},{3});", smallNum(invQuat.x), smallNum(invQuat.y), smallNum(invQuat.z), smallNum(invQuat.w))
+                );
+            else
+                result.Add(
+                    string.Format("#define Xc"+i+" float3({0},{1},{2})\n", smallNum(x.transform.position.x), smallNum(x.transform.position.y), smallNum(x.transform.position.z)) +
+                    string.Format("#define Xf"+i+" float4({0},{1},{2},{3})", smallNum(invQuat.x), smallNum(invQuat.y), smallNum(invQuat.z), smallNum(invQuat.w))
+                );
         }
 
         return result;

@@ -3,6 +3,18 @@ uniform sampler2D u_canvas;
 uniform vec3 u_time;
 uniform float u_skewY;
 
+const float i_MAT_ROAD = 2.;
+const float i_MAT_BUMPER = 3.;
+const float i_MAT_CHECKPOINT = 4.;
+const float i_MAT_CHECKPOINT_GOT = 5.;
+const float i_MAT_CAR0 = 15.;
+const float i_MAT_CAR1 = 15.5;
+const float i_MAT_CAR2 = 16.;
+const float i_MAT_CAR3 = 16.5;
+const float i_MAT_CAR4 = 17.;
+const float i_MAT_CAR5 = 17.5;
+const float i_MAT_CAR6 = 18.;
+
 #ifdef XA
 
 float sdBox( vec2 p, vec2 b )
@@ -69,17 +81,18 @@ void main()
 
     float maxMat = max( material0, max( material1, max( material2, material3 )));
     vec3 gameColor = vec3( .1 * maxMat );
-    if( maxMat >= 1. && maxMat < 2. )
+
+    if( maxMat >= 1. && maxMat < i_MAT_ROAD )
         gameColor = edge * vec3( 1, 0, 1 ) * mod( maxMat, .5 ) / .4;
-    else if( maxMat >= 8.4 )
-        gameColor = edge * vec3( 1, 1, 0 );
-    else if( maxMat >= 8. )
-        gameColor = vec3( 1, 1, .5 );
-    else if( maxMat >= 4. )
+    else if( maxMat >= i_MAT_CAR0 )
         gameColor = edge * vec3( 0, 1, 0 );
-    else if( maxMat >= 3. )
+    else if( maxMat >= i_MAT_CHECKPOINT_GOT )
+        gameColor = .7 * vec3( 0, 1, 0 );
+    else if( maxMat >= i_MAT_CHECKPOINT )
+        gameColor = .7 * vec3( 1, 0, 0 );
+    else if( maxMat >= i_MAT_BUMPER )
         gameColor = edge * vec3( 0, .5, 1 );
-    else if( maxMat >= 2. )
+    else if( maxMat >= i_MAT_ROAD )
         gameColor = edge * vec3( 0, 0, 1 );
     else if( maxMat < 1. )
     {
@@ -89,7 +102,7 @@ void main()
             gameColor = ((maxMat - .5) / .5) * vec3( .5, 0, 1 );
     }
 
-    if(( sample0.w < 0. || sample1.w < 0. || sample2.w < 0. || sample3.w < 0. ) && maxMat < 8. )
+    if( sample0.w < 0. || sample1.w < 0. || sample2.w < 0. || sample3.w < 0. )
         gameColor *= .4;
 
 // =================================================================================================
