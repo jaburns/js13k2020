@@ -29,7 +29,16 @@ const enum KeyCode
     Enter = 13,
     Esc = 27,
     R = 82,
-};
+}
+
+const enum StateVal
+{
+    Speed = 1,
+    Checkpoint0 = 4,
+    Checkpoint1 = 5,
+    Checkpoint2 = 6,
+    Checkpoint3 = 8,
+}
 
 const enum MenuMode
 {
@@ -120,8 +129,8 @@ let resetState = () =>
         g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, s_totalStateSize, 1, 0, gl_RGBA, gl_FLOAT, Float32Array.of(
         // Initial state
             0, 0, 0, 0,
-            0, 0, 1, 0,
-            1, 0, 0, 0,
+            0, 0, 0, 0,
+            0, 0, 0, 0,
 
             0, 1, 0, 0,
             0, 1, z, 0,
@@ -231,7 +240,7 @@ let drawHUD = () =>
         //c.strokeText( timeText, 180, 50 );
 
         c.fillStyle = '#b2d';
-        c.fillText( Math.floor(100*_stateCPUbuffer[1])+' kph', 35, 350 );
+        c.fillText( Math.floor(100*_stateCPUbuffer[StateVal.Speed])+' kph', 35, 350 );
     }
 
     g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
@@ -294,20 +303,20 @@ let frame = () =>
         if( ticked )
         {
             g.readPixels( 0, 0, s_totalStateSize, 1, gl_RGBA, gl_FLOAT, _stateCPUbuffer );
-            setEngineSoundFromCarSpeed( _stateCPUbuffer[1] );
+            setEngineSoundFromCarSpeed( _stateCPUbuffer[StateVal.Speed] );
             drawHUD();
+
+            if( _stateCPUbuffer[StateVal.Checkpoint0] + _stateCPUbuffer[StateVal.Checkpoint1] + _stateCPUbuffer[StateVal.Checkpoint2] + _stateCPUbuffer[StateVal.Checkpoint3] > 3 )
+            {
+                _menuMode = MenuMode.PostRace;
+                setSynthMenuMode(1);
+            }
+
+            if( _bootMode && newTime > _startTime + 8 )
+                resetState();
         }
 
         // ----- Frame update ------------------------------
-
-        if( _bootMode && newTime > _startTime + 8 )
-            resetState();
-
-        if( newTime > _startTime + 100 )
-        {
-            _menuMode = MenuMode.PostRace;
-            setSynthMenuMode(1);
-        }
 
         g.useProgram( _trackShaders[_trackIndex][0] );
 

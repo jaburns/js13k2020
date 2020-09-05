@@ -24,6 +24,11 @@ float3x3 quat( float x, float y, float z, float w ) {
     ));
 }
 
+float3x3 quat( float4 q )
+{
+    return quat( q.x, q.y, q.z, q.w );
+}
+
 float2x2 rot( float t )
 {
     return transpose_hlsl_only(float2x2(cos(t), sin(t), -sin(t), cos(t)));
@@ -160,7 +165,7 @@ float sdGoal1( float3 p )
 float2 sdCheckpoint( float3 p, float3 center, float4 rot, float goalState )
 {
     p -= center;
-    p = mul(quat(rot.x,rot.y,rot.z,rot.w), p); //GLSL// p = quat(rot.x,rot.y,rot.z,rot.w) * p;
+    p = mul(quat(rot), p); //GLSL// p = quat(rot.x,rot.y,rot.z,rot.w) * p;
 
     float3 rep = floor(p / 4. + .01);
     return float2( sdGoal1( p ), (goalState > 0. ? i_MAT_CHECKPOINT_GOT : i_MAT_CHECKPOINT) + .5 * mod(rep.x + rep.y + rep.z, 2.) );
