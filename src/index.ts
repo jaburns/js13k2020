@@ -331,7 +331,7 @@ let frame = () =>
             )
                 playWinSound(won);
 
-            if(
+            if( 
                 _latestState[StateVal.WheelGrounded0] && !prevState[StateVal.WheelGrounded0] ||
                 _latestState[StateVal.WheelGrounded1] && !prevState[StateVal.WheelGrounded1] ||
                 _latestState[StateVal.WheelGrounded2] && !prevState[StateVal.WheelGrounded2] ||

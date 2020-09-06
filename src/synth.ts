@@ -305,9 +305,13 @@ export let playClickSound = () =>
 
 export let playBonkSound = () =>
 {
-    if( !_lastBonkOffsetOld )
-        _lastBonkOffsetOld = _sampleOffset;
-    _lastBonkOffsetNew = _sampleOffset;
+    if( !_synthMenuMode )
+    {
+        if( !_lastBonkOffsetOld )
+            _lastBonkOffsetOld = _sampleOffset;
+
+        _lastBonkOffsetNew = _sampleOffset;
+    }
 }
 
 export let playWinSound = ( final: 1|0 ) =>
