@@ -25,7 +25,9 @@
     },
     "/*": [
         "s_carState.x => current steering angle",
-        "s_carState.y => current car speed "
+        "s_carState.y => current car speed",
+        "s_goalStateA/B.xyz => checkpoint state, 0 not passed, 1 passed",
+        "s_wheelRotationX => x rotation, y angular velocity, z 0/1 is wheel touching ground"
     ],
     "stateFields": [
         "s_carState",

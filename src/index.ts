@@ -1,7 +1,7 @@
 import { main_vert, main_frag, post_frag } from "./shaders.gen";
 import { DEBUG } from "./debug.gen";
 import { gl_VERTEX_SHADER, gl_FRAGMENT_SHADER, gl_ARRAY_BUFFER, gl_STATIC_DRAW, gl_FRAMEBUFFER, gl_TEXTURE_2D, gl_RGBA, gl_UNSIGNED_BYTE, gl_LINEAR, gl_CLAMP_TO_EDGE, gl_TEXTURE_WRAP_S, gl_TEXTURE_WRAP_T, gl_TEXTURE_MIN_FILTER, gl_COLOR_ATTACHMENT0, gl_NEAREST, gl_FLOAT, gl_TRIANGLES, gl_BYTE, gl_TEXTURE0, gl_TEXTURE_MAG_FILTER, gl_TEXTURE1, gl_RGB, gl_TEXTURE2 } from "./glConsts";
-import { startAudio, setSynthMenuMode, setEngineSoundFromCarSpeed, playResetSound, playClickSound } from "./synth";
+import { startAudio, setSynthMenuMode, setEngineSoundFromCarSpeed, playResetSound, playClickSound, playWinSound, playBonkSound } from "./synth";
 
 // =================================================================================================
 
@@ -38,6 +38,10 @@ const enum StateVal
     Checkpoint1 = 5,
     Checkpoint2 = 6,
     Checkpoint3 = 8,
+    WheelGrounded0 = 26,
+    WheelGrounded1 = 42,
+    WheelGrounded2 = 58,
+    WheelGrounded3 = 74,
 }
 
 const enum MenuMode
@@ -70,7 +74,8 @@ let _draw0Framebuffer: Framebuffer;
 let _draw1Framebuffer: Framebuffer;
 let _stateFramebuffers: Framebuffer[];
 let _curStateBufferIndex: number = 0;
-let _stateCPUbuffer: Float32Array = new Float32Array( 4 * s_totalStateSize );
+let _latestState: Float32Array;
+let _stateHistory: Float32Array[];
 
 let _bootMode: 0|1 = 1;
 let _menuMode: 0|1|2 = 0;
@@ -121,6 +126,7 @@ let resetState = () =>
     let z = -_bootMode * 1.2;
 
     _startTime = _previousTime;
+    _stateHistory = [];
 
     _stateFramebuffers.map(([fb, tex]) =>
     {
@@ -240,7 +246,7 @@ let drawHUD = () =>
         //c.strokeText( timeText, 180, 50 );
 
         c.fillStyle = '#b2d';
-        c.fillText( Math.floor(100*_stateCPUbuffer[StateVal.Speed])+' kph', 35, 350 );
+        c.fillText( Math.floor(100*_latestState[StateVal.Speed])+' kph', 35, 350 );
     }
 
     g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
@@ -270,6 +276,7 @@ let frame = () =>
     let newTime = performance.now()/1000;
     let deltaTime = newTime - _previousTime;
     let ticked = 0;
+    let prevState: Float32Array, won: 1|0 = 0;
     _previousTime = newTime;
 
     if( _startTime )
@@ -302,15 +309,35 @@ let frame = () =>
 
         if( ticked )
         {
-            g.readPixels( 0, 0, s_totalStateSize, 1, gl_RGBA, gl_FLOAT, _stateCPUbuffer );
-            setEngineSoundFromCarSpeed( _stateCPUbuffer[StateVal.Speed] );
+            _latestState && _stateHistory.push( _latestState );
+            _latestState = new Float32Array( 4 * s_totalStateSize );
+            g.readPixels( 0, 0, s_totalStateSize, 1, gl_RGBA, gl_FLOAT, _latestState );
+            setEngineSoundFromCarSpeed( _latestState[StateVal.Speed] );
             drawHUD();
 
-            if( _stateCPUbuffer[StateVal.Checkpoint0] + _stateCPUbuffer[StateVal.Checkpoint1] + _stateCPUbuffer[StateVal.Checkpoint2] + _stateCPUbuffer[StateVal.Checkpoint3] > 3 )
+            if( _latestState[StateVal.Checkpoint0] + _latestState[StateVal.Checkpoint1] + _latestState[StateVal.Checkpoint2] + _latestState[StateVal.Checkpoint3] > 3 )
             {
+                won = 1;
                 _menuMode = MenuMode.PostRace;
                 setSynthMenuMode(1);
             }
+
+            prevState = _stateHistory[_stateHistory.length - 1];
+            if(
+                _latestState[StateVal.Checkpoint0] && !prevState[StateVal.Checkpoint0] ||
+                _latestState[StateVal.Checkpoint1] && !prevState[StateVal.Checkpoint1] ||
+                _latestState[StateVal.Checkpoint2] && !prevState[StateVal.Checkpoint2] ||
+                _latestState[StateVal.Checkpoint3] && !prevState[StateVal.Checkpoint3]
+            )
+                playWinSound(won);
+
+            if(
+                _latestState[StateVal.WheelGrounded0] && !prevState[StateVal.WheelGrounded0] ||
+                _latestState[StateVal.WheelGrounded1] && !prevState[StateVal.WheelGrounded1] ||
+                _latestState[StateVal.WheelGrounded2] && !prevState[StateVal.WheelGrounded2] ||
+                _latestState[StateVal.WheelGrounded3] && !prevState[StateVal.WheelGrounded3]
+            )
+                playBonkSound();
 
             if( _bootMode && newTime > _startTime + 8 )
                 resetState();
@@ -408,6 +435,11 @@ document.onkeydown = k =>
             playClickSound();
             playResetSound();
         }
+    }
+
+    if( k.keyCode == KeyCode.Enter )
+    {
+        playBonkSound();
     }
 
     if( k.keyCode == KeyCode.Enter )

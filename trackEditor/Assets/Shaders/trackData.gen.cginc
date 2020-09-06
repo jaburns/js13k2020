@@ -2,12 +2,14 @@
 static const float i_MAT_ROAD = 2.;
 static const float i_MAT_BUMPER = 3.;
 static const float i_MAT_CHECKPOINT = 4.;
+static const float i_MAT_CHECKPOINT_GOT = 5.;
 static const float i_MAT_CAR0 = 15.;
 static const float i_MAT_CAR1 = 15.5;
 static const float i_MAT_CAR2 = 16.;
 static const float i_MAT_CAR3 = 16.5;
 static const float i_MAT_CAR4 = 17.;
 static const float i_MAT_CAR5 = 17.5;
+static const float i_MAT_CAR6 = 18.;
 
 float3x3 quat( float x, float y, float z, float w ) {
     return transpose_hlsl_only(float3x3(
@@ -21,6 +23,11 @@ float3x3 quat( float x, float y, float z, float w ) {
                 2.*z*y - 2.*w*x,
                 1. - 2.*x*x - 2.*y*y
     ));
+}
+
+float3x3 quat( float4 q )
+{
+    return quat( q.x, q.y, q.z, q.w );
 }
 
 float2x2 rot( float t )
@@ -61,7 +68,7 @@ float2 sdObj0( float3 p, float3 s )
 {
     p.z -= s.z;
     float3 rep = floor(p / 4. + .01);
-    return float2( sdBox( p, s ), 2. + .5 * mod(rep.x + rep.y + rep.z, 2.));
+    return float2( sdBox( p, s ), i_MAT_ROAD + .5 * mod(rep.x + rep.y + rep.z, 2.));
 }
 
 // Straight Track
@@ -74,8 +81,8 @@ float2 sdObj1( float3 p, float3 s, float twist )
     float3 rep = floor(p / 4. + .01);
 
     return min2(
-        float2( sdBox( p, float3(s.x,.5,s.z)), 2. + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
-        float2( sdVerticalCapsule( float3(abs(p.x),p.yz) - float3(s.x,0,0), s.z, 1. ), 3. + .5 * mod(rep.x + rep.y + rep.z, 2.) )
+        float2( sdBox( p, float3(s.x,.5,s.z)), i_MAT_ROAD + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
+        float2( sdVerticalCapsule( float3(abs(p.x),p.yz) - float3(s.x,0,0), s.z, 1. ), i_MAT_BUMPER + .5 * mod(rep.x + rep.y + rep.z, 2.) )
     );
 }
 
@@ -86,8 +93,8 @@ float2 primitive( float2 p, float sx, float bank, float pz )
     float3 rep = floor( float3(p.xy, pz) / 4. + .01);
 
     return min2(
-        float2( sdBox2D( p, float2( 4, .5 )), 2. + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
-        float2( length(float2(abs(p.x)-4.,p.y)) - 1., 3. + .5 * mod(rep.x + rep.y + rep.z, 2.) )
+        float2( sdBox2D( p, float2( 4, .5 )), i_MAT_ROAD + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
+        float2( length(float2(abs(p.x)-4.,p.y)) - 1., i_MAT_BUMPER + .5 * mod(rep.x + rep.y + rep.z, 2.) )
     );
 }
 
@@ -127,7 +134,7 @@ float2 sdObj2( float3 p, float3 s, float radius, float bank )
 
 
 
-static const float i_thicc = .5;
+static const float i_thicc = .4;
 
 float sdHex( float2 p, float r )
 {
@@ -159,10 +166,10 @@ float sdGoal1( float3 p )
 float2 sdCheckpoint( float3 p, float3 center, float4 rot, float goalState )
 {
     p -= center;
-    p = mul(quat(rot.x,rot.y,rot.z,rot.w), p); //GLSL// p = quat(rot.x,rot.y,rot.z,rot.w) * p;
+    p = mul(quat(rot), p); //GLSL// p = quat(rot.x,rot.y,rot.z,rot.w) * p;
 
     float3 rep = floor(p / 4. + .01);
-    return float2( sdGoal1( p ), i_MAT_CHECKPOINT + .5 * mod(rep.x + rep.y + rep.z, 2.) );
+    return float2( sdGoal1( p ), (goalState > 0. ? i_MAT_CHECKPOINT_GOT : i_MAT_CHECKPOINT) + .5 * mod(rep.x + rep.y + rep.z, 2.) );
 }
 #define Xc0 float3(0.44,0.13,53.7)
 #define Xf0 float4(0,0,0,1)

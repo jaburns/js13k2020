@@ -10,6 +10,7 @@ vec3 g_state[s_totalStateSize];
 vec3 g_carCenterPt;
 vec3 g_carLastCenterPt;
 vec3 g_carForwardDir;
+vec3 g_carUpDir;
 vec3 g_steerForwardDir;
 mat3 g_wheelRot;
 mat3 g_steerRot;
@@ -24,15 +25,6 @@ mat3 transpose( mat3 m )
         m[0][2], m[1][2], m[2][2]
     );
 }
-
-
-
-
-
-
-
-
-
 
 float sdCappedCylinder1( vec3 p, float h, float r )
 {
@@ -147,6 +139,9 @@ void initGlobals()
     g_steerForwardDir = wheelRotFwd * g_steerForwardDir;
 
     g_steerRot = transpose( mat3( cross( carDownDir, g_steerForwardDir ), carDownDir, g_steerForwardDir ));
+
+// TODO dont have both
+    g_carUpDir = -carDownDir;
 }
 
 #ifdef XA
@@ -198,16 +193,16 @@ void main()
         ST.carState.x -= sign( ST.carState.x ) * min( abs( ST.carState.x ), i_STEER_RATE );
 
     // Update checkpoint states
-    vec3 checkFwd = quat( Xf0 ) * vec3( 0, 0, 1 );
+    vec3 checkFwd = transpose(quat( Xf0 )) * vec3( 0, 0, 1 );
     if( length( g_carCenterPt - Xc0 ) < 4. && sign( dot( g_carCenterPt - Xc0, checkFwd )) != sign( dot( carLastCenterPt - Xc0, checkFwd )))
         ST.goalStateA.x = 1.;
-    checkFwd = quat( Xf1 ) * vec3( 0, 0, 1 );
+    checkFwd = transpose(quat( Xf1 )) * vec3( 0, 0, 1 );
     if( length( g_carCenterPt - Xc1 ) < 4. && sign( dot( g_carCenterPt - Xc1, checkFwd )) != sign( dot( carLastCenterPt - Xc1, checkFwd )))
         ST.goalStateA.y = 1.;
-    checkFwd = quat( Xf2 ) * vec3( 0, 0, 1 );
+    checkFwd = transpose(quat( Xf2 )) * vec3( 0, 0, 1 );
     if( length( g_carCenterPt - Xc2 ) < 4. && sign( dot( g_carCenterPt - Xc2, checkFwd )) != sign( dot( carLastCenterPt - Xc2, checkFwd )))
         ST.goalStateA.z = 1.;
-    checkFwd = quat( Xf3 ) * vec3( 0, 0, 1 );
+    checkFwd = transpose(quat( Xf3 )) * vec3( 0, 0, 1 );
     if( length( g_carCenterPt - Xc3 ) < 4. && sign( dot( g_carCenterPt - Xc3, checkFwd )) != sign( dot( carLastCenterPt - Xc3, checkFwd )))
         ST.goalStateB.x = 1.;
 
@@ -240,9 +235,12 @@ void main()
             }
 
             ST.wheelRotation[i].y = ST.carState.y * s_wheelRadius * sign(dot(carVel, g_carForwardDir));
+            ST.wheelRotation[i].z = min( ST.wheelRotation[i].z + 1., 3. );
         }
+        else
+            ST.wheelRotation[i].z = max( ST.wheelRotation[i].z - 1., 0. );
 
-        if(!( u_inputs.y < 0. && i < 2 ))
+        if( u_menuMode != 0 || !( u_inputs.y < 0. && i < 2 ))
             ST.wheelRotation[i].x += ST.wheelRotation[i].y;
     }
 
@@ -279,7 +277,7 @@ void main()
 
     vec2 uv = (gl_FragCoord.xy - .5*vec2(s_renderWidth., s_renderHeight.))/s_renderHeight.;
 
-    vec3 ro, lookDir;
+    vec3 ro, lookDir, camUp = vec3(0,1,0);
     if( u_menuMode == 2 )
     {
         ro = vec3(10,10,80);
@@ -287,6 +285,9 @@ void main()
     }
     else
     {
+        // camUp = g_carUpDir;
+        // ro = g_carCenterPt + g_carUpDir*.5 - g_carForwardDir*.5;
+        // lookDir = ro + g_carForwardDir;
         vec3 fwdxz = normalize(vec3(g_carForwardDir.x, 0, g_carForwardDir.z));
         ro = g_carCenterPt + vec3(0,2,0) - 7.*fwdxz;
         lookDir = g_carCenterPt + vec3(0,1,0);
@@ -294,7 +295,7 @@ void main()
 
     vec3 roo = ro;
     vec3 f = normalize(lookDir - ro);
-    vec3 r = normalize(cross(vec3(0,1,0), f));
+    vec3 r = normalize(cross(camUp, f));
     vec3 u = cross(f, r);
     vec3 c = ro + f;
     vec3 i = c + uv.x * r + uv.y * u;
