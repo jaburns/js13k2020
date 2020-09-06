@@ -1,6 +1,6 @@
 uniform sampler2D u_tex;
 uniform sampler2D u_canvas;
-uniform vec3 u_time;
+uniform vec4 u_time;
 uniform vec2 u_skewFade;
 
 const float i_MAT_ROAD = 2.;
@@ -38,7 +38,22 @@ void main()
 
     if( u_time.x == 0. )
     {
-        gl_FragColor = vec4(0,0.05,0.05,1);
+        vec2 uv = (gl_FragCoord.xy - .5*vec2(s_renderWidth., s_renderHeight.))/s_renderHeight.;
+        vec3 col = vec3(0,0.05,0.05);
+        float t = u_time.w == 1. ? 3.*u_time.y : 0.;
+
+        uv *= .98+.02*cos(t);
+
+        float box0 = sdBox( uv, vec2(.5, .05));
+        float box1 = sdBox( uv, vec2(.49, .04));
+        float box2 = sdBox( uv, vec2(.48 * u_time.w, .03));
+        if( box0 < 0. && box1 > 0. || box2 < 0. )
+            col = vec3(.5);
+
+        if( u_time.w == 1. )
+            col *= .5+.5*vec3(.5+.5*vec2(sin(t),cos(t)),1.);
+
+        gl_FragColor = vec4(col, 1);
         return;
     }
 

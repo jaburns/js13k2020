@@ -14,7 +14,7 @@ let _lastClickOffset: number;
 let _lastBonkOffsetOld: number;
 let _lastBonkOffsetNew: number;
 let _lastWinOffset: number;
-let _winSoundFinal: 1|0;
+let _winSoundFinal: 1|0|undefined;
 
 let AS = 466.16;
 let C = 523.25;
@@ -190,8 +190,8 @@ let addCheckpoint = ( y: Float32Array, sampleOffset: number ) =>
     {
         let t = (sampleOffset + i) / s_audioSampleRate + .05;
         let f = _winSoundFinal
-            ? ( t > .3 ? 2400 : t > .2 ? 1800 : t > .1 ? 1600 : 1200 )
-            : ( t > .3 ? 1800 : t > .2 ? 1200 : t > .1 ? 1600 : 1200 );
+            ? ( t > .3 ? 1800 : t > .2 ? 1200 : t > .1 ? 1600 : 1200 )
+            : ( t > .3 ? 2400 : t > .2 ? 1800 : t > .1 ? 1600 : 1200 );
         let attack = clamp01(100*(t-.05));
         let decay = 1. - smoothstep( .1, .4, t );
         y[i] += .3 * attack * decay * tri( 2*Math.PI * f * t );
@@ -314,7 +314,7 @@ export let playBonkSound = () =>
     }
 }
 
-export let playWinSound = ( final: 1|0 ) =>
+export let playWinSound = ( final?: 1|0 ) =>
 {
     _lastWinOffset = _sampleOffset;
     _winSoundFinal = final;
