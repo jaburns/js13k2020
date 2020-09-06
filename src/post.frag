@@ -1,7 +1,7 @@
 uniform sampler2D u_tex;
 uniform sampler2D u_canvas;
 uniform vec3 u_time;
-uniform float u_skewY;
+uniform vec2 u_skewFade;
 
 const float i_MAT_ROAD = 2.;
 const float i_MAT_BUMPER = 3.;
@@ -108,19 +108,19 @@ void main()
 // =================================================================================================
 //  Compose the canvas
 
-    vec3 hudColor = texture2D( u_canvas, vec2( uv.x + (uv.y > u_skewY ? .23-.5*uv.y : 0. ), 1.-uv.y )).rgb;
-
-// =================================================================================================
-
-    vec4 outColor = vec4( gameColor + hudColor, 0 );
+    vec3 hudColor = texture2D( u_canvas, vec2( uv.x + (uv.y > u_skewFade.x ? .23-.5*uv.y : 0. ), 1.-uv.y )).rgb;
+    float maxHud = max( hudColor.x, max( hudColor.y, hudColor.z ));
+    float dimUnderlay = ( 1. - .5 * length( gameColor ) * maxHud ) * min( 1., .3 + u_skewFade.y + length( uv - .5 ) );
+    vec4 outColor = vec4( dimUnderlay * gameColor + hudColor.xyz, 0 );
 
 // =================================================================================================
 //  CRT power-on effect
 
     float t = u_time.y - u_time.x - .1;
     float t1 = 4.*(u_time.y - u_time.z);
-    if( t < 1. )
+    if( t < 1.2 )
     {
+        t -= .2;
         vec4 c = outColor;
         outColor = vec4(0,0.05,.05,1);
         vec2 uv2 = uv - .5;

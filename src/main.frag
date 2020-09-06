@@ -194,16 +194,16 @@ void main()
 
     // Update checkpoint states
     vec3 checkFwd = transpose(quat( Xf0 )) * vec3( 0, 0, 1 );
-    if( length( g_carCenterPt - Xc0 ) < 4. && sign( dot( g_carCenterPt - Xc0, checkFwd )) != sign( dot( carLastCenterPt - Xc0, checkFwd )))
+    if( length( g_carCenterPt - Xc0 ) < 5. && sign( dot( g_carCenterPt - Xc0, checkFwd )) != sign( dot( carLastCenterPt - Xc0, checkFwd )))
         ST.goalStateA.x = 1.;
     checkFwd = transpose(quat( Xf1 )) * vec3( 0, 0, 1 );
-    if( length( g_carCenterPt - Xc1 ) < 4. && sign( dot( g_carCenterPt - Xc1, checkFwd )) != sign( dot( carLastCenterPt - Xc1, checkFwd )))
+    if( length( g_carCenterPt - Xc1 ) < 5. && sign( dot( g_carCenterPt - Xc1, checkFwd )) != sign( dot( carLastCenterPt - Xc1, checkFwd )))
         ST.goalStateA.y = 1.;
     checkFwd = transpose(quat( Xf2 )) * vec3( 0, 0, 1 );
-    if( length( g_carCenterPt - Xc2 ) < 4. && sign( dot( g_carCenterPt - Xc2, checkFwd )) != sign( dot( carLastCenterPt - Xc2, checkFwd )))
+    if( length( g_carCenterPt - Xc2 ) < 5. && sign( dot( g_carCenterPt - Xc2, checkFwd )) != sign( dot( carLastCenterPt - Xc2, checkFwd )))
         ST.goalStateA.z = 1.;
     checkFwd = transpose(quat( Xf3 )) * vec3( 0, 0, 1 );
-    if( length( g_carCenterPt - Xc3 ) < 4. && sign( dot( g_carCenterPt - Xc3, checkFwd )) != sign( dot( carLastCenterPt - Xc3, checkFwd )))
+    if( length( g_carCenterPt - Xc3 ) < 5. && sign( dot( g_carCenterPt - Xc3, checkFwd )) != sign( dot( carLastCenterPt - Xc3, checkFwd )))
         ST.goalStateB.x = 1.;
 
     for( int i = 0; i < 4; ++i )

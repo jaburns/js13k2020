@@ -3,6 +3,18 @@ import { DEBUG } from "./debug.gen";
 import { gl_VERTEX_SHADER, gl_FRAGMENT_SHADER, gl_ARRAY_BUFFER, gl_STATIC_DRAW, gl_FRAMEBUFFER, gl_TEXTURE_2D, gl_RGBA, gl_UNSIGNED_BYTE, gl_LINEAR, gl_CLAMP_TO_EDGE, gl_TEXTURE_WRAP_S, gl_TEXTURE_WRAP_T, gl_TEXTURE_MIN_FILTER, gl_COLOR_ATTACHMENT0, gl_NEAREST, gl_FLOAT, gl_TRIANGLES, gl_BYTE, gl_TEXTURE0, gl_TEXTURE_MAG_FILTER, gl_TEXTURE1, gl_RGB, gl_TEXTURE2 } from "./glConsts";
 import { startAudio, setSynthMenuMode, setEngineSoundFromCarSpeed, playResetSound, playClickSound, playWinSound, playBonkSound } from "./synth";
 
+
+// TODO
+//  - track select screen
+//  - post-race summary screen
+//  - better brakes
+//  - ghost playback
+//  - ray tracing bounding box optimization
+//  - design maps
+// REACH
+//  - ghost sharing through links
+//  - pre-rendered shadow buffer
+
 // =================================================================================================
 
 declare const C0: HTMLCanvasElement;
@@ -13,6 +25,7 @@ declare const s_totalStateSize: number;
 declare const s_wheelBaseWidth: number;
 declare const s_wheelBaseLength: number;
 declare const s_millisPerTick: number;
+declare const s_ticksPerSecond: number;
 declare const s_renderWidth: number;
 declare const s_renderHeight: number;
 declare const s_fullWidth: number;
@@ -61,6 +74,7 @@ let _inputs: {[k: number]: 1} = {};
 let _previousTime: number;
 let _veryStartTime: number = 0;
 let _startTime: number;
+let _raceTicks: number;
 
 let _fullScreenTriVertBuffer: WebGLBuffer;
 
@@ -78,7 +92,10 @@ let _latestState: Float32Array;
 let _stateHistory: Float32Array[];
 
 let _bootMode: 0|1 = 1;
-let _menuMode: 0|1|2 = 0;
+let _menuMode: MenuMode = 0;
+let _menuCursor: number = 0;
+let _menu2Cursor: number = 0;
+let i: number;
 
 // =================================================================================================
 
@@ -125,6 +142,7 @@ let resetState = () =>
 {
     let z = -_bootMode * 1.2;
 
+    _raceTicks = 0;
     _startTime = _previousTime;
     _stateHistory = [];
 
@@ -168,10 +186,20 @@ let resetState = () =>
 
 // =================================================================================================
 
+let drawText = ( str: string, x: number, y: number, size: number, innerColor: string, outerColor: string, border?: number ) =>
+{
+    c.lineWidth = border || 1;
+    c.fillStyle = innerColor;
+    c.font = 'bold '+size+'px monospace';
+    c.fillText( str, x, y );
+    c.strokeStyle = outerColor;
+    c.strokeText( str, x, y );
+};
+
 let drawHUD = () =>
 {
     let Y = -50, X = 205;// TODO inline;
-    let t = _previousTime - _startTime;
+    let t = _raceTicks / s_ticksPerSecond;
     let tSec = t % 60 >> 0;
     let tCent = t * 100 % 100 >> 0;
     let timeText = ( t / 60 >> 0 ) + ':' +
@@ -182,7 +210,6 @@ let drawHUD = () =>
 
     if( _bootMode && _menuMode == MenuMode.NoMenu )
     {
-
         [[40,'#b00'],[20,'#500']].map(([lw, ss]: [number, string]) =>
         {
             c.strokeStyle = ss;
@@ -218,35 +245,29 @@ let drawHUD = () =>
         C1.style.letterSpacing = '0px'; 
 
         if(( _previousTime / s_tempo ) % 1 > .25 )
-        {
-            c.fillStyle = '#0bb';
-            c.font = 'bold 24px monospace';
-            c.fillText( 'PRESS ENTER', 180, 330 );
-        }
+            drawText( 'PRESS ENTER', 180, 330, 24, '#0bb', '#06b' );
     }
     else if( _menuMode == MenuMode.PostRace )
     {
-        c.fillStyle = '#0ff';
-        c.font = 'bold 24px monospace';
-        c.fillText( 'RACE OVER', 180, 330 );
+        drawText( 'FINISH!', 135, 100, 56, '#0f0', '#080', 3 );
+        drawText( timeText, 175, 140, 36, '#0f6', '#083', 2 );
+
+        drawText( 'NEXT TRACK', 172, 140+25*3, 24, _menu2Cursor==0?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
+        drawText( 'SELECT TRACK', 172, 140+25*4, 24, _menu2Cursor==1?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
+        drawText( 'RETRY', 172, 140+25*5, 24, _menu2Cursor==2?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
+        drawText( 'EXPORT GHOST', 172, 140+25*6, 24, _menu2Cursor==3?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
     }
     else if( _menuMode == MenuMode.SelectTrack )
     {
-        c.fillStyle = '#0ff';
-        c.font = 'bold 24px monospace';
-        c.fillText( 'TRACK SELECT', 180, 330 );
+        drawText( 'SELECT TRACK', 80, 90, 48, '#f00', '#800', 3 );
+        for( i = 0; i < 8; ++i )
+            drawText( 'TRACK '+(i+1)+'   0:00:00', 135, 140+25*i, 24, _menuCursor==i?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
+        drawText( 'IMPORT GHOST', 172, 140+25*8, 24, _menuCursor==i?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
     }
     else
     {
-        c.font = 'bold 24px monospace';
-        c.fillStyle = '#0bb';
-        c.fillText( timeText, 375, 350 );
-        //c.strokeStyle = '#000';
-        //c.lineWidth = 5;
-        //c.strokeText( timeText, 180, 50 );
-
-        c.fillStyle = '#b2d';
-        c.fillText( Math.floor(100*_latestState[StateVal.Speed])+' kph', 35, 350 );
+        drawText( timeText, 375, 350, 24, '#0bb', '#06b' );
+        drawText( Math.floor(100*_latestState[StateVal.Speed])+' kph', 35, 350, 24, '#b2d', '#906');
     }
 
     g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
@@ -275,8 +296,7 @@ let frame = () =>
 
     let newTime = performance.now()/1000;
     let deltaTime = newTime - _previousTime;
-    let ticked = 0;
-    let prevState: Float32Array, won: 1|0 = 0;
+    let prevState: Float32Array;
     _previousTime = newTime;
 
     if( _startTime )
@@ -285,7 +305,6 @@ let frame = () =>
 
         while( _tickAccTime >= s_millisPerTick )
         {
-            ticked = 1;
             _tickAccTime -= s_millisPerTick;
 
         // ----- Fixed update tick ------------------------------
@@ -305,22 +324,12 @@ let frame = () =>
             g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_state' ), 0 );
 
             fullScreenDraw( _trackShaders[_trackIndex][1] );
-        }
 
-        if( ticked )
-        {
             _latestState && _stateHistory.push( _latestState );
             _latestState = new Float32Array( 4 * s_totalStateSize );
             g.readPixels( 0, 0, s_totalStateSize, 1, gl_RGBA, gl_FLOAT, _latestState );
             setEngineSoundFromCarSpeed( _latestState[StateVal.Speed] );
             drawHUD();
-
-            if( _latestState[StateVal.Checkpoint0] + _latestState[StateVal.Checkpoint1] + _latestState[StateVal.Checkpoint2] + _latestState[StateVal.Checkpoint3] > 3 )
-            {
-                won = 1;
-                _menuMode = MenuMode.PostRace;
-                setSynthMenuMode(1);
-            }
 
             prevState = _stateHistory[_stateHistory.length - 1];
             if(
@@ -329,7 +338,17 @@ let frame = () =>
                 _latestState[StateVal.Checkpoint2] && !prevState[StateVal.Checkpoint2] ||
                 _latestState[StateVal.Checkpoint3] && !prevState[StateVal.Checkpoint3]
             )
-                playWinSound(won);
+            {
+                if( _latestState[StateVal.Checkpoint0] + _latestState[StateVal.Checkpoint1] + _latestState[StateVal.Checkpoint2] + _latestState[StateVal.Checkpoint3] > 3 )
+                {
+                    _menuMode = MenuMode.PostRace;
+                    _menuCursor = 0;
+                    playWinSound(1);
+                    setSynthMenuMode(1);
+                }
+                else
+                    playWinSound(0);
+            }
 
             if( 
                 _latestState[StateVal.WheelGrounded0] && !prevState[StateVal.WheelGrounded0] ||
@@ -341,6 +360,9 @@ let frame = () =>
 
             if( _bootMode && newTime > _startTime + 8 )
                 resetState();
+
+            if( _menuMode == MenuMode.NoMenu )
+                _raceTicks++;
         }
 
         // ----- Frame update ------------------------------
@@ -380,7 +402,7 @@ let frame = () =>
     g.uniform3f( g.getUniformLocation( _post0Shader, 'u_time' ), _veryStartTime, newTime, _startTime );
     g.uniform1i( g.getUniformLocation( _post0Shader, 'u_tex' ), 0 );
     g.uniform1i( g.getUniformLocation( _post0Shader, 'u_canvas' ), 1 );
-    g.uniform1f( g.getUniformLocation( _post0Shader, 'u_skewY' ), _bootMode ? .3 : 1 );
+    g.uniform2f( g.getUniformLocation( _post0Shader, 'u_skewFade' ), _bootMode && _menuMode == MenuMode.NoMenu ? .3 : 1, ~~(_menuMode == MenuMode.NoMenu));
 
     fullScreenDraw( _post0Shader );
 
@@ -400,67 +422,92 @@ let frame = () =>
 
 // =================================================================================================
 
-C0.onclick = () => _startTime || ( _veryStartTime = _startTime = _previousTime, startAudio() );
-document.onkeyup = k => delete _inputs[k.keyCode];
-document.onkeydown = k =>
+C0.onclick = () => 
 {
-    _inputs[k.keyCode] = 1;
+    C0.onclick = 0 as any;
 
-    if( k.keyCode == KeyCode.R && !k.repeat && !_bootMode )
-    {
-        _menuMode = MenuMode.NoMenu;
-        setSynthMenuMode(0);
-        resetState();
-        playResetSound();
-    }
+    _veryStartTime = _startTime = _previousTime;
 
-    if( k.keyCode == KeyCode.Esc )
+    startAudio();
+
+    document.onkeyup = k => delete _inputs[k.keyCode];
+
+    document.onkeydown = k =>
     {
-        if( _bootMode )
-        {
-            _menuMode = MenuMode.NoMenu;
-            playClickSound();
-        }
-        else if( _menuMode == MenuMode.NoMenu )
-        {
-            _menuMode = MenuMode.SelectTrack;
-            setSynthMenuMode(1);
-            playClickSound();
-        }
-        else
+        _inputs[k.keyCode] = 1;
+
+        if( k.keyCode == KeyCode.R && !k.repeat && !_bootMode )
         {
             _menuMode = MenuMode.NoMenu;
             setSynthMenuMode(0);
             resetState();
-            playClickSound();
             playResetSound();
         }
-    }
 
-    if( k.keyCode == KeyCode.Enter )
-    {
-        playBonkSound();
-    }
+        if( _menuMode == MenuMode.SelectTrack )
+        {
+            if( k.keyCode == KeyCode.Down && _menuCursor < 8 )
+            {
+                _menuCursor++;
+                playClickSound();
+            }
+            if( k.keyCode == KeyCode.Up && _menuCursor > 0 )
+            {
+                _menuCursor--;
+                playClickSound();
+            }
+            if( k.keyCode == KeyCode.Enter )
+            {
+                _bootMode = 0;
+                _menuMode = MenuMode.NoMenu;
+                _trackIndex = 1;
+                setSynthMenuMode(0);
+                resetState();
+                playClickSound();
+                playResetSound();
+            }
+            if( k.keyCode == KeyCode.Esc )
+            {
+                _menuMode = MenuMode.NoMenu;
+                if( !_bootMode )
+                {
+                    _bootMode = 1;
+                    _trackIndex = 0;
+                    resetState();
+                }
+                playClickSound();
+            }
+        }
+        else if( !_bootMode )
+        {
+            if( k.keyCode == KeyCode.Esc )
+            {
+                _menuMode = MenuMode.SelectTrack;
+                setSynthMenuMode(1);
+                playClickSound();
+            }
+            if( _menuMode == MenuMode.PostRace )
+            {
+                if( k.keyCode == KeyCode.Down && _menu2Cursor < 3 )
+                {
+                    _menu2Cursor++;
+                    playClickSound();
+                }
+                if( k.keyCode == KeyCode.Up && _menu2Cursor > 0 )
+                {
+                    _menu2Cursor--;
+                    playClickSound();
+                }
+            }
+        }
 
-    if( k.keyCode == KeyCode.Enter )
-    {
-        if( _bootMode && _menuMode == MenuMode.NoMenu )
+        if( _bootMode && _menuMode == MenuMode.NoMenu && k.keyCode == KeyCode.Enter )
         {
             _menuMode = MenuMode.SelectTrack;
             playClickSound();
         }
-        else if( _menuMode == MenuMode.SelectTrack )
-        {
-            _bootMode = 0;
-            _menuMode = MenuMode.NoMenu;
-            _trackIndex = 1;
-            setSynthMenuMode(0);
-            resetState();
-            playClickSound();
-            playResetSound();
-        }
-    }
-}
+    };
+};
 
 // =================================================================================================
 
