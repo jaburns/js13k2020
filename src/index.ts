@@ -75,6 +75,7 @@ let _previousTime: number;
 let _veryStartTime: number = 0;
 let _startTime: number;
 let _raceTicks: number;
+let _waitingForClipboard: 0|1;
 
 let _fullScreenTriVertBuffer: WebGLBuffer;
 
@@ -250,19 +251,19 @@ let drawHUD = () =>
     else if( _menuMode == MenuMode.PostRace )
     {
         drawText( 'FINISH!', 135, 100, 56, '#0f0', '#080', 3 );
-        drawText( timeText, 175, 140, 36, '#0f6', '#083', 2 );
+        drawText( timeText,  175, 140, 36, '#0f6', '#083', 2 );
 
-        drawText( 'NEXT TRACK', 172, 140+25*3, 24, _menu2Cursor==0?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
-        drawText( 'SELECT TRACK', 172, 140+25*4, 24, _menu2Cursor==1?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
-        drawText( 'RETRY', 172, 140+25*5, 24, _menu2Cursor==2?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
-        drawText( 'EXPORT GHOST', 172, 140+25*6, 24, _menu2Cursor==3?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
+        drawText( 'RETRY',        218, 140+25*3, 24, _menu2Cursor==0?'#bbb':'#0bb', _menu2Cursor==i?'#666':'#06b' );
+        drawText( 'NEXT TRACK',   183, 140+25*4, 24, _menu2Cursor==1?'#bbb':'#0bb', _menu2Cursor==i?'#666':'#06b' );
+        drawText( 'SELECT TRACK', 168, 140+25*5, 24, _menu2Cursor==2?'#bbb':'#0bb', _menu2Cursor==i?'#666':'#06b' );
+        drawText( 'EXPORT GHOST TO CLIPBOARD', 75, 140+25*6, 24, _menu2Cursor==3?'#bbb':'#0bb', _menu2Cursor==i?'#666':'#06b' );
     }
     else if( _menuMode == MenuMode.SelectTrack )
     {
         drawText( 'SELECT TRACK', 80, 90, 48, '#f00', '#800', 3 );
         for( i = 0; i < 8; ++i )
             drawText( 'TRACK '+(i+1)+'   0:00:00', 135, 140+25*i, 24, _menuCursor==i?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
-        drawText( 'IMPORT GHOST', 172, 140+25*8, 24, _menuCursor==i?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
+        drawText( 'IMPORT GHOST FROM CLIPBOARD', 65, 140+25*8, 24, _menuCursor==i?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
     }
     else
     {
@@ -342,7 +343,7 @@ let frame = () =>
                 if( _latestState[StateVal.Checkpoint0] + _latestState[StateVal.Checkpoint1] + _latestState[StateVal.Checkpoint2] + _latestState[StateVal.Checkpoint3] > 3 )
                 {
                     _menuMode = MenuMode.PostRace;
-                    _menuCursor = 0;
+                    _menu2Cursor = 1;
                     playWinSound(1);
                     setSynthMenuMode(1);
                 }
@@ -434,9 +435,10 @@ C0.onclick = () =>
 
     document.onkeydown = k =>
     {
+        if( k.repeat || _waitingForClipboard ) return;
         _inputs[k.keyCode] = 1;
 
-        if( k.keyCode == KeyCode.R && !k.repeat && !_bootMode )
+        if( k.keyCode == KeyCode.R && !_bootMode )
         {
             _menuMode = MenuMode.NoMenu;
             setSynthMenuMode(0);
@@ -458,13 +460,25 @@ C0.onclick = () =>
             }
             if( k.keyCode == KeyCode.Enter )
             {
-                _bootMode = 0;
-                _menuMode = MenuMode.NoMenu;
-                _trackIndex = 1;
-                setSynthMenuMode(0);
-                resetState();
-                playClickSound();
-                playResetSound();
+                if( _menuCursor == 8 )
+                {
+                    _waitingForClipboard = 1;
+                    navigator.clipboard.readText().then(x =>
+                    {
+                        _waitingForClipboard = 0;
+                        alert(x);
+                    });
+                }
+                else
+                {
+                    _bootMode = 0;
+                    _menuMode = MenuMode.NoMenu;
+                    _trackIndex = _menuCursor + 1;
+                    setSynthMenuMode(0);
+                    resetState();
+                    playResetSound();
+                    playClickSound();
+                }
             }
             if( k.keyCode == KeyCode.Esc )
             {
@@ -498,6 +512,27 @@ C0.onclick = () =>
                     _menu2Cursor--;
                     playClickSound();
                 }
+                if( k.keyCode == KeyCode.Enter )
+                {
+                    if( _menu2Cursor == 0 )
+                    {
+                        _menuMode = MenuMode.NoMenu;
+                        setSynthMenuMode(0);
+                        resetState();
+                        playResetSound();
+                    }
+                    if( _menu2Cursor == 1 )
+                        alert('next track');
+                    if( _menu2Cursor == 2 )
+                        _menuMode = MenuMode.SelectTrack;
+                    if( _menu2Cursor == 3 )
+                    {
+                        _waitingForClipboard = 1;
+                        navigator.clipboard.writeText('$TRACKDATA$').then(() => _waitingForClipboard = 0);
+                    }
+
+                    playClickSound();
+                }
             }
         }
 
@@ -515,9 +550,9 @@ g.getExtension('OES_texture_float');
 g.getExtension('OES_texture_float_linear');
 //g.getExtension('WEBGL_color_buffer_float'); // Needed only to suppress warning in firefox.
 
-_trackShaders = ['00','01'].map( x => ([
-    buildShader( main_vert, main_frag, ['T'+x]),
-    buildShader( main_vert, main_frag, ['XA','T'+x])
+_trackShaders = [0,1,2,3,4,5,6,7,8].map( x => ([
+    buildShader( main_vert, main_frag, ['T0'+x]),
+    buildShader( main_vert, main_frag, ['XA','T0'+x])
 ]));
 _post0Shader = buildShader( main_vert, post_frag, ['XA'] );
 _post1Shader = buildShader( main_vert, post_frag, [] );
