@@ -79,8 +79,8 @@ let _waitingForClipboard: 0|1;
 
 let _fullScreenTriVertBuffer: WebGLBuffer;
 
-let _trackShaders: Track[];
-let _trackIndex: number = 0;
+let _trackShaders: Track[] = [0,0,0,0,0,0,0,0,0] as any;
+let _trackIndex: number;
 let _post0Shader: WebGLProgram;
 let _post1Shader: WebGLProgram;
 let _canvasTexture: WebGLTexture;
@@ -96,7 +96,6 @@ let _bootMode: 0|1 = 1;
 let _menuMode: MenuMode = 0;
 let _menuCursor: number = 0;
 let _menu2Cursor: number = 0;
-let i: number;
 
 // =================================================================================================
 
@@ -187,6 +186,19 @@ let resetState = () =>
 
 // =================================================================================================
 
+let loadTrack = ( i: number ) =>
+{
+    resetState();
+    _trackIndex = i;
+    if( !_trackShaders[i] )
+        _trackShaders[i] = [
+            buildShader( main_vert, main_frag, ['T0'+i]),
+            buildShader( main_vert, main_frag, ['XA','T0'+i])
+        ];
+};
+
+// =================================================================================================
+
 let drawText = ( str: string, x: number, y: number, size: number, innerColor: string, outerColor: string, border?: number ) =>
 {
     c.lineWidth = border || 1;
@@ -253,17 +265,17 @@ let drawHUD = () =>
         drawText( 'FINISH!', 135, 100, 56, '#0f0', '#080', 3 );
         drawText( timeText,  175, 140, 36, '#0f6', '#083', 2 );
 
-        drawText( 'RETRY',        218, 140+25*3, 24, _menu2Cursor==0?'#bbb':'#0bb', _menu2Cursor==i?'#666':'#06b' );
-        drawText( 'NEXT TRACK',   183, 140+25*4, 24, _menu2Cursor==1?'#bbb':'#0bb', _menu2Cursor==i?'#666':'#06b' );
-        drawText( 'SELECT TRACK', 168, 140+25*5, 24, _menu2Cursor==2?'#bbb':'#0bb', _menu2Cursor==i?'#666':'#06b' );
-        drawText( 'EXPORT GHOST TO CLIPBOARD', 75, 140+25*6, 24, _menu2Cursor==3?'#bbb':'#0bb', _menu2Cursor==i?'#666':'#06b' );
+        drawText( 'RETRY',        218, 140+25*3, 24, _menu2Cursor==0?'#bbb':'#0bb', _menu2Cursor==0?'#666':'#06b' );
+        drawText( 'NEXT TRACK',   183, 140+25*4, 24, _menu2Cursor==1?'#bbb':'#0bb', _menu2Cursor==1?'#666':'#06b' );
+        drawText( 'SELECT TRACK', 168, 140+25*5, 24, _menu2Cursor==2?'#bbb':'#0bb', _menu2Cursor==2?'#666':'#06b' );
+        drawText( 'EXPORT GHOST TO CLIPBOARD', 75, 140+25*6, 24, _menu2Cursor==3?'#bbb':'#0bb', _menu2Cursor==3?'#666':'#06b' );
     }
     else if( _menuMode == MenuMode.SelectTrack )
     {
         drawText( 'SELECT TRACK', 80, 90, 48, '#f00', '#800', 3 );
-        for( i = 0; i < 8; ++i )
+        for( let i = 0; i < 8; ++i )
             drawText( 'TRACK '+(i+1)+'   0:00:00', 135, 140+25*i, 24, _menuCursor==i?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
-        drawText( 'IMPORT GHOST FROM CLIPBOARD', 65, 140+25*8, 24, _menuCursor==i?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
+        drawText( 'IMPORT GHOST FROM CLIPBOARD', 65, 140+25*8, 24, _menuCursor==8?'#bbb':'#0bb', _menuCursor==8?'#666':'#06b' );
     }
     else
     {
@@ -472,10 +484,9 @@ C0.onclick = () =>
                 else
                 {
                     _bootMode = 0;
+                    loadTrack( _menuCursor + 1 );
                     _menuMode = MenuMode.NoMenu;
-                    _trackIndex = _menuCursor + 1;
                     setSynthMenuMode(0);
-                    resetState();
                     playResetSound();
                     playClickSound();
                 }
@@ -486,8 +497,7 @@ C0.onclick = () =>
                 if( !_bootMode )
                 {
                     _bootMode = 1;
-                    _trackIndex = 0;
-                    resetState();
+                    loadTrack( 0 );
                 }
                 playClickSound();
             }
@@ -522,7 +532,13 @@ C0.onclick = () =>
                         playResetSound();
                     }
                     if( _menu2Cursor == 1 )
-                        alert('next track');
+                    {
+                        loadTrack( _trackIndex < 8 ? _trackIndex + 1 : _trackIndex );
+                        _menuMode = MenuMode.NoMenu;
+                        setSynthMenuMode(0);
+                        playResetSound();
+                        playClickSound();
+                    }
                     if( _menu2Cursor == 2 )
                         _menuMode = MenuMode.SelectTrack;
                     if( _menu2Cursor == 3 )
@@ -550,10 +566,6 @@ g.getExtension('OES_texture_float');
 g.getExtension('OES_texture_float_linear');
 //g.getExtension('WEBGL_color_buffer_float'); // Needed only to suppress warning in firefox.
 
-_trackShaders = [0,1,2,3,4,5,6,7,8].map( x => ([
-    buildShader( main_vert, main_frag, ['T0'+x]),
-    buildShader( main_vert, main_frag, ['XA','T0'+x])
-]));
 _post0Shader = buildShader( main_vert, post_frag, ['XA'] );
 _post1Shader = buildShader( main_vert, post_frag, [] );
 
@@ -583,14 +595,12 @@ g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_T, gl_CLAMP_TO_EDGE );
 g.framebufferTexture2D( gl_FRAMEBUFFER, gl_COLOR_ATTACHMENT0, gl_TEXTURE_2D, _draw1Framebuffer[1], 0 );
 
 _stateFramebuffers = [[g.createFramebuffer()!,g.createTexture()!],[g.createFramebuffer()!,g.createTexture()!]];
-
-resetState();
-_startTime = 0;
-
-// =================================================================================================
-
 _canvasTexture = g.createTexture()!;
 
-// =================================================================================================
+_post0Shader = buildShader( main_vert, post_frag, ['XA'] );
+_post1Shader = buildShader( main_vert, post_frag, [] );
+
+loadTrack( 0 );
+_startTime = 0;
 
 frame();
