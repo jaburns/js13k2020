@@ -226,6 +226,15 @@ let drawHUD = () =>
     }
     else
     {
+        let t = _previousTime - _startTime - .5;
+        let t1 = 15*(1-(t%1))>>0;
+        let t2 = (t1>>1).toString(16);
+        t1 = t1.toString(16) as any;
+        if( t > 0 && t < 1 )
+            drawText( 'READY', 185, 200, 48, '#'+t1+'00', '#'+t2+'00', 3 );
+        if( t > 1 && t < 2 )
+            drawText( 'GO!', 205, 200, 64, '#0'+t1+'0', '#0'+t2+'0', 4 );
+
         drawText( timeText, 375, 350, 24, '#0bb', '#06b' );
         drawText( Math.floor(100*_latestState[StateVal.Speed])+' kph', 35, 350, 24, '#b2d', '#906');
     }
@@ -257,6 +266,7 @@ let frame = () =>
     let newTime = performance.now()/1000;
     let deltaTime = newTime - _previousTime;
     let prevState: Float32Array;
+    let active = _menuMode == MenuMode.NoMenu && newTime > _startTime + 1.5;
     _previousTime = newTime;
 
     if( _startTime )
@@ -278,14 +288,20 @@ let frame = () =>
 
             _curStateBufferIndex = 1 - _curStateBufferIndex;
 
-            g.uniform4f( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_inputs' ), ~~_inputs[KeyCode.Up], _inputs[KeyCode.Space] ? -1 : _inputs[KeyCode.Down] ? 1 : 0, ~~_inputs[KeyCode.Left], ~~_inputs[KeyCode.Right] );
+            if( newTime > _startTime + 1.5 )
+                g.uniform4f( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_inputs' ),
+                    ~~_inputs[KeyCode.Up], _inputs[KeyCode.Space] ? -1 : _inputs[KeyCode.Down] ? 1 : 0, ~~_inputs[KeyCode.Left], ~~_inputs[KeyCode.Right]
+                );
+            else 
+                g.uniform4f( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_inputs' ), 0, 0, 0, 0 );
+
             g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_modeState' ), 1 );
             g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_menuMode' ), _bootMode ? 2 : _menuMode == MenuMode.NoMenu ? 0 : 1 );
             g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_state' ), 0 );
 
             fullScreenDraw( _trackShaders[_trackIndex][1] );
 
-            _latestState && _stateHistory.push( _latestState );
+            active && _latestState && _stateHistory.push( _latestState );
             _latestState = new Float32Array( 4 * s_totalStateSize );
             g.readPixels( 0, 0, s_totalStateSize, 1, gl_RGBA, gl_FLOAT, _latestState );
             setEngineSoundFromCarSpeed( _latestState[StateVal.Speed] );
@@ -321,8 +337,7 @@ let frame = () =>
             if( _bootMode && newTime > _startTime + 8 )
                 resetState();
 
-            if( _menuMode == MenuMode.NoMenu )
-                _raceTicks++;
+            if( active ) _raceTicks++;
         }
 
         // ----- Frame update ------------------------------
@@ -591,7 +606,7 @@ _startTime = 0;
         yield ss;
     };
 
-    let gen, i = 0, j = 0, generators = [0,1/*,2,3,4,5,6,7,8*/].flatMap(i => ([
+    let gen, i = 0, j = 0, generators = [0,1,2,3,4,5/*,6,7,8*/].flatMap(i => ([
         buildShader( main_vert, main_frag, ['T0'+i] ),
         buildShader( main_vert, main_frag, ['XA','T0'+i] ),
     ]))

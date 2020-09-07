@@ -14,6 +14,7 @@ let _lastClickOffset: number;
 let _lastBonkOffsetOld: number;
 let _lastBonkOffsetNew: number;
 let _lastWinOffset: number;
+let _lastBuzzerOffset: number;
 let _winSoundFinal: 1|0|undefined;
 
 let AS = 466.16;
@@ -184,6 +185,23 @@ let addCrtBuzz = ( y: Float32Array, sampleOffset: number ) =>
     }
 };
 
+let addBuzzer = ( y: Float32Array, sampleOffset: number ) =>
+{
+    for (let i = 0; i < s_audioBufferSize; ++i)
+    {
+        let t = (sampleOffset + i) / s_audioSampleRate;
+        let p2 = t > 1.5;
+        t -= p2 ? 1.5 : .5;
+        let attack = clamp01(200*t);
+        let decay = 1. - smoothstep( .2, .45, t );
+
+        if( p2 )
+            y[i] += .05*attack*decay*(tri( 2*Math.PI*5315*t ) + tri( 2*Math.PI*3489*t ) + tri( 2*Math.PI*1743*t ) + tri( 2*Math.PI*873*t ) + tri( 2*Math.PI*435*t ));
+        else
+            y[i] += .05*attack*decay*(tri( 2*Math.PI*2655*t ) + tri( 2*Math.PI*1743*t ) + tri( 2*Math.PI*873*t ) + tri( 2*Math.PI*435*t ));
+    }
+}
+
 let addCheckpoint = ( y: Float32Array, sampleOffset: number ) =>
 {
     for( let i = 0; i < s_audioBufferSize; ++i )
@@ -288,6 +306,9 @@ let audioTick = ( y: Float32Array ) =>
     if( _lastBonkOffsetNew && _sampleOffset - _lastBonkOffsetNew < 10000 )
         addBonk( y );
 
+    if( _lastBuzzerOffset && _sampleOffset - _lastBuzzerOffset < 100000 )
+        addBuzzer( y, _sampleOffset - _lastBuzzerOffset  );
+
     _sampleOffset += s_audioBufferSize;
 };
 
@@ -298,10 +319,15 @@ export let setSynthMenuMode = (x: 1|0) =>
     _synthMenuMode = x;
 
 export let playResetSound = () =>
+{
     _lastResetOffset = _sampleOffset;
+    _lastBuzzerOffset = _sampleOffset;
+}
 
 export let playClickSound = () =>
     _lastClickOffset = _sampleOffset;
+
+//export let playStartBuzzer = () =>
 
 export let playBonkSound = () =>
 {
