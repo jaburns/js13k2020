@@ -4,10 +4,14 @@ import { gl_VERTEX_SHADER, gl_FRAGMENT_SHADER, gl_ARRAY_BUFFER, gl_STATIC_DRAW, 
 import { startAudio, setSynthMenuMode, setEngineSoundFromCarSpeed, playResetSound, playClickSound, playWinSound, playBonkSound } from "./synth";
 
 // TODO
-//  - ghost appearance
-// === FEATURE COMPLETE ===
+//  - tutorial text on race start or in track select.
+//  ARROWS DRIVE ; SPACE DRIFTS
+//    R RESTARTS ; ESC QUITS
+//  - add first person regions to map definition
 //  - ray tracing bounding box optimization
 //  - design maps
+//  - ghost data only every other tick
+//  - replay cams and replay mode
 
 // =================================================================================================
 
@@ -527,7 +531,7 @@ C0.onclick = () =>
     {
         if( _menuMode == MenuMode.SelectTrack )
         {
-            let str = e.clipboardData!.getData('text');
+            let str = e.clipboardData!.getData('text').trim();
             _trackIndex = parseInt(str.substr(0,1));
             loadNewTrack();
             loadGhost64( str.substr(1));
