@@ -2,6 +2,7 @@ static const float i_MAT_ROAD = 2.;
 static const float i_MAT_BUMPER = 3.;
 static const float i_MAT_CHECKPOINT = 4.;
 static const float i_MAT_CHECKPOINT_GOT = 5.;
+static const float i_MAT_GHOST0 = 10.;
 static const float i_MAT_CAR0 = 15.;
 static const float i_MAT_CAR1 = 15.5;
 static const float i_MAT_CAR2 = 16.;

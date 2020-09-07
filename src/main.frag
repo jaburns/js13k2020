@@ -17,6 +17,7 @@ vec3 g_carUpDir;
 vec3 g_steerForwardDir;
 mat3 g_wheelRot;
 mat3 g_steerRot;
+bool g_enableGhost;
 vec4 g_ghostWheel0;
 vec4 g_ghostWheel1;
 vec4 g_ghostWheel2;
@@ -69,21 +70,22 @@ float sdEllipsoid( vec3 p, vec3 r )
     float k1 = length(p/(r*r));
     return k0*(k0-1.0)/k1;
 }
-vec2 sdWheel( vec3 p, float theta )
+vec2 sdWheel( float subM, vec3 p, float theta )
 {
     vec2 p1 = rot( theta ) * p.yz;
     float atn = abs(atan(p1.x/p1.y));
     float material = length(p.yz) < .3 ? i_MAT_CAR0 : atn < .125*3.14159 || atn > .375*3.14159 ? i_MAT_CAR1 : i_MAT_CAR2;
     float d = sdCappedCylinder1(p,.3,.1);
-    return vec2( d, material );
+    return vec2( d, material - subM );
 }
-vec2 sdBody( vec3 p )
+vec2 sdBody( float subM, vec3 p )
 {
     p.z *= -1.;
     vec2 d = vec2( p.z < 1.2 ? sdEllipsoid( p-vec3(0,0,-.05), vec3(.3, .25, 1.5)) : 1000., i_MAT_CAR3 );
     d = min2(d, vec2(sdEllipsoid(p-vec3(0,0,.4), vec3(.3, .4, .6)), i_MAT_CAR4 ));
     d = min2(d, vec2(sdUnevenCapsule3d( p-vec3(0,0,-.25), .35, .55, 1., .15 ), i_MAT_CAR5 ));
     d = min2(d, vec2(sdBox(p-vec3(0,0,1.), vec3(.45,.15,.25)), i_MAT_CAR5 ));
+    d.y -= subM;
     return d;
 }
 
@@ -102,23 +104,24 @@ vec2 map( vec3 p )
         return world;
     }
 
-    if( u_enableGhost )
+    if( g_enableGhost )
     {
-        world = min2( world, sdBody(g_ghostWheelRot*(p - g_ghostCenterPt)));
-        world = min2( world, sdWheel( g_ghostWheelRot*(p - g_ghostWheel0.xyz), g_ghostWheel1.w ));
-        world = min2( world, sdWheel( g_ghostWheelRot*(p - g_ghostWheel1.xyz), g_ghostWheel1.w ));
-        world = min2( world, sdWheel( g_ghostSteerRot*(p - g_ghostWheel2.xyz), g_ghostWheel2.w ));
-        world = min2( world, sdWheel( g_ghostSteerRot*(p - g_ghostWheel3.xyz), g_ghostWheel3.w ));
+        world = min2( world, sdBody ( 5., g_ghostWheelRot*(p - g_ghostCenterPt) ));
+        world = min2( world, sdWheel( 5., g_ghostWheelRot*(p - g_ghostWheel0.xyz), g_ghostWheel1.w ));
+        world = min2( world, sdWheel( 5., g_ghostWheelRot*(p - g_ghostWheel1.xyz), g_ghostWheel1.w ));
+        world = min2( world, sdWheel( 5., g_ghostSteerRot*(p - g_ghostWheel2.xyz), g_ghostWheel2.w ));
+        world = min2( world, sdWheel( 5., g_ghostSteerRot*(p - g_ghostWheel3.xyz), g_ghostWheel3.w ));
+        world = min2( world, vec2( sdCapsule1( p, g_ghostWheel2.xyz, g_ghostWheel3.xyz, .08 ), i_MAT_CAR6 - 5. ));
+        world = min2( world, vec2( sdCapsule1( p, g_ghostWheel0.xyz, g_ghostWheel1.xyz, .08 ), i_MAT_CAR6 - 5. ));
     }
 
-    world = min2( world, sdBody(g_wheelRot*(p - g_carCenterPt)));
-    world = min2( world, sdWheel( g_wheelRot*(p - ST.wheelPos[0]), ST.wheelRotation[0].x));
-    world = min2( world, sdWheel( g_wheelRot*(p - ST.wheelPos[1]), ST.wheelRotation[1].x));
-    world = min2( world, sdWheel( g_steerRot*(p - ST.wheelPos[2]), ST.wheelRotation[2].x));
-    world = min2( world, sdWheel( g_steerRot*(p - ST.wheelPos[3]), ST.wheelRotation[3].x));
-    
-    world = min2(world, vec2(  sdCapsule1( p, ST.wheelPos[2], ST.wheelPos[3], .08 ), i_MAT_CAR6 ));
-    world = min2(world, vec2(  sdCapsule1( p, ST.wheelPos[0], ST.wheelPos[1], .08 ), i_MAT_CAR6 ));
+    world = min2( world, sdBody ( 0., g_wheelRot*(p - g_carCenterPt)));
+    world = min2( world, sdWheel( 0., g_wheelRot*(p - ST.wheelPos[0]), ST.wheelRotation[0].x));
+    world = min2( world, sdWheel( 0., g_wheelRot*(p - ST.wheelPos[1]), ST.wheelRotation[1].x));
+    world = min2( world, sdWheel( 0., g_steerRot*(p - ST.wheelPos[2]), ST.wheelRotation[2].x));
+    world = min2( world, sdWheel( 0., g_steerRot*(p - ST.wheelPos[3]), ST.wheelRotation[3].x));
+    world = min2( world, vec2( sdCapsule1( p, ST.wheelPos[2], ST.wheelPos[3], .08 ), i_MAT_CAR6 ));
+    world = min2( world, vec2( sdCapsule1( p, ST.wheelPos[0], ST.wheelPos[1], .08 ), i_MAT_CAR6 ));
 
     return world;
 }
@@ -190,6 +193,8 @@ void initGhostGlobals()
     steerForwardDir = wheelRotFwd * steerForwardDir;
 
     g_ghostSteerRot = transpose( mat3( cross( carDownDir, steerForwardDir ), carDownDir, steerForwardDir ));
+
+    g_enableGhost = u_enableGhost && length(g_ghostCenterPt - g_carCenterPt) > .1;
 }
 
 

@@ -4,9 +4,6 @@ import { gl_VERTEX_SHADER, gl_FRAGMENT_SHADER, gl_ARRAY_BUFFER, gl_STATIC_DRAW, 
 import { startAudio, setSynthMenuMode, setEngineSoundFromCarSpeed, playResetSound, playClickSound, playWinSound, playBonkSound } from "./synth";
 
 // TODO
-//  - store/load best time with ghost in local storage
-//  - only overwrite local ghost when time is better
-//  - stop jittering/error when ghost reaches end or when player exits
 //  - ghost appearance
 // === FEATURE COMPLETE ===
 //  - ray tracing bounding box optimization
@@ -71,7 +68,9 @@ const enum MenuMode
 }
 
 type Framebuffer = [WebGLFramebuffer,WebGLTexture];
-type Track = [WebGLProgram,WebGLProgram];
+
+type SaveDataElem = [number, string]; // [ best time in ticks, ghost string ]
+type SaveData = SaveDataElem[];
 
 // =================================================================================================
 
@@ -85,10 +84,8 @@ let _progress: number = 0;
 
 let _fullScreenTriVertBuffer: WebGLBuffer;
 
-let _trackShaders: Track[] = [[],[],[],[],[],[],[],[],[]] as any;
-let _trackIndex: number = 0;
-let _post0Shader: WebGLProgram;
-let _post1Shader: WebGLProgram;
+let _shaderPairs: [WebGLProgram,WebGLProgram][] = [];
+let _trackIndex: number = 1;
 let _canvasTexture: WebGLTexture;
 
 let _draw0Framebuffer: Framebuffer;
@@ -97,11 +94,14 @@ let _stateFramebuffers: Framebuffer[];
 let _curStateBufferIndex: number = 0;
 let _latestState: Float32Array;
 
+let _loadedSave: SaveData;
 let _recordGhost: number[];
 let _loadedGhost: Float32Array;
-let _loadedGhostPtr: number;
+let _loadedGhostPtr: number = -1;
 let _ghostTextures: [WebGLTexture,WebGLTexture];
 let _ghostTextureIndex: number = 0;
+let _exportGhost: string;
+let _foreignGhost: 0|1;
 
 let _bootMode: 0|1 = 1;
 let _menuMode: MenuMode = 0;
@@ -110,23 +110,52 @@ let _menu2Cursor: number = 0;
 
 // =================================================================================================
 
+let loadLocalStorage = () =>
+{
+    let savedStr = localStorage.getItem('404kph');
+    _loadedSave = savedStr
+        ? JSON.parse( savedStr )
+        : [[0],[0],[0],[0],[0],[0],[0],[0]] as any;
+};
+
+let fillGhostTexture = () =>
+{
+    g.bindTexture( gl_TEXTURE_2D, _ghostTextures[ _ghostTextureIndex ]);
+    let sliced = _loadedGhost.slice( _loadedGhostPtr, _loadedGhostPtr+16 );
+    g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, 4, 1, 0, gl_RGBA, gl_FLOAT, sliced );
+};
+
+let loadGhost64 = ( b64?: string ) =>
+{
+    if( !b64 )
+    {
+        _loadedGhostPtr = -1;
+        return;
+    }
+
+    _loadedGhost = new Float32Array(Uint8Array.from(atob( b64 ).split('').map(x => x.charCodeAt(0))).buffer);
+    _loadedGhostPtr = 0;
+    fillGhostTexture();
+    _ghostTextureIndex = 1 - _ghostTextureIndex;
+    fillGhostTexture();
+}
+
+// =================================================================================================
+
 let resetState = () =>
 {
     let z = -_bootMode * 1.2;
-    let ghost64 = localStorage.getItem('404kph');
 
     _raceTicks = 0;
     _startTime = _previousTime;
     _recordGhost = [];
-
-    if( ghost64 )
+    
+    if( _loadedGhostPtr > 0 )
     {
-        _loadedGhost = new Float32Array(Uint8Array.from(atob( ghost64 ).split('').map(x => x.charCodeAt(0))).buffer);
         _loadedGhostPtr = 0;
-    }
-    else
-    {
-        _loadedGhostPtr = -1;
+        fillGhostTexture();
+        _ghostTextureIndex = 1 - _ghostTextureIndex;
+        fillGhostTexture();
     }
 
     _stateFramebuffers.map(([fb, tex]) =>
@@ -169,6 +198,16 @@ let resetState = () =>
 
 // =================================================================================================
 
+let ticksToTime = ( ticks: number ) =>
+{
+    let t = ticks / s_ticksPerSecond;
+    let tSec = t % 60 >> 0;
+    let tCent = t * 100 % 100 >> 0;
+    return ( t / 60 >> 0 ) + ':' +
+        ( tSec > 9 ? '' : '0' ) + tSec + ':' +
+        ( tCent > 9 ? '' : '0' ) + tCent;
+};
+
 let drawText = ( str: string, x: number, y: number, size: number, innerColor: string, outerColor: string, border?: number ) =>
 {
     c.lineWidth = border || 1;
@@ -183,12 +222,7 @@ let drawText = ( str: string, x: number, y: number, size: number, innerColor: st
 let drawHUD = () =>
 {
     let Y = -50, X = 205;// TODO inline;
-    let t = _raceTicks / s_ticksPerSecond;
-    let tSec = t % 60 >> 0;
-    let tCent = t * 100 % 100 >> 0;
-    let timeText = ( t / 60 >> 0 ) + ':' +
-        ( tSec > 9 ? '' : '0' ) + tSec + ':' +
-        ( tCent > 9 ? '' : '0' ) + tCent;
+    let timeText = ticksToTime( _raceTicks );
 
     c.clearRect(0, 0, s_renderWidth, s_renderHeight);
 
@@ -245,7 +279,7 @@ let drawHUD = () =>
     {
         drawText( 'SELECT TRACK', 80, 80, 48, '#f00', '#800', 3 );
         for( let i = 0; i < 8; ++i )
-            drawText( 'TRACK '+(i+1)+'   0:00:00', 135, 130+25*i, 24, _menuCursor==i?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
+            drawText( 'TRACK '+(i+1)+'   '+ticksToTime(_loadedSave[i][0]), 135, 130+25*i, 24, _menuCursor==i?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
 
         drawText( 'PASTE TO IMPORT GHOST FROM CLIPBOARD', 40, 340, 20, '#b0b', '#808', 0 );
     }
@@ -291,7 +325,6 @@ let frame = () =>
     let newTime = performance.now()/1000;
     let deltaTime = newTime - _previousTime > 1 ? 1 : newTime - _previousTime;
     let prevState: Float32Array;
-    let active = _menuMode == MenuMode.NoMenu && newTime > _startTime + 1.5;
     _previousTime = newTime;
 
     if( _startTime )
@@ -304,7 +337,7 @@ let frame = () =>
 
         // ----- Fixed update tick ------------------------------
 
-            g.useProgram( _trackShaders[_trackIndex][1] );
+            g.useProgram( _shaderPairs[_trackIndex][1] );
             g.bindFramebuffer( gl_FRAMEBUFFER, _stateFramebuffers[1-_curStateBufferIndex][0] );
             g.viewport( 0, 0, s_totalStateSize, 1 );
 
@@ -314,17 +347,17 @@ let frame = () =>
             _curStateBufferIndex = 1 - _curStateBufferIndex;
 
             if( newTime > _startTime + 1.5 )
-                g.uniform4f( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_inputs' ),
+                g.uniform4f( g.getUniformLocation( _shaderPairs[_trackIndex][1], 'u_inputs' ),
                     ~~_inputs[KeyCode.Up], _inputs[KeyCode.Space] ? -1 : _inputs[KeyCode.Down] ? 1 : 0, ~~_inputs[KeyCode.Left], ~~_inputs[KeyCode.Right]
                 );
             else 
-                g.uniform4f( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_inputs' ), 0, 0, 0, 0 );
+                g.uniform4f( g.getUniformLocation( _shaderPairs[_trackIndex][1], 'u_inputs' ), 0, 0, 0, 0 );
 
-            g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_modeState' ), 1 );
-            g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_menuMode' ), _bootMode ? 2 : _menuMode == MenuMode.NoMenu ? 0 : 1 );
-            g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][1], 'u_state' ), 0 );
+            g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][1], 'u_modeState' ), 1 );
+            g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][1], 'u_menuMode' ), _bootMode ? 2 : _menuMode == MenuMode.NoMenu ? 0 : 1 );
+            g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][1], 'u_state' ), 0 );
 
-            fullScreenDraw( _trackShaders[_trackIndex][1] );
+            fullScreenDraw( _shaderPairs[_trackIndex][1] );
 
             prevState = _latestState;
             _latestState = new Float32Array( 4 * s_totalStateSize );
@@ -333,62 +366,76 @@ let frame = () =>
             setEngineSoundFromCarSpeed( _latestState[StateVal.Speed] );
             drawHUD();
 
-            if( active )
+            if( newTime > _startTime + 1.5 )
             {
-                _raceTicks++;
-
-                _recordGhost.push(
-                    _latestState[StateVal.WheelPos0], _latestState[StateVal.WheelPos0+1], _latestState[StateVal.WheelPos0+2], _latestState[StateVal.SteeringAngle],
-                    _latestState[StateVal.WheelPos1], _latestState[StateVal.WheelPos1+1], _latestState[StateVal.WheelPos1+2], _latestState[StateVal.WheelRot1], 
-                    _latestState[StateVal.WheelPos2], _latestState[StateVal.WheelPos2+1], _latestState[StateVal.WheelPos2+2], _latestState[StateVal.WheelRot2], 
-                    _latestState[StateVal.WheelPos3], _latestState[StateVal.WheelPos3+1], _latestState[StateVal.WheelPos3+2], _latestState[StateVal.WheelRot3],
-                );
-
-                _ghostTextureIndex = 1 - _ghostTextureIndex;
-                g.bindTexture( gl_TEXTURE_2D, _ghostTextures[ _ghostTextureIndex ])
-                let sliced = _loadedGhost.slice( _loadedGhostPtr, _loadedGhostPtr+16 );
-                g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, 4, 1, 0, gl_RGBA, gl_FLOAT, sliced );
-                _loadedGhostPtr += 16;
-
-                if(
-                    _latestState[StateVal.Checkpoint0] && !prevState[StateVal.Checkpoint0] ||
-                    _latestState[StateVal.Checkpoint1] && !prevState[StateVal.Checkpoint1] ||
-                    _latestState[StateVal.Checkpoint2] && !prevState[StateVal.Checkpoint2] ||
-                    _latestState[StateVal.Checkpoint3] && !prevState[StateVal.Checkpoint3]
-                )
+                if( _loadedGhostPtr >= 0 )
                 {
-                    if( _latestState[StateVal.Checkpoint0] + _latestState[StateVal.Checkpoint1] + _latestState[StateVal.Checkpoint2] + _latestState[StateVal.Checkpoint3] > 3 )
-                    {
-                        _menuMode = MenuMode.PostRace;
-                        _menu2Cursor = 1;
-                        playWinSound(0);
-                        setSynthMenuMode(1);
-
-                        let str = '', bytes = new Uint8Array(Float32Array.from( _recordGhost ).buffer);
-                        for( let i = 0; i < bytes.length; ++i ) str += String.fromCharCode(bytes[i]);
-                        str = btoa( str );
-                        localStorage.setItem('404kph', str );
-                    }
-                    else
-                        playWinSound(1);
+                    _ghostTextureIndex = 1 - _ghostTextureIndex;
+                    fillGhostTexture();
+                    if( _loadedGhostPtr < _loadedGhost.length - 16 )
+                        _loadedGhostPtr += 16;
                 }
 
-                if( 
-                    _latestState[StateVal.WheelGrounded0] && !prevState[StateVal.WheelGrounded0] ||
-                    _latestState[StateVal.WheelGrounded1] && !prevState[StateVal.WheelGrounded1] ||
-                    _latestState[StateVal.WheelGrounded2] && !prevState[StateVal.WheelGrounded2] ||
-                    _latestState[StateVal.WheelGrounded3] && !prevState[StateVal.WheelGrounded3]
-                )
-                    playBonkSound();
-            }
+                if( _menuMode == MenuMode.NoMenu )
+                {
+                    _raceTicks++;
 
-            if( _bootMode && newTime > _startTime + 8 )
-                resetState();
+                    _recordGhost.push(
+                        _latestState[StateVal.WheelPos0], _latestState[StateVal.WheelPos0+1], _latestState[StateVal.WheelPos0+2], _latestState[StateVal.SteeringAngle],
+                        _latestState[StateVal.WheelPos1], _latestState[StateVal.WheelPos1+1], _latestState[StateVal.WheelPos1+2], _latestState[StateVal.WheelRot1], 
+                        _latestState[StateVal.WheelPos2], _latestState[StateVal.WheelPos2+1], _latestState[StateVal.WheelPos2+2], _latestState[StateVal.WheelRot2], 
+                        _latestState[StateVal.WheelPos3], _latestState[StateVal.WheelPos3+1], _latestState[StateVal.WheelPos3+2], _latestState[StateVal.WheelRot3],
+                    );
+
+                    if(
+                        _latestState[StateVal.Checkpoint0] && !prevState[StateVal.Checkpoint0] ||
+                        _latestState[StateVal.Checkpoint1] && !prevState[StateVal.Checkpoint1] ||
+                        _latestState[StateVal.Checkpoint2] && !prevState[StateVal.Checkpoint2] ||
+                        _latestState[StateVal.Checkpoint3] && !prevState[StateVal.Checkpoint3]
+                    )
+                    {
+                        if( _latestState[StateVal.Checkpoint0] + _latestState[StateVal.Checkpoint1] + _latestState[StateVal.Checkpoint2] + _latestState[StateVal.Checkpoint3] > 3 )
+                        {
+                            _menuMode = MenuMode.PostRace;
+                            _menu2Cursor = 1;
+                            playWinSound(0);
+                            setSynthMenuMode(1);
+
+                            let i = 0, bytes = new Uint8Array(Float32Array.from( _recordGhost ).buffer), str = '';
+                            for( ; i < bytes.length; ++i ) str += String.fromCharCode(bytes[i]);
+                            _exportGhost = btoa(str);
+
+                            if( !_loadedSave[_trackIndex-2][0] || _raceTicks < _loadedSave[_trackIndex-2][0] )
+                            {
+                                _loadedSave[_trackIndex-2][0] = _raceTicks;
+                                _loadedSave[_trackIndex-2][1] = _exportGhost;
+                                localStorage.setItem('404kph', JSON.stringify( _loadedSave ));
+
+                                if( !_foreignGhost )
+                                    loadGhost64( _exportGhost );
+                            }
+                        }
+                        else
+                            playWinSound(1);
+                    }
+
+                    if( 
+                        _latestState[StateVal.WheelGrounded0] && !prevState[StateVal.WheelGrounded0] ||
+                        _latestState[StateVal.WheelGrounded1] && !prevState[StateVal.WheelGrounded1] ||
+                        _latestState[StateVal.WheelGrounded2] && !prevState[StateVal.WheelGrounded2] ||
+                        _latestState[StateVal.WheelGrounded3] && !prevState[StateVal.WheelGrounded3]
+                    )
+                        playBonkSound();
+                }
+
+                if( _bootMode && newTime > _startTime + 8 )
+                    resetState();
+            }
         }
 
         // ----- Frame update ------------------------------
 
-        g.useProgram( _trackShaders[_trackIndex][0] );
+        g.useProgram( _shaderPairs[_trackIndex][0] );
 
         g.bindFramebuffer( gl_FRAMEBUFFER, _draw0Framebuffer[0] );
         g.viewport( 0, 0, s_renderWidth, s_renderHeight );
@@ -398,14 +445,14 @@ let frame = () =>
         g.activeTexture( gl_TEXTURE1 );
         g.bindTexture( gl_TEXTURE_2D, _stateFramebuffers[1-_curStateBufferIndex][1] );
 
-        g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_modeState' ), 0 );
-        g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_menuMode' ), _bootMode ? 2 : _menuMode == MenuMode.NoMenu ? 0 : 1 );
-        g.uniform1f( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_time' ), newTime - _startTime );
-        g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_state' ), 0 );
-        g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_prevState' ), 1 );
-        g.uniform1f( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_lerpTime' ), _tickAccTime / s_millisPerTick );
+        g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_modeState' ), 0 );
+        g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_menuMode' ), _bootMode ? 2 : _menuMode == MenuMode.NoMenu ? 0 : 1 );
+        g.uniform1f( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_time' ), newTime - _startTime );
+        g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_state' ), 0 );
+        g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_prevState' ), 1 );
+        g.uniform1f( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_lerpTime' ), _tickAccTime / s_millisPerTick );
 
-        g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_enableGhost' ),  _loadedGhostPtr >= 0 ? 1 : 0 );
+        g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_enableGhost' ), _loadedGhostPtr >= 0 ? 1 : 0 );
 
         if( _loadedGhostPtr >= 0 )
         {
@@ -413,16 +460,16 @@ let frame = () =>
             g.bindTexture( gl_TEXTURE_2D, _ghostTextures[_ghostTextureIndex] );
             g.activeTexture( gl_TEXTURE3 );
             g.bindTexture( gl_TEXTURE_2D, _ghostTextures[1-_ghostTextureIndex] );
-            g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_ghost' ), 2 );
-            g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_prevGhost' ), 3 );
+            g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_ghost' ), 2 );
+            g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_prevGhost' ), 3 );
         }
 
-        fullScreenDraw( _trackShaders[_trackIndex][0] );
+        fullScreenDraw( _shaderPairs[_trackIndex][0] );
     }
 
     // ----- Post-processing update ------------------------------
 
-    g.useProgram( _post0Shader );
+    g.useProgram( _shaderPairs[0][0] );
 
     g.bindFramebuffer( gl_FRAMEBUFFER, _draw1Framebuffer[0] );
     g.viewport( 0, 0, s_renderWidth, s_renderHeight );
@@ -432,14 +479,14 @@ let frame = () =>
     g.activeTexture( gl_TEXTURE1 );
     g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
 
-    g.uniform4f( g.getUniformLocation( _post0Shader, 'u_time' ), _veryStartTime, newTime, _startTime, _progress );
-    g.uniform1i( g.getUniformLocation( _post0Shader, 'u_tex' ), 0 );
-    g.uniform1i( g.getUniformLocation( _post0Shader, 'u_canvas' ), 1 );
-    g.uniform2f( g.getUniformLocation( _post0Shader, 'u_skewFade' ), _bootMode && _menuMode == MenuMode.NoMenu ? .3 : 1, ~~(_menuMode == MenuMode.NoMenu));
+    g.uniform4f( g.getUniformLocation( _shaderPairs[0][0], 'u_time' ), _veryStartTime, newTime, _startTime, _progress );
+    g.uniform1i( g.getUniformLocation( _shaderPairs[0][0], 'u_tex' ), 0 );
+    g.uniform1i( g.getUniformLocation( _shaderPairs[0][0], 'u_canvas' ), 1 );
+    g.uniform2f( g.getUniformLocation( _shaderPairs[0][0], 'u_skewFade' ), _bootMode && _menuMode == MenuMode.NoMenu ? .3 : 1, _menuMode == MenuMode.NoMenu ? 1 : 0);
 
-    fullScreenDraw( _post0Shader );
+    fullScreenDraw( _shaderPairs[0][0] );
 
-    g.useProgram( _post1Shader );
+    g.useProgram( _shaderPairs[0][1] );
 
     g.bindFramebuffer( gl_FRAMEBUFFER, null );
     g.viewport( 0, 0, s_fullWidth, s_fullHeight );
@@ -447,13 +494,24 @@ let frame = () =>
     g.activeTexture( gl_TEXTURE0 );
     g.bindTexture( gl_TEXTURE_2D, _draw1Framebuffer[1] );
 
-    g.uniform4f( g.getUniformLocation( _post1Shader, 'u_time' ), _veryStartTime, newTime, _startTime, _progress );
-    g.uniform1i( g.getUniformLocation( _post1Shader, 'u_tex' ), 0 );
+    g.uniform4f( g.getUniformLocation( _shaderPairs[0][1], 'u_time' ), _veryStartTime, newTime, _startTime, _progress );
+    g.uniform1i( g.getUniformLocation( _shaderPairs[0][1], 'u_tex' ), 0 );
 
-    fullScreenDraw( _post1Shader );
+    fullScreenDraw( _shaderPairs[0][1] );
 };
 
 // =================================================================================================
+
+let loadNewTrack = () =>
+{
+    _menuMode = MenuMode.NoMenu;
+    _bootMode = 0;
+    resetState();
+    loadGhost64( _trackIndex > 1 ? _loadedSave[_trackIndex-2][1] : 0 as any );
+    setSynthMenuMode(0);
+    playResetSound();
+    playClickSound();
+};
 
 C0.onclick = () => 
 {
@@ -468,7 +526,12 @@ C0.onclick = () =>
     document.onpaste = e =>
     {
         if( _menuMode == MenuMode.SelectTrack )
-            console.log( e.clipboardData!.getData('text'));
+        {
+            let str = e.clipboardData!.getData('text');
+            _trackIndex = parseInt(str.substr(0,1));
+            loadNewTrack();
+            loadGhost64( str.substr(1));
+        }
     }
 
     document.onkeyup = k => delete _inputs[k.keyCode];
@@ -500,13 +563,8 @@ C0.onclick = () =>
             }
             if( k.keyCode == KeyCode.Enter )
             {
-                _bootMode = 0;
-                resetState();
-                _trackIndex = _menuCursor + 1;
-                _menuMode = MenuMode.NoMenu;
-                setSynthMenuMode(0);
-                playResetSound();
-                playClickSound();
+                _trackIndex = _menuCursor + 2;
+                loadNewTrack();
             }
             if( k.keyCode == KeyCode.Esc )
             {
@@ -514,8 +572,9 @@ C0.onclick = () =>
                 if( !_bootMode )
                 {
                     _bootMode = 1;
+                    loadGhost64();
                     resetState();
-                    _trackIndex = 0;
+                    _trackIndex = 1;
                 }
                 playClickSound();
             }
@@ -551,17 +610,13 @@ C0.onclick = () =>
                     }
                     if( _menu2Cursor == 1 )
                     {
-                        resetState();
-                        if( _trackIndex < 8 ) _trackIndex++;
-                        _menuMode = MenuMode.NoMenu;
-                        setSynthMenuMode(0);
-                        playResetSound();
-                        playClickSound();
+                        if( _trackIndex < 9 ) _trackIndex++;
+                        loadNewTrack();
                     }
                     if( _menu2Cursor == 2 )
                         _menuMode = MenuMode.SelectTrack;
                     if( _menu2Cursor == 3 )
-                        navigator.clipboard.writeText('$TRACKDATA$').then(playWinSound as any);
+                        navigator.clipboard.writeText(_trackIndex+_exportGhost).then(playWinSound as any);
 
                     playClickSound();
                 }
@@ -623,91 +678,87 @@ g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_S, gl_CLAMP_TO_EDGE );
 g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_T, gl_CLAMP_TO_EDGE );
 
 resetState();
-_trackIndex = 0;
 _startTime = 0;
 
 // =================================================================================================
 {
-    function* buildShader( vert: string, frag: string, defs: string[] )
-    {
-        let vs = g.createShader( gl_VERTEX_SHADER )!;
-        let fs = g.createShader( gl_FRAGMENT_SHADER )!;
-        let ss = g.createProgram()!;
-
-        g.shaderSource( vs, vert );
-        g.compileShader( vs );
-
-        yield 0;
-
-        if( DEBUG )
-        {
-            let log = g.getShaderInfoLog(vs);
-            if( log === null || log.length > 0 && log.indexOf('ERROR') >= 0 )
-                console.error( 'Vertex shader error', log, vert );
-        }
-
-        g.shaderSource( fs, defs.map( x => '#define '+x ).join('\n')+'\nprecision highp float;'+frag );
-        g.compileShader( fs );
-
-        yield 0;
-
-        if( DEBUG )
-        {
-            let log = g.getShaderInfoLog(fs);
-            if( log === null || log.length > 0 && log.indexOf('ERROR') >= 0 )
-            {
-                console.error( 'Fragment shader error', log, fs );
-                const shader = defs.map( x => '#define '+x ).join('\n')+'\nprecision highp float;'+frag;
-                console.log(shader.split('\n').map( (x,i) => i + ' :: ' + x ).join('\n'));
-            }
-        }
-
-        g.attachShader( ss, vs );
-        g.attachShader( ss, fs );
-        g.linkProgram( ss );
-
-        yield 0;
-
-        g.bindFramebuffer( gl_FRAMEBUFFER, _stateFramebuffers[0][0] );
-        g.viewport( 0, 0, 1, 1 );
-        g.useProgram( ss );
-        fullScreenDraw( ss );
-
-        yield ss;
-    };
-
-    let gen, i = 0, j = 0, generators = [0,1,2/*,3,4,5,6,7,8*/].flatMap(i => ([
-        buildShader( main_vert, main_frag, ['T0'+i] ),
-        buildShader( main_vert, main_frag, ['XA','T0'+i] ),
-    ]))
+    let defs: string[], vs: WebGLShader, fs: WebGLShader, ss: WebGLProgram;
+    let i: number = 0, step: number = 0;
 
     let run = () =>
     {
-        let val = generators[i].next();
-        _progress = (i + ( j / 4 )) / generators.length;
-
-        if( ++j == 4 ) {
-            j = 0;
-            _trackShaders[i/2>>0][i%2] = val.value as WebGLProgram;
-            i++;
-        }
-        if( i >= generators.length )
+        if( step == 0 )
         {
-            C0.style.cursor='pointer';
-            _progress = 1;
+            vs = g.createShader( gl_VERTEX_SHADER )!;
+            fs = g.createShader( gl_FRAGMENT_SHADER )!;
+            ss = g.createProgram()!;
+
+            g.shaderSource( vs, main_vert );
+            g.compileShader( vs );
+
+            if( DEBUG )
+            {
+                let log = g.getShaderInfoLog(vs);
+                if( log === null || log.length > 0 && log.indexOf('ERROR') >= 0 )
+                    console.error( 'Vertex shader error', log, main_vert );
+            }
         }
-        else 
-            setTimeout( run, 30 );
+        if( step == 1 )
+        {
+            defs = i % 2 ? ['XA'] : [];
+            if( i > 1 ) defs.push('T0'+((i-2)>>1));
+
+            g.shaderSource( fs, defs.map( x => '#define '+x ).join('\n')+'\nprecision highp float;'+(i < 2 ? post_frag : main_frag) );
+            g.compileShader( fs );
+
+            if( DEBUG )
+            {
+                let log = g.getShaderInfoLog(fs);
+                if( log === null || log.length > 0 && log.indexOf('ERROR') >= 0 )
+                {
+                    console.error( 'Fragment shader error', log, fs );
+                    const shader = defs.map( x => '#define '+x ).join('\n')+'\nprecision highp float;'+(i < 2 ? post_frag : main_frag);
+                    console.log(shader.split('\n').map( (x,i) => i + ' :: ' + x ).join('\n'));
+                }
+            }
+        }
+        if( step == 2 )
+        {
+            g.attachShader( ss, vs );
+            g.attachShader( ss, fs );
+            g.linkProgram( ss );
+        }
+        if( step == 3 )
+        {
+            g.bindFramebuffer( gl_FRAMEBUFFER, _stateFramebuffers[0][0] );
+            g.viewport( 0, 0, 1, 1 );
+            g.useProgram( ss );
+            fullScreenDraw( ss );
+
+            if( i % 2 )
+                _shaderPairs[i/2>>0].push(ss);
+            else
+                _shaderPairs[i/2>>0] = [ss] as any;
+
+            step = -1;
+
+            if( i == 1 )
+                frame();
+
+            if( ++i > ( DEBUG ? 5 : 17 ))
+            {
+                C0.style.cursor='pointer';
+                _progress = 1;
+                return;
+            }
+        }
+
+        step++;
+        _progress = (i + ( step / 4 )) / ( DEBUG ? 6 : 18 );
+        setTimeout( run, 30 );
     };
 
     run();
+}
 
-    gen = buildShader( main_vert, post_frag, ['XA'] ); gen.next(); gen.next(); gen.next();
-    _post0Shader = gen.next().value as WebGLProgram;
-    gen = buildShader( main_vert, post_frag, [] ); gen.next(); gen.next(); gen.next();
-    _post1Shader = gen.next().value as WebGLProgram;
-};
-
-// =================================================================================================
-
-frame();
+loadLocalStorage();
