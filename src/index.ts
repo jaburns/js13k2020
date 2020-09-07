@@ -1,16 +1,16 @@
 import { main_vert, main_frag, post_frag } from "./shaders.gen";
 import { DEBUG } from "./debug.gen";
-import { gl_VERTEX_SHADER, gl_FRAGMENT_SHADER, gl_ARRAY_BUFFER, gl_STATIC_DRAW, gl_FRAMEBUFFER, gl_TEXTURE_2D, gl_RGBA, gl_UNSIGNED_BYTE, gl_LINEAR, gl_CLAMP_TO_EDGE, gl_TEXTURE_WRAP_S, gl_TEXTURE_WRAP_T, gl_TEXTURE_MIN_FILTER, gl_COLOR_ATTACHMENT0, gl_NEAREST, gl_FLOAT, gl_TRIANGLES, gl_BYTE, gl_TEXTURE0, gl_TEXTURE_MAG_FILTER, gl_TEXTURE1, gl_RGB, gl_TEXTURE2 } from "./glConsts";
+import { gl_VERTEX_SHADER, gl_FRAGMENT_SHADER, gl_ARRAY_BUFFER, gl_STATIC_DRAW, gl_FRAMEBUFFER, gl_TEXTURE_2D, gl_RGBA, gl_UNSIGNED_BYTE, gl_LINEAR, gl_CLAMP_TO_EDGE, gl_TEXTURE_WRAP_S, gl_TEXTURE_WRAP_T, gl_TEXTURE_MIN_FILTER, gl_COLOR_ATTACHMENT0, gl_NEAREST, gl_FLOAT, gl_TRIANGLES, gl_BYTE, gl_TEXTURE0, gl_TEXTURE_MAG_FILTER, gl_TEXTURE1, gl_RGB, gl_TEXTURE2, gl_TEXTURE3 } from "./glConsts";
 import { startAudio, setSynthMenuMode, setEngineSoundFromCarSpeed, playResetSound, playClickSound, playWinSound, playBonkSound } from "./synth";
 
 // TODO
-//  - better brakes
-//  - ghost playback
+//  - store/load best time with ghost in local storage
+//  - only overwrite local ghost when time is better
+//  - stop jittering/error when ghost reaches end or when player exits
+//  - ghost appearance
+// === FEATURE COMPLETE ===
 //  - ray tracing bounding box optimization
 //  - design maps
-// REACH
-//  - ghost sharing through links
-//  - pre-rendered shadow buffer
 
 // =================================================================================================
 
@@ -43,11 +43,20 @@ const enum KeyCode
 
 const enum StateVal
 {
+    SteeringAngle = 0,
     Speed = 1,
     Checkpoint0 = 4,
     Checkpoint1 = 5,
     Checkpoint2 = 6,
     Checkpoint3 = 8,
+    WheelPos0 = 12,
+    WheelRot0 = 24,
+    WheelPos1 = 28,
+    WheelRot1 = 40,
+    WheelPos2 = 44,
+    WheelRot2 = 56,
+    WheelPos3 = 60,
+    WheelRot3 = 72,
     WheelGrounded0 = 26,
     WheelGrounded1 = 42,
     WheelGrounded2 = 58,
@@ -87,7 +96,12 @@ let _draw1Framebuffer: Framebuffer;
 let _stateFramebuffers: Framebuffer[];
 let _curStateBufferIndex: number = 0;
 let _latestState: Float32Array;
-let _stateHistory: Float32Array[];
+
+let _recordGhost: number[];
+let _loadedGhost: Float32Array;
+let _loadedGhostPtr: number;
+let _ghostTextures: [WebGLTexture,WebGLTexture];
+let _ghostTextureIndex: number = 0;
 
 let _bootMode: 0|1 = 1;
 let _menuMode: MenuMode = 0;
@@ -99,10 +113,21 @@ let _menu2Cursor: number = 0;
 let resetState = () =>
 {
     let z = -_bootMode * 1.2;
+    let ghost64 = localStorage.getItem('404kph');
 
     _raceTicks = 0;
     _startTime = _previousTime;
-    _stateHistory = [];
+    _recordGhost = [];
+
+    if( ghost64 )
+    {
+        _loadedGhost = new Float32Array(Uint8Array.from(atob( ghost64 ).split('').map(x => x.charCodeAt(0))).buffer);
+        _loadedGhostPtr = 0;
+    }
+    else
+    {
+        _loadedGhostPtr = -1;
+    }
 
     _stateFramebuffers.map(([fb, tex]) =>
     {
@@ -110,29 +135,29 @@ let resetState = () =>
         g.bindTexture( gl_TEXTURE_2D, tex );
         g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, s_totalStateSize, 1, 0, gl_RGBA, gl_FLOAT, Float32Array.of(
         // Initial state
-            0, 0, 0, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
+            0, 0, 0, 0, // 0
+            0, 0, 0, 0, // 4
+            0, 0, 0, 0, // 8
 
-            0, 1, 0, 0,
-            0, 1, z, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
+            0, 1, 0, 0, // 12
+            0, 1, z, 0, // 16
+            0, 0, 0, 0, // 20
+            0, 0, 0, 0, // 24
 
-            s_wheelBaseWidth, 1, 0, 0,
-            s_wheelBaseWidth, 1, z, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
+            s_wheelBaseWidth, 1, 0, 0, // 28
+            s_wheelBaseWidth, 1, z, 0, // 32
+            0, 0, 0, 0, // 36
+            0, 0, 0, 0, // 40
 
-            s_wheelBaseWidth, 1, s_wheelBaseLength,   0,
-            s_wheelBaseWidth, 1, s_wheelBaseLength+z, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
+            s_wheelBaseWidth, 1, s_wheelBaseLength,   0, // 44
+            s_wheelBaseWidth, 1, s_wheelBaseLength+z, 0, // 48
+            0, 0, 0, 0, // 52
+            0, 0, 0, 0, // 56
 
-            0, 1, s_wheelBaseLength,   0,
-            0, 1, s_wheelBaseLength+z, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
+            0, 1, s_wheelBaseLength,   0, // 60
+            0, 1, s_wheelBaseLength+z, 0, // 64
+            0, 0, 0, 0, // 68
+            0, 0, 0, 0, // 72
         ));
 
         g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_MIN_FILTER, gl_NEAREST );
@@ -236,7 +261,7 @@ let drawHUD = () =>
             drawText( 'GO!', 205, 200, 64, '#0'+t1+'0', '#0'+t2+'0', 4 );
 
         drawText( timeText, 375, 350, 24, '#0bb', '#06b' );
-        drawText( Math.floor(100*_latestState[StateVal.Speed])+' kph', 35, 350, 24, '#b2d', '#906');
+        drawText( (100*_latestState[StateVal.Speed]>>0)+' kph', 35, 350, 24, '#b2d', '#906');
     }
 
     g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
@@ -264,7 +289,7 @@ let frame = () =>
     requestAnimationFrame( frame );
 
     let newTime = performance.now()/1000;
-    let deltaTime = newTime - _previousTime;
+    let deltaTime = newTime - _previousTime > 1 ? 1 : newTime - _previousTime;
     let prevState: Float32Array;
     let active = _menuMode == MenuMode.NoMenu && newTime > _startTime + 1.5;
     _previousTime = newTime;
@@ -301,43 +326,64 @@ let frame = () =>
 
             fullScreenDraw( _trackShaders[_trackIndex][1] );
 
-            active && _latestState && _stateHistory.push( _latestState );
+            prevState = _latestState;
             _latestState = new Float32Array( 4 * s_totalStateSize );
+            prevState = prevState || _latestState;
             g.readPixels( 0, 0, s_totalStateSize, 1, gl_RGBA, gl_FLOAT, _latestState );
             setEngineSoundFromCarSpeed( _latestState[StateVal.Speed] );
             drawHUD();
 
-            prevState = _stateHistory[_stateHistory.length - 1];
-            if(
-                _latestState[StateVal.Checkpoint0] && !prevState[StateVal.Checkpoint0] ||
-                _latestState[StateVal.Checkpoint1] && !prevState[StateVal.Checkpoint1] ||
-                _latestState[StateVal.Checkpoint2] && !prevState[StateVal.Checkpoint2] ||
-                _latestState[StateVal.Checkpoint3] && !prevState[StateVal.Checkpoint3]
-            )
+            if( active )
             {
-                if( _latestState[StateVal.Checkpoint0] + _latestState[StateVal.Checkpoint1] + _latestState[StateVal.Checkpoint2] + _latestState[StateVal.Checkpoint3] > 3 )
-                {
-                    _menuMode = MenuMode.PostRace;
-                    _menu2Cursor = 1;
-                    playWinSound(0);
-                    setSynthMenuMode(1);
-                }
-                else
-                    playWinSound(1);
-            }
+                _raceTicks++;
 
-            if( 
-                _latestState[StateVal.WheelGrounded0] && !prevState[StateVal.WheelGrounded0] ||
-                _latestState[StateVal.WheelGrounded1] && !prevState[StateVal.WheelGrounded1] ||
-                _latestState[StateVal.WheelGrounded2] && !prevState[StateVal.WheelGrounded2] ||
-                _latestState[StateVal.WheelGrounded3] && !prevState[StateVal.WheelGrounded3]
-            )
-                playBonkSound();
+                _recordGhost.push(
+                    _latestState[StateVal.WheelPos0], _latestState[StateVal.WheelPos0+1], _latestState[StateVal.WheelPos0+2], _latestState[StateVal.SteeringAngle],
+                    _latestState[StateVal.WheelPos1], _latestState[StateVal.WheelPos1+1], _latestState[StateVal.WheelPos1+2], _latestState[StateVal.WheelRot1], 
+                    _latestState[StateVal.WheelPos2], _latestState[StateVal.WheelPos2+1], _latestState[StateVal.WheelPos2+2], _latestState[StateVal.WheelRot2], 
+                    _latestState[StateVal.WheelPos3], _latestState[StateVal.WheelPos3+1], _latestState[StateVal.WheelPos3+2], _latestState[StateVal.WheelRot3],
+                );
+
+                _ghostTextureIndex = 1 - _ghostTextureIndex;
+                g.bindTexture( gl_TEXTURE_2D, _ghostTextures[ _ghostTextureIndex ])
+                let sliced = _loadedGhost.slice( _loadedGhostPtr, _loadedGhostPtr+16 );
+                g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, 4, 1, 0, gl_RGBA, gl_FLOAT, sliced );
+                _loadedGhostPtr += 16;
+
+                if(
+                    _latestState[StateVal.Checkpoint0] && !prevState[StateVal.Checkpoint0] ||
+                    _latestState[StateVal.Checkpoint1] && !prevState[StateVal.Checkpoint1] ||
+                    _latestState[StateVal.Checkpoint2] && !prevState[StateVal.Checkpoint2] ||
+                    _latestState[StateVal.Checkpoint3] && !prevState[StateVal.Checkpoint3]
+                )
+                {
+                    if( _latestState[StateVal.Checkpoint0] + _latestState[StateVal.Checkpoint1] + _latestState[StateVal.Checkpoint2] + _latestState[StateVal.Checkpoint3] > 3 )
+                    {
+                        _menuMode = MenuMode.PostRace;
+                        _menu2Cursor = 1;
+                        playWinSound(0);
+                        setSynthMenuMode(1);
+
+                        let str = '', bytes = new Uint8Array(Float32Array.from( _recordGhost ).buffer);
+                        for( let i = 0; i < bytes.length; ++i ) str += String.fromCharCode(bytes[i]);
+                        str = btoa( str );
+                        localStorage.setItem('404kph', str );
+                    }
+                    else
+                        playWinSound(1);
+                }
+
+                if( 
+                    _latestState[StateVal.WheelGrounded0] && !prevState[StateVal.WheelGrounded0] ||
+                    _latestState[StateVal.WheelGrounded1] && !prevState[StateVal.WheelGrounded1] ||
+                    _latestState[StateVal.WheelGrounded2] && !prevState[StateVal.WheelGrounded2] ||
+                    _latestState[StateVal.WheelGrounded3] && !prevState[StateVal.WheelGrounded3]
+                )
+                    playBonkSound();
+            }
 
             if( _bootMode && newTime > _startTime + 8 )
                 resetState();
-
-            if( active ) _raceTicks++;
         }
 
         // ----- Frame update ------------------------------
@@ -358,6 +404,18 @@ let frame = () =>
         g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_state' ), 0 );
         g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_prevState' ), 1 );
         g.uniform1f( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_lerpTime' ), _tickAccTime / s_millisPerTick );
+
+        g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_enableGhost' ),  _loadedGhostPtr >= 0 ? 1 : 0 );
+
+        if( _loadedGhostPtr >= 0 )
+        {
+            g.activeTexture( gl_TEXTURE2 );
+            g.bindTexture( gl_TEXTURE_2D, _ghostTextures[_ghostTextureIndex] );
+            g.activeTexture( gl_TEXTURE3 );
+            g.bindTexture( gl_TEXTURE_2D, _ghostTextures[1-_ghostTextureIndex] );
+            g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_ghost' ), 2 );
+            g.uniform1i( g.getUniformLocation( _trackShaders[_trackIndex][0], 'u_prevGhost' ), 3 );
+        }
 
         fullScreenDraw( _trackShaders[_trackIndex][0] );
     }
@@ -552,6 +610,18 @@ g.framebufferTexture2D( gl_FRAMEBUFFER, gl_COLOR_ATTACHMENT0, gl_TEXTURE_2D, _dr
 _stateFramebuffers = [[g.createFramebuffer()!,g.createTexture()!],[g.createFramebuffer()!,g.createTexture()!]];
 _canvasTexture = g.createTexture()!;
 
+_ghostTextures = [g.createTexture()!,g.createTexture()!];
+g.bindTexture( gl_TEXTURE_2D, _ghostTextures[0] );
+g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, 4, 1, 0, gl_RGBA, gl_FLOAT, null );
+g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_MIN_FILTER, gl_LINEAR );
+g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_S, gl_CLAMP_TO_EDGE );
+g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_T, gl_CLAMP_TO_EDGE );
+g.bindTexture( gl_TEXTURE_2D, _ghostTextures[1] );
+g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, 4, 1, 0, gl_RGBA, gl_FLOAT, null );
+g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_MIN_FILTER, gl_LINEAR );
+g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_S, gl_CLAMP_TO_EDGE );
+g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_WRAP_T, gl_CLAMP_TO_EDGE );
+
 resetState();
 _trackIndex = 0;
 _startTime = 0;
@@ -606,7 +676,7 @@ _startTime = 0;
         yield ss;
     };
 
-    let gen, i = 0, j = 0, generators = [0,1,2,3,4,5/*,6,7,8*/].flatMap(i => ([
+    let gen, i = 0, j = 0, generators = [0,1,2/*,3,4,5,6,7,8*/].flatMap(i => ([
         buildShader( main_vert, main_frag, ['T0'+i] ),
         buildShader( main_vert, main_frag, ['XA','T0'+i] ),
     ]))

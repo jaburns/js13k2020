@@ -327,17 +327,12 @@ export let playResetSound = () =>
 export let playClickSound = () =>
     _lastClickOffset = _sampleOffset;
 
-//export let playStartBuzzer = () =>
-
 export let playBonkSound = () =>
 {
-    if( !_synthMenuMode )
-    {
-        if( !_lastBonkOffsetOld )
-            _lastBonkOffsetOld = _sampleOffset;
+    if( !_lastBonkOffsetOld )
+        _lastBonkOffsetOld = _sampleOffset;
 
-        _lastBonkOffsetNew = _sampleOffset;
-    }
+    _lastBonkOffsetNew = _sampleOffset;
 }
 
 export let playWinSound = ( final?: 1|0 ) =>

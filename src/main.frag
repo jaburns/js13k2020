@@ -1,5 +1,8 @@
 uniform sampler2D u_state;
 uniform sampler2D u_prevState;
+uniform bool u_enableGhost;
+uniform sampler2D u_ghost;
+uniform sampler2D u_prevGhost;
 uniform float u_time;
 uniform float u_lerpTime;
 uniform bool u_modeState;
@@ -14,6 +17,13 @@ vec3 g_carUpDir;
 vec3 g_steerForwardDir;
 mat3 g_wheelRot;
 mat3 g_steerRot;
+vec4 g_ghostWheel0;
+vec4 g_ghostWheel1;
+vec4 g_ghostWheel2;
+vec4 g_ghostWheel3;
+mat3 g_ghostWheelRot;
+mat3 g_ghostSteerRot;
+vec3 g_ghostCenterPt;
 
 #pragma INCLUDE_WORLD_SDF
 
@@ -92,6 +102,15 @@ vec2 map( vec3 p )
         return world;
     }
 
+    if( u_enableGhost )
+    {
+        world = min2( world, sdBody(g_ghostWheelRot*(p - g_ghostCenterPt)));
+        world = min2( world, sdWheel( g_ghostWheelRot*(p - g_ghostWheel0.xyz), g_ghostWheel1.w ));
+        world = min2( world, sdWheel( g_ghostWheelRot*(p - g_ghostWheel1.xyz), g_ghostWheel1.w ));
+        world = min2( world, sdWheel( g_ghostSteerRot*(p - g_ghostWheel2.xyz), g_ghostWheel2.w ));
+        world = min2( world, sdWheel( g_ghostSteerRot*(p - g_ghostWheel3.xyz), g_ghostWheel3.w ));
+    }
+
     world = min2( world, sdBody(g_wheelRot*(p - g_carCenterPt)));
     world = min2( world, sdWheel( g_wheelRot*(p - ST.wheelPos[0]), ST.wheelRotation[0].x));
     world = min2( world, sdWheel( g_wheelRot*(p - ST.wheelPos[1]), ST.wheelRotation[1].x));
@@ -143,6 +162,36 @@ void initGlobals()
 // TODO dont have both
     g_carUpDir = -carDownDir;
 }
+
+// TODO This basically duplicates initGlobals
+void initGhostGlobals()
+{
+    vec3 carDownDir = normalize(
+        normalize(cross( g_ghostWheel0.xyz - g_ghostWheel3.xyz, g_ghostWheel2.xyz - g_ghostWheel3.xyz )) -
+        normalize(cross( g_ghostWheel0.xyz - g_ghostWheel1.xyz, g_ghostWheel2.xyz - g_ghostWheel1.xyz ))
+    );
+    if( carDownDir.y > 0. ) carDownDir *= -1.;
+
+    vec3 nonOrthoFwdDir = 
+        normalize( g_ghostWheel2.xyz - g_ghostWheel1.xyz ) +
+        normalize( g_ghostWheel3.xyz - g_ghostWheel0.xyz );
+
+    vec3 carRightDir = normalize( cross( carDownDir, nonOrthoFwdDir ));
+
+    vec3 carForwardDir = cross( carRightDir, carDownDir );
+
+    g_ghostCenterPt = ( g_ghostWheel0.xyz + g_ghostWheel1.xyz + g_ghostWheel2.xyz + g_ghostWheel3.xyz ) / 4.;
+
+    mat3 wheelRotFwd = mat3( carRightDir, carDownDir, carForwardDir );
+    g_ghostWheelRot = transpose( wheelRotFwd );
+
+    vec3 steerForwardDir = vec3( 0, 0, 1 );
+    steerForwardDir.xz *= rot( ST.carState.x );
+    steerForwardDir = wheelRotFwd * steerForwardDir;
+
+    g_ghostSteerRot = transpose( mat3( cross( carDownDir, steerForwardDir ), carDownDir, steerForwardDir ));
+}
+
 
 #ifdef XA
 
@@ -206,6 +255,8 @@ void main()
     if( length( g_carCenterPt - Xc3 ) < 5. && sign( dot( g_carCenterPt - Xc3, checkFwd )) != sign( dot( carLastCenterPt - Xc3, checkFwd )))
         ST.goalStateB.x = 1.;
 
+    float velSign = sign(dot(carVel, g_carForwardDir));
+
     for( int i = 0; i < 4; ++i )
     {
         vec3 posStep = ST.wheelPos[i] - ST.wheelLastPos[i]  + (ST.wheelForceCache[i] - vec3(0,s_gravity,0)) / s_sqrTicksPerSecond.;
@@ -231,10 +282,10 @@ void main()
             {
                 vec3 xs = cross( normal, i < 2 ? g_carForwardDir : g_steerForwardDir );
                 vec3 groundedFwd = normalize( cross( xs, normal ));
-                ST.wheelForceCache[i] = 10. * groundedFwd * ( u_inputs.x > 0. ? 1. : -.5 );
+                ST.wheelForceCache[i] = 10. * groundedFwd * ( u_inputs.x > 0. ? 1. : velSign > 0. ? -1.5 : -.5 );
             }
 
-            ST.wheelRotation[i].y = ST.carState.y * s_wheelRadius * sign(dot(carVel, g_carForwardDir));
+            ST.wheelRotation[i].y = ST.carState.y * s_wheelRadius * velSign;
             ST.wheelRotation[i].z = min( ST.wheelRotation[i].z + 1., 3. );
         }
         else
@@ -274,6 +325,15 @@ void main()
             u_lerpTime ).xyz;
 
     initGlobals();
+
+    if( u_enableGhost )
+    {
+        g_ghostWheel0 = mix( texture2D( u_prevGhost, vec2( .5/4.,.5) ), texture2D( u_ghost, vec2( .5/4.,.5) ), u_lerpTime );
+        g_ghostWheel1 = mix( texture2D( u_prevGhost, vec2(1.5/4.,.5) ), texture2D( u_ghost, vec2(1.5/4.,.5) ), u_lerpTime );
+        g_ghostWheel2 = mix( texture2D( u_prevGhost, vec2(2.5/4.,.5) ), texture2D( u_ghost, vec2(2.5/4.,.5) ), u_lerpTime );
+        g_ghostWheel3 = mix( texture2D( u_prevGhost, vec2(3.5/4.,.5) ), texture2D( u_ghost, vec2(3.5/4.,.5) ), u_lerpTime );
+        initGhostGlobals();
+    }
 
     vec2 uv = (gl_FragCoord.xy - .5*vec2(s_renderWidth., s_renderHeight.))/s_renderHeight.;
 
