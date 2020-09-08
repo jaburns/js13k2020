@@ -130,7 +130,7 @@ let taylorSquareWave = ( x: number, i: number, imax: number ): number =>
 
 let pad = ( time: number, tempo: number, f?: number ) =>
 {
-    f = (Math.floor( time / tempo / 16/*note.length*/ ) % 4 === 3 ? bass1 : bass0)[ Math.floor( time / tempo ) % 16 ]
+    f = (( time / tempo / 16/*note.length*/ | 0 ) % 4 === 3 ? bass1 : bass0)[ time / tempo % 16 | 0 ]
         * (_songPos % 128 >= 64 ? 1.335 : 1); // 1.335 ~ Math.pow(2, 5/12)
     time %= tempo;
 
@@ -142,7 +142,7 @@ let pad = ( time: number, tempo: number, f?: number ) =>
 
 let lead = ( time: number, tempo: number, f?: number ) =>
 {
-    f = leadnote[ Math.floor( time / tempo ) % 256/*leadnote.length*/ ];
+    f = leadnote[ time / tempo % 256/*leadnote.length*/ | 0 ];
     time %= tempo;
 
     let attack = clamp01(100*time);

@@ -6,6 +6,7 @@ import { startAudio, setSynthMenuMode, setEngineSoundFromCarSpeed, playResetSoun
 // TODO
 //  - ray tracing bounding box optimization
 //  - design maps
+//  STRETCH - smaller replay format
 //  STRETCH - replay cams and replay mode
 
 // =================================================================================================
@@ -205,9 +206,9 @@ let resetState = () =>
 let ticksToTime = ( ticks: number ) =>
 {
     let t = ticks / s_ticksPerSecond;
-    let tSec = t % 60 >> 0;
-    let tCent = t * 100 % 100 >> 0;
-    return ( t / 60 >> 0 ) + ':' +
+    let tSec = t % 60 | 0;
+    let tCent = t * 100 % 100 |0;
+    return ( t / 60 | 0 ) + ':' +
         ( tSec > 9 ? '' : '0' ) + tSec + ':' +
         ( tCent > 9 ? '' : '0' ) + tCent;
 };
@@ -294,7 +295,7 @@ let drawHUD = () =>
     else
     {
         let t = _previousTime - _startTime - .5;
-        let t1 = 15*(1-(t%1))>>0;
+        let t1 = 15*(1-(t%1))|0;
         let t2 = (t1>>1).toString(16);
         t1 = t1.toString(16) as any;
         if( t > 0 && t < 1 )
@@ -303,7 +304,7 @@ let drawHUD = () =>
             drawText( 'GO!', 205, 200, 64, '#0'+t1+'0', '#0'+t2+'0', 4 );
 
         drawText( timeText, 375, 350, 24, '#0bb', '#06b' );
-        drawText( (100*_latestState[StateVal.Speed]>>0)+' kph', 35, 350, 24, '#b2d', '#906');
+        drawText( (100*_latestState[StateVal.Speed]|0)+' kph', 35, 350, 24, '#b2d', '#906');
     }
 
     g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
@@ -742,9 +743,9 @@ _startTime = 0;
             fullScreenDraw( ss );
 
             if( i % 2 )
-                _shaderPairs[i/2>>0].push(ss);
+                _shaderPairs[i/2|0].push(ss);
             else
-                _shaderPairs[i/2>>0] = [ss] as any;
+                _shaderPairs[i/2|0] = [ss] as any;
 
             step = -1;
 
