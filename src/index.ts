@@ -5,12 +5,9 @@ import { startAudio, setSynthMenuMode, setEngineSoundFromCarSpeed, playResetSoun
 
 // TODO
 //  - tutorial text on race start or in track select.
-//  ARROWS DRIVE ; SPACE DRIFTS
-//    R RESTARTS ; ESC QUITS
 //  - add first person regions to map definition
 //  - ray tracing bounding box optimization
 //  - design maps
-//  - ghost data only every other tick
 //  - replay cams and replay mode
 
 // =================================================================================================
@@ -137,7 +134,13 @@ let loadGhost64 = ( b64?: string ) =>
         return;
     }
 
-    _loadedGhost = new Float32Array(Uint8Array.from(atob( b64 ).split('').map(x => x.charCodeAt(0))).buffer);
+    let floats = new Float32Array(Uint8Array.from(atob( b64 ).split('').map(x => x.charCodeAt(0))).buffer);
+    _loadedGhost = new Float32Array( 2*floats.length - 32 );
+    for( let i = 0; i < _loadedGhost.length/2; i += 16 )
+        for( let k = 0; k < 16; ++k )
+            _loadedGhost[2*i+k] = floats[i+k],
+            _loadedGhost[16+2*i+k] = .5*(floats[i+k] + floats[16+i+k]);
+
     _loadedGhostPtr = 0;
     fillGhostTexture();
     _ghostTextureIndex = 1 - _ghostTextureIndex;
@@ -225,38 +228,39 @@ let drawText = ( str: string, x: number, y: number, size: number, innerColor: st
 
 let drawHUD = () =>
 {
-    let Y = -50, X = 205;// TODO inline;
     let timeText = ticksToTime( _raceTicks );
 
     c.clearRect(0, 0, s_renderWidth, s_renderHeight);
 
     if( _bootMode && _menuMode == MenuMode.NoMenu )
     {
+        let Y = -50, X = 205, Z = -5;
+
         [[40,'#b00'],[20,'#500']].map(([lw, ss]: [number, string]) =>
         {
             c.strokeStyle = ss;
             c.lineWidth = lw;
             c.beginPath();
-            c.moveTo(Y+185,250);
-            c.lineTo(Y+185,200);
-            c.lineTo(Y+125,200);
-            c.lineTo(Y+205,100);
-            c.lineTo(Y+205,150);
+            c.moveTo(Y+185,Z+250);
+            c.lineTo(Y+185,Z+200);
+            c.lineTo(Y+125,Z+200);
+            c.lineTo(Y+205,Z+100);
+            c.lineTo(Y+205,Z+150);
             c.stroke();
             c.beginPath();
-            c.moveTo(Y+250,100);
-            c.lineTo(Y+250,230);
-            c.lineTo(Y+310,230);
-            c.lineTo(Y+310,100);
-            c.lineTo(Y+250,100);
-            c.lineTo(Y+250,230);
+            c.moveTo(Y+250,Z+100);
+            c.lineTo(Y+250,Z+230);
+            c.lineTo(Y+310,Z+230);
+            c.lineTo(Y+310,Z+100);
+            c.lineTo(Y+250,Z+100);
+            c.lineTo(Y+250,Z+230);
             c.stroke();
             c.beginPath();
-            c.moveTo(Y+X+185,250);
-            c.lineTo(Y+X+185,200);
-            c.lineTo(Y+X+125,200);
-            c.lineTo(Y+X+205,100);
-            c.lineTo(Y+X+205,150);
+            c.moveTo(Y+X+185,Z+250);
+            c.lineTo(Y+X+185,Z+200);
+            c.lineTo(Y+X+125,Z+200);
+            c.lineTo(Y+X+205,Z+100);
+            c.lineTo(Y+X+205,Z+150);
             c.stroke();
         });
 
@@ -266,8 +270,11 @@ let drawHUD = () =>
         c.fillText('kph',Y+410,250);
         C1.style.letterSpacing = '0px'; 
 
+        drawText('ARROWS DRIVE  SPACE DRIFTS', 135, 290, 16, '#b60', '', 0);
+        drawText('R RESTARTS  ESC QUITS', 155, 305, 16, '#b60', '', 0);
+
         if(( _previousTime / s_tempo ) % 1 > .25 )
-            drawText( 'PRESS ENTER', 180, 330, 24, '#0bb', '#06b' );
+            drawText( 'PRESS ENTER', 180, 340, 24, '#0bb', '#06b' );
     }
     else if( _menuMode == MenuMode.PostRace )
     {
@@ -283,9 +290,9 @@ let drawHUD = () =>
     {
         drawText( 'SELECT TRACK', 80, 80, 48, '#f00', '#800', 3 );
         for( let i = 0; i < 8; ++i )
-            drawText( 'TRACK '+(i+1)+'   '+ticksToTime(_loadedSave[i][0]), 135, 130+25*i, 24, _menuCursor==i?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
+            drawText( 'TRACK '+(i+1)+'   '+ticksToTime(_loadedSave[i][0]), 135, 127+25*i, 24, _menuCursor==i?'#bbb':'#0bb', _menuCursor==i?'#666':'#06b' );
 
-        drawText( 'PASTE TO IMPORT GHOST FROM CLIPBOARD', 40, 340, 20, '#b0b', '#808', 0 );
+        drawText( 'PASTE TO IMPORT GHOST FROM CLIPBOARD', 40, 340, 20, '#b60', '', 0 );
     }
     else
     {
@@ -382,14 +389,13 @@ let frame = () =>
 
                 if( _menuMode == MenuMode.NoMenu )
                 {
-                    _raceTicks++;
-
-                    _recordGhost.push(
-                        _latestState[StateVal.WheelPos0], _latestState[StateVal.WheelPos0+1], _latestState[StateVal.WheelPos0+2], _latestState[StateVal.SteeringAngle],
-                        _latestState[StateVal.WheelPos1], _latestState[StateVal.WheelPos1+1], _latestState[StateVal.WheelPos1+2], _latestState[StateVal.WheelRot1], 
-                        _latestState[StateVal.WheelPos2], _latestState[StateVal.WheelPos2+1], _latestState[StateVal.WheelPos2+2], _latestState[StateVal.WheelRot2], 
-                        _latestState[StateVal.WheelPos3], _latestState[StateVal.WheelPos3+1], _latestState[StateVal.WheelPos3+2], _latestState[StateVal.WheelRot3],
-                    );
+                    if( ++_raceTicks % 2 )
+                        _recordGhost.push(
+                            _latestState[StateVal.WheelPos0], _latestState[StateVal.WheelPos0+1], _latestState[StateVal.WheelPos0+2], _latestState[StateVal.SteeringAngle],
+                            _latestState[StateVal.WheelPos1], _latestState[StateVal.WheelPos1+1], _latestState[StateVal.WheelPos1+2], _latestState[StateVal.WheelRot1],
+                            _latestState[StateVal.WheelPos2], _latestState[StateVal.WheelPos2+1], _latestState[StateVal.WheelPos2+2], _latestState[StateVal.WheelRot2],
+                            _latestState[StateVal.WheelPos3], _latestState[StateVal.WheelPos3+1], _latestState[StateVal.WheelPos3+2], _latestState[StateVal.WheelRot3],
+                        );
 
                     if(
                         _latestState[StateVal.Checkpoint0] && !prevState[StateVal.Checkpoint0] ||
@@ -405,9 +411,8 @@ let frame = () =>
                             playWinSound(0);
                             setSynthMenuMode(1);
 
-                            let i = 0, bytes = new Uint8Array(Float32Array.from( _recordGhost ).buffer), str = '';
-                            for( ; i < bytes.length; ++i ) str += String.fromCharCode(bytes[i]);
-                            _exportGhost = btoa(str);
+                            _exportGhost = 
+                                btoa([...new Uint8Array(Float32Array.from( _recordGhost ).buffer)].map(x => String.fromCharCode(x)).join(''));
 
                             if( !_loadedSave[_trackIndex-2][0] || _raceTicks < _loadedSave[_trackIndex-2][0] )
                             {
