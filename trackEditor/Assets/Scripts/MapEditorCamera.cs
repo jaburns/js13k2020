@@ -114,7 +114,6 @@ public class MapEditorCamera : MonoBehaviour
             var invQuat = Quaternion.Inverse( x.transform.rotation );
 
             if( glsl )
-
                 result.Add(
                     string.Format("const vec3 Xc"+i+" = vec3({0},{1},{2});\n", smallNum(x.transform.position.x), smallNum(x.transform.position.y), smallNum(x.transform.position.z)) +
                     string.Format("const vec4 Xf"+i+" = vec4({0},{1},{2},{3});", smallNum(invQuat.x), smallNum(invQuat.y), smallNum(invQuat.z), smallNum(invQuat.w))
@@ -125,6 +124,21 @@ public class MapEditorCamera : MonoBehaviour
                     string.Format("#define Xf"+i+" float4({0},{1},{2},{3})", smallNum(invQuat.x), smallNum(invQuat.y), smallNum(invQuat.z), smallNum(invQuat.w))
                 );
         }
+
+        var fps = FindObjectsOfType<MapFirstPersonRegion>();
+
+        if( fps.Length != 1 ) 
+            throw new System.Exception("Need 1 fps region");
+
+        var z = fps[0];
+        if( glsl )
+            result.Add(
+                string.Format("const vec4 Xp0 = vec4({0},{1},{2},{3});\n", smallNum(z.transform.position.x), smallNum(z.transform.position.y), smallNum(z.transform.position.z), smallNum(z.radius))
+            );
+        else
+            result.Add(
+                string.Format("#define Xp0 float4({0},{1},{2},{3})\n", smallNum(z.transform.position.x), smallNum(z.transform.position.y), smallNum(z.transform.position.z), smallNum(z.radius))
+            );
 
         return result;
     }

@@ -7,6 +7,7 @@ const vec3 Xc2 = vec3(0,-10,0);
 const vec4 Xf2 = vec4(0,0,0,1);
 const vec3 Xc3 = vec3(0,-10,0);
 const vec4 Xf3 = vec4(0,0,0,1);
+const vec4	Xp0 = vec4(0.5,8.2,165.7,40);
 vec2 Xmap( vec3 p )
 {
 return min2(opSmoothUnion2(sdObj0( quat(0.383,0.,0.,0.924)*(p-vec3(0.5,-1.42,64.26)), vec3(2.29,0.5,3.109)),sdObj1( quat(0.,0.,0.,1.)*(p-vec3(0.5,0,-130.6)), vec3(4,0.5,100),0.),2.),min2(sdObj1( quat(0.,0.,0.,1.)*(p-vec3(0.5,0,-130.6)), vec3(4,0.5,100),0.),min2(sdObj0( quat(0.383,0.,0.,0.924)*(p-vec3(0.5,-1.42,64.26)), vec3(2.29,0.5,3.109)),sdObj1( quat(0.,0.,0.,1.)*(p-vec3(0.5,5.65,87.7)), vec3(4,0.5,100),0.))));

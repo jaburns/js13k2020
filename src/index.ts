@@ -4,11 +4,10 @@ import { gl_VERTEX_SHADER, gl_FRAGMENT_SHADER, gl_ARRAY_BUFFER, gl_STATIC_DRAW, 
 import { startAudio, setSynthMenuMode, setEngineSoundFromCarSpeed, playResetSound, playClickSound, playWinSound, playBonkSound } from "./synth";
 
 // TODO
-//  - tutorial text on race start or in track select.
 //  - add first person regions to map definition
 //  - ray tracing bounding box optimization
 //  - design maps
-//  - replay cams and replay mode
+//  STRETCH - replay cams and replay mode
 
 // =================================================================================================
 
@@ -69,7 +68,6 @@ const enum MenuMode
 }
 
 type Framebuffer = [WebGLFramebuffer,WebGLTexture];
-
 type SaveDataElem = [number, string]; // [ best time in ticks, ghost string ]
 type SaveData = SaveDataElem[];
 

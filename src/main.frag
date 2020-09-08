@@ -348,11 +348,14 @@ void main()
         ro = vec3(10,10,80);
         lookDir = g_carCenterPt + vec3(0,1,0);
     }
+    else if( length( g_carCenterPt - Xp0.xyz ) < Xp0.w )
+    {
+        camUp = g_carUpDir;
+        ro = g_carCenterPt + g_carUpDir*.6 - g_carForwardDir*.4;
+        lookDir = ro + g_carForwardDir;
+    }
     else
     {
-        // camUp = g_carUpDir;
-        // ro = g_carCenterPt + g_carUpDir*.5 - g_carForwardDir*.5;
-        // lookDir = ro + g_carForwardDir;
         vec3 fwdxz = normalize(vec3(g_carForwardDir.x, 0, g_carForwardDir.z));
         ro = g_carCenterPt + vec3(0,2,0) - 7.*fwdxz;
         lookDir = g_carCenterPt + vec3(0,1,0);
