@@ -4,7 +4,6 @@ import { gl_VERTEX_SHADER, gl_FRAGMENT_SHADER, gl_ARRAY_BUFFER, gl_STATIC_DRAW, 
 import { startAudio, setSynthMenuMode, setEngineSoundFromCarSpeed, playResetSound, playClickSound, playWinSound, playBonkSound } from "./synth";
 
 // TODO
-//  - add first person regions to map definition
 //  - ray tracing bounding box optimization
 //  - design maps
 //  STRETCH - replay cams and replay mode
