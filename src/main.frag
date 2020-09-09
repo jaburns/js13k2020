@@ -15,16 +15,17 @@ vec3 g_carLastCenterPt;
 vec3 g_carForwardDir;
 vec3 g_carUpDir;
 vec3 g_steerForwardDir;
+vec3 g_ghostCenterPt;
 mat3 g_wheelRot;
 mat3 g_steerRot;
-bool g_enableGhost;
+mat3 g_ghostWheelRot;
+mat3 g_ghostSteerRot;
 vec4 g_ghostWheel0;
 vec4 g_ghostWheel1;
 vec4 g_ghostWheel2;
 vec4 g_ghostWheel3;
-mat3 g_ghostWheelRot;
-mat3 g_ghostSteerRot;
-vec3 g_ghostCenterPt;
+bool g_enableGhost;
+float g_traceBits;
 
 #pragma INCLUDE_WORLD_SDF
 

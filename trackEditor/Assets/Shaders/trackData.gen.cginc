@@ -26,6 +26,32 @@ float3x3 quat( float x, float y, float z, float w ) {
     ));
 }
 
+float traceBox( float3 ro, float3 rd, float3 b )
+{    
+    rd = 1. / rd;
+    float t1, t2,
+        tmin = -10000., tmax = 10000.,
+        x = b.x, y = ro.x;
+    t1 = (-x - y) * rd.x;
+    t2 = ( x - y) * rd.x;
+    tmin = max(tmin, min(t1, t2));
+    tmax = min(tmax, max(t1, t2));
+
+    x = b.y, y = ro.y;
+    t1 = (-x - y) * rd.y;
+    t2 = ( x - y) * rd.y;
+    tmin = max(tmin, min(t1, t2));
+    tmax = min(tmax, max(t1, t2));
+
+    x = b.z, y = ro.z;
+    t1 = (-x - y) * rd.z;
+    t2 = ( x - y) * rd.z;
+    tmin = max(tmin, min(t1, t2));
+    tmax = min(tmax, max(t1, t2));
+
+    return tmax >= tmin ? tmin : -1.;
+}
+
 float3x3 quat( float4 q )
 {
     return quat( q.x, q.y, q.z, q.w );
@@ -172,17 +198,19 @@ float2 sdCheckpoint( float3 p, float3 center, float4 rot, float goalState )
     float3 rep = floor(p / 4. + .01);
     return float2( sdGoal1( p ), (goalState > 0. ? i_MAT_CHECKPOINT_GOT : i_MAT_CHECKPOINT) + .5 * mod(rep.x + rep.y + rep.z, 2.) );
 }
-#define Xc0 float3(0.44,0.13,53.7)
-#define Xf0 float4(0,0,0,1)
-#define Xc1 float3(78.07,7.96,166.05)
-#define Xf1 float4(0,-0.69,0,0.724)
-#define Xc2 float3(23.58,8.11,162.77)
-#define Xf2 float4(0.12,-0.468,0.199,0.853)
-#define Xc3 float3(65.47,7.93,166.48)
-#define Xf3 float4(0.07,-0.704,0.07,0.704)
-#define Xp0 float4(0.5,8.2,165.7,40)
-
+static const float3 Xc0 = float3(0.44,0.13,53.7),Xc1 = float3(78.07,7.96,166.05),Xc2 = float3(23.58,8.11,162.77),Xc3 = float3(65.47,7.93,166.48);
+static const float4 Xf0 = float4(0,0,0,1),Xf1 = float4(0,-0.69,0,0.724),Xf2 = float4(0.12,-0.468,0.199,0.853),Xf3 = float4(0.07,-0.704,0.07,0.704),Xp0 = float4(0.5,8.2,165.7,40);
 float2 Xmap( float3 p )
 {
-return min2(opSmoothUnion2(sdObj0( mul(quat(0.313,0,0,0.95),p-float3(0.5,-2.73,62.27)), float3(2.29,0.5,5.093)),sdObj1( mul(quat(0,0,0,1),p-float3(0.5,0.17,-30.13)), float3(4,0.5,50),0.),2),min2(sdObj1( mul(quat(0,0,0,1),p-float3(0.5,0.17,-30.13)), float3(4,0.5,50),0.),min2(sdObj1( mul(quat(0,0.707,0,0.707),p-float3(80.5,8.2,166.31)), float3(4,0.5,20),-80.),min2(sdObj0( mul(quat(0.313,0,0,0.95),p-float3(0.5,-2.73,62.27)), float3(2.29,0.5,5.093)),min2(sdObj2( mul(quat(0,0,0,1),p-float3(0.5,8.2,126.32)), float3(4,0.5,20),-40.,-0.5),min2(sdObj0( mul(quat(0.109,-0.195,-0.44,0.87),p-float3(19.63,-2.73,93.83)), float3(5,5,5)),min2(sdObj1( mul(quat(0,0,0,1),p-float3(0.5,8.2,86.35)), float3(4,0.5,20),80.),min2(sdObj0( mul(quat(-0.25,-0.551,-0.688,0.401),p-float3(-71,-9.6,127.4)), float3(18.917,18.917,18.917)),sdObj0( mul(quat(0.119,0,0,0.993),p-float3(0.5,-2.19,-39.91)), float3(3.549,0.5,5.093))))))))));
+float2 d = sdObj0( mul(quat(0.119,0,0,0.993),p-float3(0.5,-2.19,-39.91)), float3(3.549,0.5,5.093)  );
+d = min2( d, sdObj0( mul(quat(-0.25,-0.551,-0.688,0.401),p-float3(-71,-9.6,127.4)), float3(18.917,18.917,18.917)  ) );
+d = min2( d, sdObj1( mul(quat(0,0,0,1),p-float3(0.5,8.2,86.35)), float3(4,0.5,20) ,80. ) );
+d = min2( d, sdObj0( mul(quat(0.109,-0.195,-0.44,0.87),p-float3(19.63,-2.73,93.83)), float3(5,5,5)  ) );
+d = min2( d, sdObj2( mul(quat(0,0,0,1),p-float3(0.5,8.2,126.32)), float3(4,0.5,20) ,-40.,-0.5 ) );
+d = min2( d, sdObj1( mul(quat(0,0.707,0,0.707),p-float3(80.5,8.2,166.31)), float3(4,0.5,20) ,-80. ) );
+{
+float2 d1 = opSmoothUnion2(sdObj1( mul(quat(0,0,0,1),p-float3(0.5,0.17,-30.13)), float3(4,0.5,50) ,0. ),sdObj0( mul(quat(0.313,0,0,0.95),p-float3(0.5,-2.73,62.27)), float3(2.29,0.5,5.093)  ),2.);
+d = min2( d, d1 );
+}
+return d;
 }

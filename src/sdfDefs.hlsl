@@ -25,6 +25,32 @@ float3x3 quat( float x, float y, float z, float w ) {
     ));
 }
 
+float traceBox( float3 ro, float3 rd, float3 b )
+{    
+    rd = 1. / rd;
+    float t1, t2,
+        tmin = -10000., tmax = 10000.,
+        x = b.x, y = ro.x;
+    t1 = (-x - y) * rd.x;
+    t2 = ( x - y) * rd.x;
+    tmin = max(tmin, min(t1, t2));
+    tmax = min(tmax, max(t1, t2));
+
+    x = b.y, y = ro.y;
+    t1 = (-x - y) * rd.y;
+    t2 = ( x - y) * rd.y;
+    tmin = max(tmin, min(t1, t2));
+    tmax = min(tmax, max(t1, t2));
+
+    x = b.z, y = ro.z;
+    t1 = (-x - y) * rd.z;
+    t2 = ( x - y) * rd.z;
+    tmin = max(tmin, min(t1, t2));
+    tmax = min(tmax, max(t1, t2));
+
+    return tmax >= tmin ? tmin : -1.;
+}
+
 float3x3 quat( float4 q )
 {
     return quat( q.x, q.y, q.z, q.w );
@@ -171,3 +197,30 @@ float2 sdCheckpoint( float3 p, float3 center, float4 rot, float goalState )
     float3 rep = floor(p / 4. + .01);
     return float2( sdGoal1( p ), (goalState > 0. ? i_MAT_CHECKPOINT_GOT : i_MAT_CHECKPOINT) + .5 * mod(rep.x + rep.y + rep.z, 2.) );
 }
+
+
+
+static const float i_BIT0 = 1.;
+static const float i_BIT1 = 2.;
+static const float i_BIT2 = 4.;
+static const float i_BIT3 = 8.;
+static const float i_BIT4 = 16.;
+static const float i_BIT5 = 32.;
+static const float i_BIT6 = 64.;
+static const float i_BIT7 = 128.;
+static const float i_BIT8 = 256.;
+static const float i_BIT9 = 512.;
+static const float i_BIT10 = 1024.;
+static const float i_BIT11 = 2048.;
+static const float i_BIT12 = 4096.;
+static const float i_BIT13 = 8192.;
+static const float i_BIT14 = 16384.;
+static const float i_BIT15 = 32768.;
+static const float i_BIT16 = 65536.;
+static const float i_BIT17 = 131072.;
+static const float i_BIT18 = 262144.;
+static const float i_BIT19 = 524288.;
+static const float i_BIT20 = 1048576.;
+static const float i_BIT21 = 2097152.;
+static const float i_BIT22 = 4194304.;
+static const float i_BIT23 = 8388608.;

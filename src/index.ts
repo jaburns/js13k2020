@@ -416,7 +416,8 @@ let frame = () =>
                             {
                                 _loadedSave[_trackIndex-2][0] = _raceTicks;
                                 _loadedSave[_trackIndex-2][1] = _exportGhost;
-                                localStorage.setItem('404kph', JSON.stringify( _loadedSave ));
+                                localStorage['404kph'] = JSON.stringify( _loadedSave );
+                                localStorage['OS13kTrophy,🏎️,404kph,Track '+(_trackIndex-1)] = ticksToTime(_raceTicks);
 
                                 if( !_foreignGhost )
                                     loadGhost64( _exportGhost );

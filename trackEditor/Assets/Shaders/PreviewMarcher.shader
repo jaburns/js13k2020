@@ -31,6 +31,7 @@
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
+            float g_traceBits;
 
             v2f vert( appdata v )
             {
