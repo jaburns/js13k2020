@@ -172,6 +172,9 @@ void main()
     if( sample0.w < 0. || sample1.w < 0. || sample2.w < 0. || sample3.w < 0. )
         gameColor *= .4;
 
+    // Debug normals
+    // gameColor = .5+.5*sample0.xyz;
+
 // =================================================================================================
 //  Compose the canvas
 

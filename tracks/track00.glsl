@@ -3,10 +3,22 @@ const vec3 Xc0 = vec3(0,-10,0),Xc1 = vec3(0,-10,0),Xc2 = vec3(0,-10,0),Xc3 = vec
 const vec4 Xf0 = vec4(0,0,0,1),Xf1 = vec4(0,0,0,1),Xf2 = vec4(0,0,0,1),Xf3 = vec4(0,0,0,1),Xp0 = vec4(0,0,0,0);
 vec2 Xmap( vec3 p )
 {
-vec2 d = sdObj1( quat(0.,0.,0.,1.)*(p-vec3(0.5,5.65,87.7)), vec3(4,0.5,100) ,0. );
+vec2 d = vec2( 10000, 0 );
+if( mod( g_traceBits.y / i_BIT0, 2. ) >= 1. )
+d = min2( d, sdObj1( quat(0.,0.,0.,1.)*(p-vec3(0.5,5.65,87.7)), vec3(4,0.5,100) ,0. ) );
+if( mod( g_traceBits.y / i_BIT1, 2. ) >= 1. )
 {
-vec2 d1 = opSmoothUnion2(sdObj1( quat(0.,0.,0.,1.)*(p-vec3(0.5,0,-130.6)), vec3(4,0.5,100) ,0. ),sdObj0( quat(0.383,0.,0.,0.924)*(p-vec3(0.5,-1.42,64.26)), vec3(2.29,0.5,3.109)  ),2.);
+vec2 d1 = opSmoothUnion2(sdObj1( quat(0.,0.,0.,1.)*(p-vec3(0.5,0,-130.66)), vec3(4,0.5,100) ,0. ),sdObj0( quat(0.383,0.,0.,0.924)*(p-vec3(0.5,-1.42,64.2)), vec3(2.29,0.5,3.109)  ),2.);
 d = min2( d, d1 );
 }
 return d;
+}
+float Xtrace( vec3 ro, vec3 rd, float dist )
+{
+float hit;
+hit = traceBox( quat(0.,0.,0.,1.)*(ro-vec3(0.5,5.65,87.7)), quat(0.,0.,0.,1.)*rd, vec3(5,1.5,101) );
+if( hit >= 0. ) { g_traceBits.y += i_BIT0; if( hit < dist ) dist = hit; }
+hit = traceBox( quat(0.,0.,0.,1.)*(ro-vec3(0,0,-130.8)), quat(0.,0.,0.,1.)*rd, vec3(7.5,5,102.5) );
+if( hit >= 0. ) { g_traceBits.y += i_BIT1; if( hit < dist ) dist = hit; }
+return dist < 10000. ? dist : -1.;
 }

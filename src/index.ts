@@ -5,6 +5,7 @@ import { startAudio, setSynthMenuMode, setEngineSoundFromCarSpeed, playResetSoun
 
 // TODO
 //  - ray tracing bounding box optimization
+//  - need to add bounds checks for checkpoints and cars
 //  - design maps
 //  STRETCH - smaller replay format
 //  STRETCH - replay cams and replay mode
@@ -25,6 +26,10 @@ declare const s_renderHeight: number;
 declare const s_fullWidth: number;
 declare const s_fullHeight: number;
 declare const s_tempo: number;
+declare let __TIME_RENDERER: number[];
+
+// Comment this line out to disable measuring render time, it causes a GPU sync so it's not good for overall performance
+if( DEBUG ) __TIME_RENDERER = [];
 
 const enum KeyCode
 {
@@ -73,6 +78,8 @@ type SaveData = SaveDataElem[];
 
 // =================================================================================================
 
+
+
 let _tickAccTime = 0;
 let _inputs: {[k: number]: 1} = {};
 let _previousTime: number;
@@ -111,7 +118,7 @@ let _menu2Cursor: number = 0;
 
 let loadLocalStorage = () =>
 {
-    let savedStr = localStorage.getItem('404kph');
+    let savedStr = localStorage['404kph'];
     _loadedSave = savedStr
         ? JSON.parse( savedStr )
         : [[0],[0],[0],[0],[0],[0],[0],[0]] as any;
@@ -305,6 +312,12 @@ let drawHUD = () =>
 
         drawText( timeText, 375, 350, 24, '#0bb', '#06b' );
         drawText( (100*_latestState[StateVal.Speed]|0)+' kph', 35, 350, 24, '#b2d', '#906');
+
+        if( DEBUG && __TIME_RENDERER )
+        {
+            let avg = __TIME_RENDERER.reduce( ( acc, x ) => acc + x, 0 ) / __TIME_RENDERER.length;
+            drawText( Math.floor( avg*1000 ) + " μs", 375, 35, 24, '#fff', '#aaa' );
+        }
     }
 
     g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
@@ -472,7 +485,17 @@ let frame = () =>
             g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_prevGhost' ), 3 );
         }
 
-        fullScreenDraw( _shaderPairs[_trackIndex][0] );
+        if( DEBUG && __TIME_RENDERER )
+        {
+            g.finish();
+            let t = performance.now();
+            fullScreenDraw( _shaderPairs[_trackIndex][0] );
+            g.finish();
+            __TIME_RENDERER.push( performance.now() - t );
+            if( __TIME_RENDERER.length > 60 ) __TIME_RENDERER.shift();
+        }
+        else
+            fullScreenDraw( _shaderPairs[_trackIndex][0] );
     }
 
     // ----- Post-processing update ------------------------------

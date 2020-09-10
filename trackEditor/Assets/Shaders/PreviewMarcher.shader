@@ -31,7 +31,7 @@
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
-            float g_traceBits;
+            float2 g_traceBits;
 
             v2f vert( appdata v )
             {
@@ -71,12 +71,15 @@
 
             float3 getNorm(float3 p)
             {
+                g_traceBits = float2(i_BITS_ALL,i_BITS_ALL);
                 float2 e = float2(0.001, 0);
                 return normalize(float3(
                     map(p + e.xyy).x - map(p - e.xyy).x,
                     map(p + e.yxy).x - map(p - e.yxy).x,
                     map(p + e.yyx).x - map(p - e.yyx).x));
             }
+
+
 
             float4 frag( v2f i ) : SV_Target
             {
@@ -88,22 +91,49 @@
                 float3 ii = c + i.uv.x * r + i.uv.y * u;
                 float3 rd = normalize(ii - ro);
 
-                float totalDist = 0.0;
-                float2 distMat;
-                for (int i = 0; i < 100; ++i) {
-                    distMat = map(ro);
-                    if (distMat.x < .001 || totalDist > 200.) break;        
-                    totalDist += distMat.x;
-                    ro += rd * distMat.x;
-                }
+                g_traceBits = float2(0,0);
 
-                if( distMat.x < .001 && distMat.y >= 0. )
+                float traceDist = 10000.;
                 {
-                    float3 norm = getNorm( ro );
-                    return float4( .5 + .5*norm, 1 );
+                    float hit;
+                    hit = traceBox( mul(quat(Xf0),ro-Xc0), mul(quat(Xf0),rd), float3(5,5,.5) );
+                    if( hit >= 0. ) { g_traceBits.x += i_BIT2; if( hit < traceDist ) traceDist = hit; }
+                    hit = traceBox( mul(quat(Xf1),ro-Xc1), mul(quat(Xf1),rd), float3(5,5,.5) );
+                    if( hit >= 0. ) { g_traceBits.x += i_BIT3; if( hit < traceDist ) traceDist = hit; }
+                    hit = traceBox( mul(quat(Xf2),ro-Xc2), mul(quat(Xf2),rd), float3(5,5,.5) );
+                    if( hit >= 0. ) { g_traceBits.x += i_BIT4; if( hit < traceDist ) traceDist = hit; }
+                    hit = traceBox( mul(quat(Xf3),ro-Xc3), mul(quat(Xf3),rd), float3(5,5,.5) );
+                    if( hit >= 0. ) { g_traceBits.x += i_BIT5; if( hit < traceDist ) traceDist = hit; }
                 }
 
-                return float4( 0,0,0,0 );
+                float traceD = Xtrace( ro, rd, traceDist );
+                float base = 0.;
+
+                if( traceD >= 0. )
+                {
+                    base = .1;
+                    ro += rd * traceD;
+                    float2 distMat;
+                    float totalDist = traceD > 0. ? traceD : 0.;
+
+                    for (int i = 0; i < 100; ++i)
+                    {
+                        distMat = map(ro);
+                        if (distMat.x < .001 || totalDist > 200.) break;        
+                        totalDist += distMat.x;
+                        ro += rd * distMat.x;
+                    }
+
+                    if( distMat.x < .001 && distMat.y > 0. )
+                    {
+                        float3 norm = getNorm( ro );
+                        float4 col = float4( .5 + .5*norm, 1 );
+                        col += frac(distMat.y) > .4 ? .2 : 0.;
+                        return col;
+                    }
+                }
+
+                return float4( base,base,base,0 );
             }
 
         ENDCG

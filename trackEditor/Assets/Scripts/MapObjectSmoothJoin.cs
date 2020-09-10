@@ -4,6 +4,7 @@ using System.Linq;
 public class MapObjectSmoothJoin : MonoBehaviour
 {
     public float k;
+    public Vector3 boundsScale;
 
     public string WriteShaderLine( bool glsl )
     {
@@ -25,5 +26,22 @@ public class MapObjectSmoothJoin : MonoBehaviour
             result = result.Replace( "vec2", "float2" );
 
         return result;
+    }
+
+    void OnDrawGizmos()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.matrix = Matrix4x4.TRS( transform.position, transform.rotation, boundsScale );
+        Gizmos.DrawWireCube( new Vector3( 0, 0, .5f ), Vector3.one );
+    }
+
+    public TracingBounds GetTracingBounds()
+    {
+        return new TracingBounds
+        {
+            position = transform.position,
+            invRotation = Quaternion.Inverse( transform.rotation ),
+            extents = boundsScale * .5f
+        };
     }
 }

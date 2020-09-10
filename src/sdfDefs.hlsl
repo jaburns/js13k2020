@@ -27,6 +27,12 @@ float3x3 quat( float x, float y, float z, float w ) {
 
 float traceBox( float3 ro, float3 rd, float3 b )
 {    
+    ro.z -= b.z-.5;
+    b.z += .5;
+
+    if(length(step(-b, ro) - step(b, ro))>1.5)
+        return 0.;
+
     rd = 1. / rd;
     float t1, t2,
         tmin = -10000., tmax = 10000.,
@@ -43,8 +49,7 @@ float traceBox( float3 ro, float3 rd, float3 b )
     tmax = min(tmax, max(t1, t2));
 
     x = b.z, y = ro.z;
-    t1 = (-x - y) * rd.z;
-    t2 = ( x - y) * rd.z;
+    t1 = (-x - y) * rd.z; t2 = ( x - y) * rd.z;
     tmin = max(tmin, min(t1, t2));
     tmax = min(tmax, max(t1, t2));
 
@@ -128,7 +133,7 @@ float2 opRevolution( float3 p, float sx, float radius, float bank )
 {
     float len = length(p.xz);
     float2 q = float2( len - radius, p.y );
-    float theta = atan2( p.z, p.x ) * len;
+    float theta = atan2( p.z, p.x ) * radius;
     return primitive(q, sx, bank, theta);
 }
 
@@ -199,7 +204,6 @@ float2 sdCheckpoint( float3 p, float3 center, float4 rot, float goalState )
 }
 
 
-
 static const float i_BIT0 = 1.;
 static const float i_BIT1 = 2.;
 static const float i_BIT2 = 4.;
@@ -210,17 +214,4 @@ static const float i_BIT6 = 64.;
 static const float i_BIT7 = 128.;
 static const float i_BIT8 = 256.;
 static const float i_BIT9 = 512.;
-static const float i_BIT10 = 1024.;
-static const float i_BIT11 = 2048.;
-static const float i_BIT12 = 4096.;
-static const float i_BIT13 = 8192.;
-static const float i_BIT14 = 16384.;
-static const float i_BIT15 = 32768.;
-static const float i_BIT16 = 65536.;
-static const float i_BIT17 = 131072.;
-static const float i_BIT18 = 262144.;
-static const float i_BIT19 = 524288.;
-static const float i_BIT20 = 1048576.;
-static const float i_BIT21 = 2097152.;
-static const float i_BIT22 = 4194304.;
-static const float i_BIT23 = 8388608.;
+static const float i_BITS_ALL = 1023.;

@@ -5,8 +5,32 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 
+public class TracingBounds
+{
+    public Vector3 position;
+    public Quaternion invRotation;
+    public Vector3 extents;
+
+    public string WriteTraceLine( bool glsl, int bit )
+    {
+        var b = this;
+        var result = string.Format(
+            glsl
+                ? "hit = traceBox( quat({0},{1},{2},{3})*(ro-vec3({4},{5},{6})), quat({0},{1},{2},{3})*rd, vec3({7},{8},{9}) );\n"
+                : "hit = traceBox( mul(quat({0},{1},{2},{3}),ro-float3({4},{5},{6})), mul(quat({0},{1},{2},{3}),rd), float3({7},{8},{9}) );\n",
+            Utils.SmallNum( b.invRotation.x, glsl ), Utils.SmallNum( b.invRotation.y, glsl ), Utils.SmallNum( b.invRotation.z, glsl ), Utils.SmallNum( b.invRotation.w, glsl ),
+            Utils.SmallNum( b.position.x ), Utils.SmallNum( b.position.y ), Utils.SmallNum( b.position.z ),
+            Utils.SmallNum( b.extents.x ), Utils.SmallNum( b.extents.y ), Utils.SmallNum( b.extents.z )
+        );
+        result += "if( hit >= 0. ) { g_traceBits.y += i_BIT"+bit+"; if( hit < dist ) dist = hit; }\n";
+        return result;
+    }
+}
+
 static public class MapCompiler
 {
+    const int MAP_SMALLEST_BIT = 0; 
+
     static public Camera mainCamera;
 
     [MenuItem("js13k/Update Preview %#e")]
@@ -36,37 +60,61 @@ static public class MapCompiler
 
     static string Compile( bool glsl, string trackId )
     {
-        var first = true;
-
-        var objectLines = GameObject.FindObjectsOfType<MapObject>()
-            .Where( y => y.transform.parent == null || y.transform.parent.GetComponent<MapObjectSmoothJoin>() == null )
-            .Select( x => 
-            {
-                var y = first ? x.WriteShaderCall( glsl ) : x.WriteShaderLine( glsl );
-                first = false;
-                return y;
-            });
-
-        var smoothLines = GameObject.FindObjectsOfType<MapObjectSmoothJoin>()
-            .Select( x => x.WriteShaderLine( glsl ));
-
-        var lines = objectLines.Concat( smoothLines ).ToList();
-        var firstLine = lines[0];
-        lines.RemoveAt( 0 );
-
-        var mapFunc = "vec2 Xmap( vec3 p )\n" +
-        "{\n" +
-            "vec2 d = " + firstLine + ";\n" +
-            string.Join( "", lines ) + 
-            "return d;\n" +
-        "}\n";
-
-        var result = getConstantLines( glsl, trackId ) + mapFunc;
+        var result = getConstants( glsl, trackId ) +
+            getMapFunc( glsl, trackId ) +
+            getTraceFunc( glsl, trackId );
 
         return result.Replace("vec3", glsl ? "vec3" : "float3").Replace("vec2", glsl ? "vec2" : "float2");
     }
 
-    static string getConstantLines( bool glsl, string trackId )
+    static string getMapFunc( bool glsl, string trackId )
+    {
+        int bit = MAP_SMALLEST_BIT;
+
+        var objectLines = GameObject.FindObjectsOfType<MapObject>()
+            .Where( y => y.transform.parent == null || y.transform.parent.GetComponent<MapObjectSmoothJoin>() == null )
+            .Select( x => x.WriteShaderLine( glsl ));
+
+        var smoothLines = GameObject.FindObjectsOfType<MapObjectSmoothJoin>()
+            .Select( x => x.WriteShaderLine( glsl ));
+
+        var lines = objectLines.Concat( smoothLines ).Select( x => addMapLineBitCondition( x, bit++ )).ToList();
+
+        return "vec2 Xmap( vec3 p )\n" +
+        "{\n" +
+            "vec2 d = vec2( 10000, 0 );\n" +
+            string.Join( "", lines ) + 
+            "return d;\n" +
+        "}\n";
+    }
+
+    static string getTraceFunc( bool glsl, string trackId )
+    {
+        int bit = MAP_SMALLEST_BIT;
+
+        var objectBounds = GameObject.FindObjectsOfType<MapObject>()
+            .Where( y => y.transform.parent == null || y.transform.parent.GetComponent<MapObjectSmoothJoin>() == null )
+            .Select( x => x.GetTracingBounds() );
+
+        var smoothBounds = GameObject.FindObjectsOfType<MapObjectSmoothJoin>()
+            .Select( x => x.GetTracingBounds() );
+
+        var lines = objectBounds.Concat( smoothBounds ).Select( x => x.WriteTraceLine( glsl, bit++ )).ToList();
+
+        return "float Xtrace( vec3 ro, vec3 rd, float dist )\n" +
+        "{\n" +
+            "float hit;\n" +
+            string.Join( "", lines ) + 
+            "return dist < 10000. ? dist : -1.;\n" +
+        "}\n";
+    }
+
+    static string addMapLineBitCondition( string line, int bit )
+    {
+        return "if( mod( g_traceBits.y / i_BIT"+bit+", 2. ) >= 1. )\n" + line;
+    }
+
+    static string getConstants( bool glsl, string trackId )
     {
         var objs = GameObject.FindObjectsOfType<MapCheckpoint>();
         var fps = GameObject.FindObjectsOfType<MapFirstPersonRegion>();

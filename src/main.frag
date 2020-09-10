@@ -25,7 +25,7 @@ vec4 g_ghostWheel1;
 vec4 g_ghostWheel2;
 vec4 g_ghostWheel3;
 bool g_enableGhost;
-float g_traceBits;
+vec2 g_traceBits;
 
 #pragma INCLUDE_WORLD_SDF
 
@@ -94,10 +94,14 @@ vec2 map( vec3 p )
 {
     vec2 world = Xmap( p );
 
-    world = min2( world, sdCheckpoint( p, Xc0, Xf0, ST.goalStateA.x ) );
-    world = min2( world, sdCheckpoint( p, Xc1, Xf1, ST.goalStateA.y ) );
-    world = min2( world, sdCheckpoint( p, Xc2, Xf2, ST.goalStateA.z ) );
-    world = min2( world, sdCheckpoint( p, Xc3, Xf3, ST.goalStateB.x ) );
+    if( mod( g_traceBits.x / i_BIT2, 2. ) >= 1. )
+        world = min2( world, sdCheckpoint( p, Xc0, Xf0, ST.goalStateA.x ) );
+    if( mod( g_traceBits.x / i_BIT3, 2. ) >= 1. )
+        world = min2( world, sdCheckpoint( p, Xc1, Xf1, ST.goalStateA.y ) );
+    if( mod( g_traceBits.x / i_BIT4, 2. ) >= 1. )
+        world = min2( world, sdCheckpoint( p, Xc2, Xf2, ST.goalStateA.z ) );
+    if( mod( g_traceBits.x / i_BIT5, 2. ) >= 1. )
+        world = min2( world, sdCheckpoint( p, Xc3, Xf3, ST.goalStateB.x ) );
 
     if( u_modeState )
     {
@@ -105,7 +109,18 @@ vec2 map( vec3 p )
         return world;
     }
 
-    if( g_enableGhost )
+    if( mod( g_traceBits.x / i_BIT0, 2. ) >= 1. )
+    {
+        world = min2( world, sdBody ( 0., g_wheelRot*(p - g_carCenterPt)));
+        world = min2( world, sdWheel( 0., g_wheelRot*(p - ST.wheelPos[0]), ST.wheelRotation[0].x));
+        world = min2( world, sdWheel( 0., g_wheelRot*(p - ST.wheelPos[1]), ST.wheelRotation[1].x));
+        world = min2( world, sdWheel( 0., g_steerRot*(p - ST.wheelPos[2]), ST.wheelRotation[2].x));
+        world = min2( world, sdWheel( 0., g_steerRot*(p - ST.wheelPos[3]), ST.wheelRotation[3].x));
+        world = min2( world, vec2( sdCapsule1( p, ST.wheelPos[2], ST.wheelPos[3], .08 ), i_MAT_CAR6 ));
+        world = min2( world, vec2( sdCapsule1( p, ST.wheelPos[0], ST.wheelPos[1], .08 ), i_MAT_CAR6 ));
+    }
+
+    if( g_enableGhost && mod( g_traceBits.x / i_BIT1, 2. ) >= 1. )
     {
         world = min2( world, sdBody ( 5., g_ghostWheelRot*(p - g_ghostCenterPt) ));
         world = min2( world, sdWheel( 5., g_ghostWheelRot*(p - g_ghostWheel0.xyz), g_ghostWheel1.w ));
@@ -115,14 +130,6 @@ vec2 map( vec3 p )
         world = min2( world, vec2( sdCapsule1( p, g_ghostWheel2.xyz, g_ghostWheel3.xyz, .08 ), i_MAT_CAR6 - 5. ));
         world = min2( world, vec2( sdCapsule1( p, g_ghostWheel0.xyz, g_ghostWheel1.xyz, .08 ), i_MAT_CAR6 - 5. ));
     }
-
-    world = min2( world, sdBody ( 0., g_wheelRot*(p - g_carCenterPt)));
-    world = min2( world, sdWheel( 0., g_wheelRot*(p - ST.wheelPos[0]), ST.wheelRotation[0].x));
-    world = min2( world, sdWheel( 0., g_wheelRot*(p - ST.wheelPos[1]), ST.wheelRotation[1].x));
-    world = min2( world, sdWheel( 0., g_steerRot*(p - ST.wheelPos[2]), ST.wheelRotation[2].x));
-    world = min2( world, sdWheel( 0., g_steerRot*(p - ST.wheelPos[3]), ST.wheelRotation[3].x));
-    world = min2( world, vec2( sdCapsule1( p, ST.wheelPos[2], ST.wheelPos[3], .08 ), i_MAT_CAR6 ));
-    world = min2( world, vec2( sdCapsule1( p, ST.wheelPos[0], ST.wheelPos[1], .08 ), i_MAT_CAR6 ));
 
     return world;
 }
@@ -223,6 +230,8 @@ void distConstraint( inout vec3 pos0, inout vec3 pos1, float dist )
 
 void main()
 {
+    g_traceBits = vec2(i_BITS_ALL);
+
     for( int i = 0; i < s_totalStateSize; ++i )
         g_state[i] = texture2D(u_state, vec2( (float(i)+.5)/s_totalStateSize.)).xyz;
 
@@ -322,6 +331,38 @@ void main()
 
 #else
 
+float traceObjects( vec3 ro, vec3 rd )
+{
+    float traceDist = 10000.;
+    vec3 carBoundsMin = min( ST.wheelPos[0], min( ST.wheelPos[1], min( ST.wheelPos[2], ST.wheelPos[3] ))) - 2.*s_wheelRadius;
+    vec3 carBoundsMax = max( ST.wheelPos[0], max( ST.wheelPos[1], max( ST.wheelPos[2], ST.wheelPos[3] ))) + 2.*s_wheelRadius;
+    vec3 carBoundsSize = .5 * (carBoundsMax - carBoundsMin);
+
+    float hit = traceBox( ro - g_carCenterPt + vec3(0,0,carBoundsSize.z), rd, carBoundsSize );
+    if( hit >= 0. ) { g_traceBits.x += i_BIT0; if( hit < traceDist ) traceDist = hit; }
+
+    if( u_enableGhost )
+    {
+        carBoundsMin = min( g_ghostWheel0.xyz, min( g_ghostWheel1.xyz, min( g_ghostWheel2.xyz, g_ghostWheel3.xyz ))) - 2.*s_wheelRadius;
+        carBoundsMax = max( g_ghostWheel0.xyz, max( g_ghostWheel1.xyz, max( g_ghostWheel2.xyz, g_ghostWheel3.xyz ))) + 2.*s_wheelRadius;
+        carBoundsSize = .5 * (carBoundsMax - carBoundsMin);
+
+        hit = traceBox( ro - g_ghostCenterPt + vec3(0,0,carBoundsSize.z), rd, carBoundsSize );
+        if( hit >= 0. ) { g_traceBits.x += i_BIT1; if( hit < traceDist ) traceDist = hit; }
+    }
+
+    hit = traceBox( quat(Xf0)*(ro-Xc0), quat(Xf0)*rd, vec3(5,5,.5) );
+    if( hit >= 0. ) { g_traceBits.x += i_BIT2; if( hit < traceDist ) traceDist = hit; }
+    hit = traceBox( quat(Xf1)*(ro-Xc1), quat(Xf1)*rd, vec3(5,5,.5) );
+    if( hit >= 0. ) { g_traceBits.x += i_BIT3; if( hit < traceDist ) traceDist = hit; }
+    hit = traceBox( quat(Xf2)*(ro-Xc2), quat(Xf2)*rd, vec3(5,5,.5) );
+    if( hit >= 0. ) { g_traceBits.x += i_BIT4; if( hit < traceDist ) traceDist = hit; }
+    hit = traceBox( quat(Xf3)*(ro-Xc3), quat(Xf3)*rd, vec3(5,5,.5) );
+    if( hit >= 0. ) { g_traceBits.x += i_BIT5; if( hit < traceDist ) traceDist = hit; }
+
+    return traceDist;
+}
+
 void main()
 {
     for( int i = 0; i < s_totalStateSize; ++i )
@@ -370,25 +411,75 @@ void main()
     vec3 i = c + uv.x * r + uv.y * u;
     vec3 rd = normalize(i - ro);
 
+
+    g_traceBits = vec2(0);
+
+    vec3 normal = vec3( 0 );
+    float planeDist = -roo.y / rd.y;
+    float material = 0.;
+    float traceD = Xtrace( ro, rd, traceObjects( ro, rd ));
+
+    if( rd.y < 0. && planeDist < traceD )
+    {
+        ro = roo + planeDist * rd;
+        normal = vec3( 0, 1, 0 );
+        material = 1.;
+    }
+    else if( traceD >= 0. )
+    {
+        ro += rd * traceD;
+        vec2 dist;
+        float totalDist = traceD;
+
+        const float i_EPS = 0.01;
+        for( int i = 0; i < 100; ++i )
+        {
+            dist = map( ro );
+            if( dist.x < i_EPS || totalDist >= 200. || ro.y < 0. ) break;
+            totalDist += dist.x;
+            ro += rd * dist.x;
+        }
+
+        if( ro.y < 0. || dist.x >= i_EPS && rd.y < 0. )
+        {
+            ro = roo + planeDist * rd;
+            normal = vec3( 0, 1, 0 );
+            material = 1.;
+        }
+        else if( dist.x < i_EPS )
+        {
+            g_traceBits = vec2(i_BITS_ALL);
+            normal = getNorm( ro );
+            material = dist.y;
+        }
+    }
+    else if( rd.y < 0. )
+    {
+        ro = roo + planeDist * rd;
+        normal = vec3( 0, 1, 0 );
+        material = 1.;
+    }
+/*
+    vec3 normal = vec3( 0 );
+    float planeDist = -roo.y / rd.y;
+    float material = 0.;
+    g_traceBits = i_BITS_ALL;
+
     vec2 dist;
-    float totalDist = 0.0, distStep;
+    float totalDist = 0.;
 
     const float i_EPS = 0.01;
     for( int i = 0; i < 100; ++i )
     {
         dist = map( ro );
         if( dist.x < i_EPS || totalDist >= 200. || ro.y < 0. ) break;
-        distStep = dist.x; // distStep = max( .1, dist.x ); // TODO Make better use of min march distance, if dist ends up negative lerp to how far through an assumed-flat surface
-        totalDist += distStep;
-        ro += rd * distStep;
+        totalDist += dist.x;
+        ro += rd * dist.x;
     }
 
-    vec3 normal = vec3( 0 ) ;
-    float material = 0.;
-
-    float ph = -roo.y / rd.y;
-    if(  rd.y < 0. && (  totalDist >= 200. || ph > 0.0 && ph < totalDist )) {
-        ro = roo + ph*rd;
+    if( ro.y < 0. || dist.x >= i_EPS && rd.y < 0. )
+    {
+        ro = roo + planeDist * rd;
         normal = vec3( 0, 1, 0 );
         material = 1.;
     }
@@ -399,10 +490,13 @@ void main()
     }
     else if( rd.y < 0. )
     {
-        ro = roo + ph*rd;
+        ro = roo + planeDist * rd;
         normal = vec3( 0, 1, 0 );
         material = 1.;
     }
+*/
+
+
 
     if( material == 1. )
     {
@@ -411,7 +505,6 @@ void main()
         float lightness = exp( -.01 * length(ro - roo) );
         material += .4 * lightness;
     }
-
     if( material == 0. )
     {
         float sunDot = dot( rd, normalize( vec3( -.5, .3, 1 )));
@@ -430,7 +523,7 @@ void main()
         {
             if( t >= 30. ) break;
             float d = map( ro + rd*t ).x;
-            if( d < 0.001 ) {
+            if( d < 0.01 ) {
                 material *= -1.;
                 break;
             }
