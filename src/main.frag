@@ -92,7 +92,7 @@ vec2 sdBody( float subM, vec3 p )
 
 vec2 map( vec3 p )
 {
-    vec2 world = Xmap( p );
+    vec2 world = Xm( p );
 
     if( mod( g_traceBits.x / i_BIT2, 2. ) >= 1. )
         world = min2( world, sdCheckpoint( p, Xc0, Xf0, ST.goalStateA.x ) );
@@ -417,7 +417,7 @@ void main()
     vec3 normal = vec3( 0 );
     float planeDist = -roo.y / rd.y;
     float material = 0.;
-    float traceD = Xtrace( ro, rd, traceObjects( ro, rd ));
+    float traceD = Xt( ro, rd, traceObjects( ro, rd ));
 
     if( rd.y < 0. && planeDist < traceD )
     {
@@ -459,44 +459,6 @@ void main()
         normal = vec3( 0, 1, 0 );
         material = 1.;
     }
-/*
-    vec3 normal = vec3( 0 );
-    float planeDist = -roo.y / rd.y;
-    float material = 0.;
-    g_traceBits = i_BITS_ALL;
-
-    vec2 dist;
-    float totalDist = 0.;
-
-    const float i_EPS = 0.01;
-    for( int i = 0; i < 100; ++i )
-    {
-        dist = map( ro );
-        if( dist.x < i_EPS || totalDist >= 200. || ro.y < 0. ) break;
-        totalDist += dist.x;
-        ro += rd * dist.x;
-    }
-
-    if( ro.y < 0. || dist.x >= i_EPS && rd.y < 0. )
-    {
-        ro = roo + planeDist * rd;
-        normal = vec3( 0, 1, 0 );
-        material = 1.;
-    }
-    else if( dist.x < i_EPS )
-    {
-        normal = getNorm( ro );
-        material = dist.y;
-    }
-    else if( rd.y < 0. )
-    {
-        ro = roo + planeDist * rd;
-        normal = vec3( 0, 1, 0 );
-        material = 1.;
-    }
-*/
-
-
 
     if( material == 1. )
     {

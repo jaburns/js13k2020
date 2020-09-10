@@ -80,7 +80,7 @@ static public class MapCompiler
 
         var lines = objectLines.Concat( smoothLines ).Select( x => addMapLineBitCondition( x, bit++ )).ToList();
 
-        return "vec2 Xmap( vec3 p )\n" +
+        return "vec2 Xm( vec3 p )\n" +
         "{\n" +
             "vec2 d = vec2( 10000, 0 );\n" +
             string.Join( "", lines ) + 
@@ -101,7 +101,7 @@ static public class MapCompiler
 
         var lines = objectBounds.Concat( smoothBounds ).Select( x => x.WriteTraceLine( glsl, bit++ )).ToList();
 
-        return "float Xtrace( vec3 ro, vec3 rd, float dist )\n" +
+        return "float Xt( vec3 ro, vec3 rd, float dist )\n" +
         "{\n" +
             "float hit;\n" +
             string.Join( "", lines ) + 
