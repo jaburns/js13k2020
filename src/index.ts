@@ -26,10 +26,6 @@ declare const s_renderHeight: number;
 declare const s_fullWidth: number;
 declare const s_fullHeight: number;
 declare const s_tempo: number;
-declare let __TIME_RENDERER: number[];
-
-// Comment this line out to disable measuring render time, it causes a GPU sync so it's not good for overall performance
-if( DEBUG ) __TIME_RENDERER = [];
 
 const enum KeyCode
 {
@@ -312,12 +308,6 @@ let drawHUD = () =>
 
         drawText( timeText, 375, 350, 24, '#0bb', '#06b' );
         drawText( (100*_latestState[StateVal.Speed]|0)+' kph', 35, 350, 24, '#b2d', '#906');
-
-        if( DEBUG && __TIME_RENDERER )
-        {
-            let avg = __TIME_RENDERER.reduce( ( acc, x ) => acc + x, 0 ) / __TIME_RENDERER.length;
-            drawText( Math.floor( avg*1000 ) + " μs", 375, 35, 24, '#fff', '#aaa' );
-        }
     }
 
     g.bindTexture( gl_TEXTURE_2D, _canvasTexture );
@@ -485,17 +475,7 @@ let frame = () =>
             g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_prevGhost' ), 3 );
         }
 
-        if( DEBUG && __TIME_RENDERER )
-        {
-            g.finish();
-            let t = performance.now();
-            fullScreenDraw( _shaderPairs[_trackIndex][0] );
-            g.finish();
-            __TIME_RENDERER.push( performance.now() - t );
-            if( __TIME_RENDERER.length > 60 ) __TIME_RENDERER.shift();
-        }
-        else
-            fullScreenDraw( _shaderPairs[_trackIndex][0] );
+        fullScreenDraw( _shaderPairs[_trackIndex][0] );
     }
 
     // ----- Post-processing update ------------------------------
@@ -742,7 +722,7 @@ _startTime = 0;
             g.shaderSource( fs, defs.map( x => '#define '+x ).join('\n')+'\nprecision highp float;'+(i < 2 ? post_frag : main_frag) );
             g.compileShader( fs );
 
-            if( DEBUG )
+            //if( DEBUG )
             {
                 let log = g.getShaderInfoLog(fs);
                 if( log === null || log.length > 0 && log.indexOf('ERROR') >= 0 )
