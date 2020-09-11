@@ -276,8 +276,7 @@ void main()
             // Add the driving force to the wheels parallel with the ground if the pedal is pressed
             if( i > 1 && u_menuMode == 0 && ( u_inputs.x > 0. || u_inputs.y > 0. ))
             {
-                vec3 xs = cross( normal, i < 2 ? carForwardDir : carSteerForwardDir );
-                vec3 groundedFwd = normalize( cross( xs, normal ));
+                vec3 groundedFwd = normalize( cross( cross( normal, carSteerForwardDir ), normal ));
                 ST.wheelForceCache[i] = 20. * groundedFwd * ( u_inputs.x > 0. ? 1. : velSign > 0. ? -1.5 : -.5 );
             }
 
@@ -412,15 +411,13 @@ void main()
         lookDir = g_carCenterPt + vec3(0,1,0);
     }
 
+    g_traceBits = vec2(0);
+
     vec3 roo = ro;
     vec3 f = normalize(lookDir - ro);
     vec3 r = normalize(cross(camUp, f));
-    vec3 u = cross(f, r);
-    vec3 c = ro + f;
-    vec3 i = c + uv.x * r + uv.y * u;
+    vec3 i = ro + f + uv.x * r + uv.y * cross(f, r);
     vec3 rd = normalize(i - ro);
-
-    g_traceBits = vec2(0);
 
     vec3 normal = vec3( 0 );
     float planeDist = -roo.y / rd.y;
