@@ -443,7 +443,7 @@ void main()
         vec2 dist;
         float totalDist = traceD;
 
-        const float i_EPS = 0.01;
+        const float i_EPS = .01;
         for( int i = 0; i < 100; ++i )
         {
             dist = map( ro );
