@@ -385,7 +385,7 @@ let frame = () =>
                     else if( _replayMode == 1 )
                     {
                         _replayMode = 2;
-                        _raceTicks += 2;
+                        _raceTicks += 4;
                     }
                 }
 
