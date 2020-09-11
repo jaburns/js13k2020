@@ -112,40 +112,39 @@ void main()
     vec2 uv = gl_FragCoord.xy * uvDelta;
     float t = u_time.y - u_time.x - .1;
     float t1 = 4.*(u_time.y - u_time.z);
-    t1*=t1;
 
     if( t > 1. && t1 < 1. )
-        uv.x += (1.-t1)*.3*sin(15.*(uv.y+t1));
+        uv.x += (1.-t1*t1)*.3*sin(15.*(uv.y+t1*t1));
 
 // =================================================================================================
 //  Render the game from the g buffer
     
-    vec4 sample0 = texture2D( u_tex, uv + uvDelta * vec2(-0, -0) );
-    vec4 sample1 = texture2D( u_tex, uv + uvDelta * vec2(-0, 1) );
-    vec4 sample2 = texture2D( u_tex, uv + uvDelta * vec2(1, -0) );
-    vec4 sample3 = texture2D( u_tex, uv + uvDelta * vec2(1, 1) );
+    bool shadowed;
+    float edge, maxMat;
+    {
+        vec4 sample0 = texture2D( u_tex, uv + uvDelta * vec2(-0, -0) );
+        vec4 sample1 = texture2D( u_tex, uv + uvDelta * vec2(-0, 1) );
+        vec4 sample2 = texture2D( u_tex, uv + uvDelta * vec2(1, -0) );
+        vec4 sample3 = texture2D( u_tex, uv + uvDelta * vec2(1, 1) );
+        vec4 materials = abs(vec4( sample0.w, sample1.w, sample2.w, sample3.w ));
 
-    //gl_FragColor = sample0.w/7.;return;
+        shadowed = sample0.w < 0. || sample1.w < 0. || sample2.w < 0. || sample3.w < 0.;
 
-    float material0 = abs( sample0.w );
-    float material1 = abs( sample1.w );
-    float material2 = abs( sample2.w );
-    float material3 = abs( sample3.w );
+        maxMat = max( materials.x, max( materials.y, max( materials.z, materials.w )));
 
-    float d0 = material0 - material3;
-    float d1 = material2 - material1;
+        float d0 = materials.x - materials.w;
+        float d1 = materials.z - materials.y;
+        float edgeMat = sqrt( d0*d0 + d1*d1 );
+        edgeMat = edgeMat > .1 ? 1. : 0.;
 
-    float edgeMat = sqrt( d0*d0 + d1*d1 );
-    edgeMat = edgeMat > .1 ? 1. : 0.;
+        vec3 n0 = sample0.xyz - sample3.xyz;
+        vec3 n1 = sample2.xyz - sample1.xyz;
+        float edgeNormal = sqrt(dot( n0, n0 ) + dot( n1, n1 ));
+        edgeNormal = edgeNormal > .9 ? 1. : 0.;
 
-    vec3 n0 = sample0.xyz - sample3.xyz;
-    vec3 n1 = sample2.xyz - sample1.xyz;
-    float edgeNormal = sqrt(dot( n0, n0 ) + dot( n1, n1 ));
-    edgeNormal = edgeNormal > .9 ? 1. : 0.;
+        edge = .1 + .9*max( edgeNormal, edgeMat );
+    }
 
-    float edge = .1 + .9*max( edgeNormal, edgeMat );
-
-    float maxMat = max( material0, max( material1, max( material2, material3 )));
     vec3 gameColor = vec3( .1 * maxMat );
 
     if( maxMat >= 1. && maxMat < i_MAT_ROAD )
@@ -170,7 +169,7 @@ void main()
             gameColor = ((maxMat - .5) / .5) * vec3( .5, 0, 1 );
     }
 
-    if( sample0.w < 0. || sample1.w < 0. || sample2.w < 0. || sample3.w < 0. )
+    if( shadowed )
         gameColor *= .4;
 
     // Debug normals
@@ -180,15 +179,12 @@ void main()
 //  Compose the canvas
 
     vec3 hudColor = texture2D( u_canvas, vec2( uv.x + (uv.y > u_skewFade.x ? .23-.5*uv.y : 0. ), 1.-uv.y )).rgb;
-    float maxHud = max( hudColor.x, max( hudColor.y, hudColor.z ));
-    float dimUnderlay = ( 1. - .5 * length( gameColor ) * maxHud ) * min( 1., .3 + u_skewFade.y + length( uv - .5 ) );
-    vec4 outColor = vec4( dimUnderlay * gameColor + hudColor.xyz, 0 );
+    float i_dimUnderlay = ( 1. - .5 * length( gameColor ) * max( hudColor.x, max( hudColor.y, hudColor.z )) ) * min( 1., .3 + u_skewFade.y + length( uv - .5 ) );
+    vec4 outColor = vec4( i_dimUnderlay * gameColor + hudColor.xyz, 0 );
 
 // =================================================================================================
 //  CRT power-on effect
 
-    float t = u_time.y - u_time.x - .1;
-    float t1 = 4.*(u_time.y - u_time.z);
     if( t < 1.2 )
     {
         t -= .2;
