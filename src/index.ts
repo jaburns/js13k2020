@@ -401,13 +401,13 @@ let frame = () =>
                         );
 
                     if(
-                        _latestState[StateVal.Checkpoint0] && !prevState[StateVal.Checkpoint0] ||
-                        _latestState[StateVal.Checkpoint1] && !prevState[StateVal.Checkpoint1] ||
-                        _latestState[StateVal.Checkpoint2] && !prevState[StateVal.Checkpoint2] ||
-                        _latestState[StateVal.Checkpoint3] && !prevState[StateVal.Checkpoint3]
+                        _latestState[StateVal.Checkpoint0]==2 && prevState[StateVal.Checkpoint0]!=2 ||
+                        _latestState[StateVal.Checkpoint1]==2 && prevState[StateVal.Checkpoint1]!=2 ||
+                        _latestState[StateVal.Checkpoint2]==2 && prevState[StateVal.Checkpoint2]!=2 ||
+                        _latestState[StateVal.Checkpoint3]==2 && prevState[StateVal.Checkpoint3]!=2
                     )
                     {
-                        if( _latestState[StateVal.Checkpoint0] + _latestState[StateVal.Checkpoint1] + _latestState[StateVal.Checkpoint2] + _latestState[StateVal.Checkpoint3] > 3 )
+                        if( _latestState[StateVal.Checkpoint0] + _latestState[StateVal.Checkpoint1] + _latestState[StateVal.Checkpoint2] + _latestState[StateVal.Checkpoint3] > 7 )
                         {
                             _menuMode = MenuMode.PostRace;
                             _menu2Cursor = 1;

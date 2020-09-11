@@ -232,18 +232,22 @@ if( !u_replayMode ) {
         ST.carState.x -= sign( ST.carState.x ) * min( abs( ST.carState.x ), i_STEER_RATE );
 
     // Update checkpoint collected states
-    vec3 checkFwd = transpose(quat( Xf0 )) * vec3( 0, 0, 1 );
-    if( length( carCenterPt - Xc0 ) < 5. && sign( dot( carCenterPt - Xc0, checkFwd )) != sign( dot( carLastCenterPt - Xc0, checkFwd )))
-        ST.goalStateA.x = 1.;
-    checkFwd = transpose(quat( Xf1 )) * vec3( 0, 0, 1 );
-    if( length( carCenterPt - Xc1 ) < 5. && sign( dot( carCenterPt - Xc1, checkFwd )) != sign( dot( carLastCenterPt - Xc1, checkFwd )))
-        ST.goalStateA.y = 1.;
-    checkFwd = transpose(quat( Xf2 )) * vec3( 0, 0, 1 );
-    if( length( carCenterPt - Xc2 ) < 5. && sign( dot( carCenterPt - Xc2, checkFwd )) != sign( dot( carLastCenterPt - Xc2, checkFwd )))
-        ST.goalStateA.z = 1.;
-    checkFwd = transpose(quat( Xf3 )) * vec3( 0, 0, 1 );
-    if( length( carCenterPt - Xc3 ) < 5. && sign( dot( carCenterPt - Xc3, checkFwd )) != sign( dot( carLastCenterPt - Xc3, checkFwd )))
-        ST.goalStateB.x = 1.;
+    if( length( carCenterPt - Xc0 ) < 5. && ST.goalStateA.x < 2. ) {
+        float newSign = sign( dot( carCenterPt - Xc0, transpose(quat( Xf0 )) * vec3( 0, 0, 1 )));
+        ST.goalStateA.x = newSign != ST.goalStateA.x ? 2. : newSign;
+    }
+    if( length( carCenterPt - Xc1 ) < 5. && ST.goalStateA.y < 2. ) {
+        float newSign = sign( dot( carCenterPt - Xc1, transpose(quat( Xf1 )) * vec3( 0, 0, 1 )));
+        ST.goalStateA.y = newSign != ST.goalStateA.y ? 2. : newSign;
+    }
+    if( length( carCenterPt - Xc2 ) < 5. && ST.goalStateA.z < 2. ) {
+        float newSign = sign( dot( carCenterPt - Xc2, transpose(quat( Xf2 )) * vec3( 0, 0, 1 )));
+        ST.goalStateA.z = newSign != ST.goalStateA.z ? 2. : newSign;
+    }
+    if( length( carCenterPt - Xc3 ) < 5. && ST.goalStateB.x < 2. ) {
+        float newSign = sign( dot( carCenterPt - Xc3, transpose(quat( Xf3 )) * vec3( 0, 0, 1 )));
+        ST.goalStateB.x = newSign != ST.goalStateB.x ? 2. : newSign;
+    }
 
     // Step the simulation for each of the individual wheels
     for( int i = 0; i < 4; ++i )

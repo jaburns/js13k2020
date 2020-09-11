@@ -75,15 +75,17 @@ public class MapObject : MonoBehaviour
             }
             else if( kind == Kind.CurvedTrack )
             {
+                var r = Mathf.Abs(parames[0]);
+                var d = .5f * transform.localScale.x + 1f;
+
                 extents = new Vector3(
-                    1f * Mathf.Abs(parames[0]),
-                    .5f * transform.localScale.x,
-                    .5f * Mathf.Abs(parames[0])
+                    (r + d) / 2f,
+                    d,
+                    (r + d) / 2f
                 );
-                extents += new Vector3( 3, 1, 3 );
                 position += transform.rotation
-                    * ( parames[0] < 0 ? Vector3.right : Vector3.left )
-                    * ( 2 + .5f * Mathf.Abs(parames[0]) - .5f*transform.localScale.x);
+                    * ( parames[0] < 0 ? Vector3.left : Vector3.right )
+                    * ( -r + .5f*(r + d));
             }
         }
 

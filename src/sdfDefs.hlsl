@@ -183,7 +183,7 @@ float2 sdCheckpoint( float3 p, float3 center, float4 rot, float goalState )
 
     float d = min(max(w.x,w.y),0.) + length(max(w,0.));
 
-    return float2( d, (goalState > 0. ? i_MAT_CHECKPOINT_GOT : i_MAT_CHECKPOINT) + .5 * mod(rep.x + rep.y + rep.z, 2.) );
+    return float2( d, (goalState == 2. ? i_MAT_CHECKPOINT_GOT : i_MAT_CHECKPOINT) + .5 * mod(rep.x + rep.y + rep.z, 2.) );
 }
 
 // ================================================================================================
