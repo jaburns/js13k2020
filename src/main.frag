@@ -145,6 +145,32 @@ vec3 getNorm(vec3 p)
 // ==========================================================================================================
 //  Helper function for calculating car orientation from wheel positions
 
+void getCarOrientation(
+    vec3 w0, vec3 w1, vec3 w2, vec3 w3, out vec3 downDir, out vec3 fwdDir, out vec3 steerFwdDir, out vec3 centerPt,
+    out mat3 wheelRot, out mat3 steerRot
+)
+{
+    downDir = normalize(
+        normalize(cross( w0 - w3, w2 - w3 )) - normalize(cross( w0 - w1, w2 - w1 ))
+    );
+    vec3 nonOrthoFwdDir = normalize( w2 - w1 ) + normalize( w3 - w0 );
+
+    if( downDir.y > 0. ) downDir *= -1.;
+
+    vec3 carRightDir = normalize( cross( downDir, nonOrthoFwdDir ));
+    fwdDir = cross( carRightDir, downDir );
+
+    mat3 wheelRotFwd = mat3( carRightDir, downDir, carForwardDir );
+    wheelRot = transpose( wheelRotFwd );
+
+    steerFwdDir = vec3( 0, 0, 1 );
+    steerFwdDir.xz *= rot( ST.carState.x );
+    steerFwdDir = wheelRotFwd * g_steerForwardDir;
+
+    steerRot = transpose( mat3( cross( downDir, steerForwardDir ), downDir, steerForwardDir ));
+    centerPt = .25 * (w0 + w1 + w2 + w3);
+}
+
 void initGlobals()
 {
     vec3 carDownDir = normalize(
