@@ -1,11 +1,12 @@
 uniform sampler2D u_state;
 uniform sampler2D u_prevState;
-uniform bool u_enableGhost;
 uniform sampler2D u_ghost;
 uniform sampler2D u_prevGhost;
 uniform float u_time;
 uniform float u_lerpTime;
 uniform bool u_modeState;
+uniform bool u_enableGhost;
+uniform bool u_replayMode;
 uniform int u_menuMode; // 0 -> in-game, 1 -> in-menu, 2 -> boot screen
 uniform vec4 u_inputs;
 
@@ -107,7 +108,7 @@ vec2 map( vec3 p )
         return world;
     }
 
-    if( mod( g_traceBits.x / i_BIT0, 2. ) >= 1. )
+    if( !u_replayMode && mod( g_traceBits.x / i_BIT0, 2. ) >= 1. )
     {
         world = min2( world, sdBody ( 0., g_wheelRot*(p - g_carCenterPt)));
         world = min2( world, sdWheel( 0., g_wheelRot*(p - ST.wheelPos[0]), ST.wheelRotation[0].x));
@@ -183,7 +184,6 @@ void distConstraint( inout vec3 pos0, inout vec3 pos1, float dist )
 
 void main()
 {
-
     // Set all the bounding box trace bits for sampling the world distance field.
     // It's not worth trying to optimize the map sampling function for the state update.
     g_traceBits = vec2(i_BITS_ALL);
@@ -191,6 +191,8 @@ void main()
     // Load game state from the texture strip in to the global array.
     for( int i = 0; i < s_totalStateSize; ++i )
         g_state[i] = texture2D(u_state, vec2( (float(i)+.5)/s_totalStateSize.)).xyz;
+
+if( !u_replayMode ) {
 
     // Calculate and keep the car orientation properties we care about.
     vec3 carForwardDir;
@@ -299,6 +301,8 @@ void main()
     distConstraint( ST.wheelPos[1], ST.wheelPos[2], s_wheelBaseLength. );
     distConstraint( ST.wheelPos[1], ST.wheelPos[3], sqrt(s_wheelBaseWidth*s_wheelBaseWidth + s_wheelBaseLength.*s_wheelBaseLength.) );
     distConstraint( ST.wheelPos[2], ST.wheelPos[3], s_wheelBaseWidth );
+   
+}//if( !u_replayMode )
 
     // Color the outgoing pixel with the new state variables depending on which state pixel we're drawing
     for( int i = 0; i < s_totalStateSize; ++i )
@@ -325,7 +329,7 @@ float traceObjects( vec3 ro, vec3 rd )
     float hit = traceBox( ro - g_carCenterPt + vec3(0,0,carBoundsSize.z), rd, carBoundsSize );
     if( hit >= 0. ) { g_traceBits.x += i_BIT0; if( hit < traceDist ) traceDist = hit; }
 
-    if( u_enableGhost && length( g_ghostCenterPt - g_carCenterPt ) > .1 )
+    if( u_enableGhost && ( u_replayMode || length( g_ghostCenterPt - g_carCenterPt ) > .1 ))
     {
         carBoundsMin = min( g_ghostWheel0.xyz, min( g_ghostWheel1.xyz, min( g_ghostWheel2.xyz, g_ghostWheel3.xyz ))) - 2.*s_wheelRadius;
         carBoundsMax = max( g_ghostWheel0.xyz, max( g_ghostWheel1.xyz, max( g_ghostWheel2.xyz, g_ghostWheel3.xyz ))) + 2.*s_wheelRadius;
@@ -368,30 +372,6 @@ void main()
         g_steerRot
     );
 
-    if( u_enableGhost )
-    {
-        g_ghostWheel0 = mix( texture2D( u_prevGhost, vec2(.125,.5) ), texture2D( u_ghost, vec2(.125,.5) ), u_lerpTime );
-        g_ghostWheel1 = mix( texture2D( u_prevGhost, vec2(.375,.5) ), texture2D( u_ghost, vec2(.375,.5) ), u_lerpTime );
-        g_ghostWheel2 = mix( texture2D( u_prevGhost, vec2(.625,.5) ), texture2D( u_ghost, vec2(.625,.5) ), u_lerpTime );
-        g_ghostWheel3 = mix( texture2D( u_prevGhost, vec2(.875,.5) ), texture2D( u_ghost, vec2(.875,.5) ), u_lerpTime );
-
-        vec3 ghostDownDir;
-        vec3 ghostForwardDir;
-        vec3 ghostSteerForwardDir;
-        vec3 ghostCenterPt;
-        getCarOrientation(
-            g_ghostWheel0.xyz, g_ghostWheel1.xyz, g_ghostWheel2.xyz, g_ghostWheel3.xyz, 0.,
-            ghostDownDir,
-            ghostForwardDir,
-            ghostSteerForwardDir,
-            g_ghostCenterPt,
-            g_ghostWheelRot,
-            g_ghostSteerRot
-        );
-    }
-
-    vec2 uv = (gl_FragCoord.xy - .5*vec2(s_renderWidth., s_renderHeight.))/s_renderHeight.;
-
     vec3 ro, lookDir, camUp = vec3(0,1,0);
     if( u_menuMode == 2 )
     {
@@ -406,13 +386,40 @@ void main()
     }
     else
     {
-        vec3 fwdxz = normalize(vec3(carForwardDir.x, 0, carForwardDir.z));
-        ro = g_carCenterPt + vec3(0,2,0) - 7.*fwdxz;
+        ro = g_carCenterPt + vec3(0,2,0) - 7.*normalize(vec3(carForwardDir.x, 0, carForwardDir.z));
         lookDir = g_carCenterPt + vec3(0,1,0);
+    }
+
+    if( u_enableGhost )
+    {
+        g_ghostWheel0 = mix( texture2D( u_prevGhost, vec2(.125,.5) ), texture2D( u_ghost, vec2(.125,.5) ), u_lerpTime );
+        g_ghostWheel1 = mix( texture2D( u_prevGhost, vec2(.375,.5) ), texture2D( u_ghost, vec2(.375,.5) ), u_lerpTime );
+        g_ghostWheel2 = mix( texture2D( u_prevGhost, vec2(.625,.5) ), texture2D( u_ghost, vec2(.625,.5) ), u_lerpTime );
+        g_ghostWheel3 = mix( texture2D( u_prevGhost, vec2(.875,.5) ), texture2D( u_ghost, vec2(.875,.5) ), u_lerpTime );
+
+        vec3 ghostDownDir;
+        vec3 ghostForwardDir;
+        vec3 ghostSteerForwardDir;
+        getCarOrientation(
+            g_ghostWheel0.xyz, g_ghostWheel1.xyz, g_ghostWheel2.xyz, g_ghostWheel3.xyz, 0.,
+            ghostDownDir,
+            ghostForwardDir,
+            ghostSteerForwardDir,
+            g_ghostCenterPt,
+            g_ghostWheelRot,
+            g_ghostSteerRot
+        );
+
+        if( u_replayMode )
+        {
+            ro = g_ghostCenterPt + vec3(0,2,0) - 7.*normalize(vec3(ghostForwardDir.x, 0, ghostForwardDir.z));
+            lookDir = g_ghostCenterPt + vec3(0,1,0);
+        }
     }
 
     g_traceBits = vec2(0);
 
+    vec2 uv = (gl_FragCoord.xy - .5*vec2(s_renderWidth., s_renderHeight.))/s_renderHeight.;
     vec3 roo = ro;
     vec3 f = normalize(lookDir - ro);
     vec3 r = normalize(cross(camUp, f));

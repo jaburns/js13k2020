@@ -11,6 +11,18 @@ static const float i_MAT_CAR4 = 17.;
 static const float i_MAT_CAR5 = 17.5;
 static const float i_MAT_CAR6 = 18.;
 
+static const float i_BIT0 = 1.;
+static const float i_BIT1 = 2.;
+static const float i_BIT2 = 4.;
+static const float i_BIT3 = 8.;
+static const float i_BIT4 = 16.;
+static const float i_BIT5 = 32.;
+static const float i_BIT6 = 64.;
+static const float i_BIT7 = 128.;
+static const float i_BIT8 = 256.;
+static const float i_BIT9 = 512.;
+static const float i_BITS_ALL = 1023.;
+
 float3x3 quat( float x, float y, float z, float w ) {
     return transpose_hlsl_only(float3x3(
         1. - 2.*y*y - 2.*z*z,
@@ -165,32 +177,27 @@ float2 sdObj2( float3 p, float3 s, float radius, float bank )
 
 
 
-static const float i_thicc = .4;
+static const float i_checkpointThickness = .4;
 
-float sdHex( float2 p, float r )
+float sdGoal2D( float2 p, float r )
 {
-    const float3 k = float3(-0.866025404,0.5,0.577350269);
-    p = abs(p);
-    p -= 2.0*min(dot(k.xy,p),0.0)*k.xy;
-    p -= float2(clamp(p.x, -k.z*r, k.z*r), r);
-    return length(p)*sign(p.y);
-}
-
-float sdPentagon( float2 p, float r )
-{
-    float dhex = sdHex( p, r );
-    r /= 0.866025404;
+    const float3 k = float3(-.866,.5,.577);
+    float2 p1 = abs(p);
+    p1 -= 2.*min(dot(k.xy,p1),0.)*k.xy;
+    p1 -= float2(clamp(p1.x, -k.z*r, k.z*r), r);
+    float dhex = length(p1)*sign(p1.y);
+    r /= .866;
     float dbox = sdBox2D( p - float2(0,r), float2(r,r) );
     float d = max( dbox, dhex );
     //float d = p.y < 0. ? dbox : dhex < 0. ? max( dbox, dhex ) : dhex;
     
-    return abs( d ) - i_thicc;
+    return abs( d ) - i_checkpointThickness;
 }
 
 float sdGoal1( float3 p )
 {
-    float     h = i_thicc;
-    float d = sdPentagon(p.xy, 4.);
+    float h = i_checkpointThickness;
+    float d = sdGoal2D( p.xy, 4.);
     float2 w = float2( d, abs(p.z) - h );
     return min(max(w.x,w.y),0.0) + length(max(w,0.0));
 }
@@ -202,16 +209,3 @@ float2 sdCheckpoint( float3 p, float3 center, float4 rot, float goalState )
     float3 rep = floor(p / 4. + .01);
     return float2( sdGoal1( p ), (goalState > 0. ? i_MAT_CHECKPOINT_GOT : i_MAT_CHECKPOINT) + .5 * mod(rep.x + rep.y + rep.z, 2.) );
 }
-
-
-static const float i_BIT0 = 1.;
-static const float i_BIT1 = 2.;
-static const float i_BIT2 = 4.;
-static const float i_BIT3 = 8.;
-static const float i_BIT4 = 16.;
-static const float i_BIT5 = 32.;
-static const float i_BIT6 = 64.;
-static const float i_BIT7 = 128.;
-static const float i_BIT8 = 256.;
-static const float i_BIT9 = 512.;
-static const float i_BITS_ALL = 1023.;

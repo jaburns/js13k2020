@@ -16,19 +16,14 @@ const float i_MAT_CAR4 = 17.;
 const float i_MAT_CAR5 = 17.5;
 const float i_MAT_CAR6 = 18.;
 
-// color converter
-//let togl = (x) => {let r = x.substr(0,2),g=x.substr(2,2),b=x.substr(4,2); return 'vec3('+([parseInt(r,16)+'.',parseInt(g,16)+'.',parseInt(b,16)+'.'].join(','))+')/255.;'}
-
 #ifdef XA
-
 // =================================================================================================
 // MattiasCRT effect by Mattias from https://www.shadertoy.com/view/Ms23DR
 // ---------------------------------------------------------------------------------
+
 void main()
 {
     vec2 uv = gl_FragCoord.xy / vec2( s_fullWidth, s_fullHeight );
-
-    //gl_FragColor=texture2D(u_tex,uv);return;
 
     // curve
     uv = (uv - 0.5) * 2.0;
@@ -121,8 +116,9 @@ void main()
     
     bool shadowed;
     float edge, maxMat;
-    {
+    //{
         vec4 sample0 = texture2D( u_tex, uv + uvDelta * vec2(-0, -0) );
+    {
         vec4 sample1 = texture2D( u_tex, uv + uvDelta * vec2(-0, 1) );
         vec4 sample2 = texture2D( u_tex, uv + uvDelta * vec2(1, -0) );
         vec4 sample3 = texture2D( u_tex, uv + uvDelta * vec2(1, 1) );
@@ -170,7 +166,7 @@ void main()
         gameColor *= .4;
 
     // Debug normals
-    // gameColor = .5+.5*sample0.xyz;
+    gameColor = .5+.5*sample0.xyz;
 
 // =================================================================================================
 //  Compose the canvas

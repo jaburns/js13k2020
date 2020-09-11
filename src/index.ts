@@ -3,15 +3,6 @@ import { DEBUG } from "./debug.gen";
 import { gl_VERTEX_SHADER, gl_FRAGMENT_SHADER, gl_ARRAY_BUFFER, gl_STATIC_DRAW, gl_FRAMEBUFFER, gl_TEXTURE_2D, gl_RGBA, gl_UNSIGNED_BYTE, gl_LINEAR, gl_CLAMP_TO_EDGE, gl_TEXTURE_WRAP_S, gl_TEXTURE_WRAP_T, gl_TEXTURE_MIN_FILTER, gl_COLOR_ATTACHMENT0, gl_NEAREST, gl_FLOAT, gl_TRIANGLES, gl_BYTE, gl_TEXTURE0, gl_TEXTURE_MAG_FILTER, gl_TEXTURE1, gl_RGB, gl_TEXTURE2, gl_TEXTURE3 } from "./glConsts";
 import { startAudio, setSynthMenuMode, setEngineSoundFromCarSpeed, playResetSound, playClickSound, playWinSound, playBonkSound } from "./synth";
 
-// TODO
-//  - ray tracing bounding box optimization
-//  - need to add bounds checks for checkpoints and cars
-//  - design maps
-//  STRETCH - smaller replay format
-//  STRETCH - replay cams and replay mode
-
-// =================================================================================================
-
 declare const C0: HTMLCanvasElement;
 declare const C1: HTMLCanvasElement;
 declare const g: WebGLRenderingContext;
@@ -37,6 +28,7 @@ const enum KeyCode
     Enter = 13,
     Esc = 27,
     R = 82,
+    G = 71,
 }
 
 const enum StateVal
@@ -74,8 +66,6 @@ type SaveData = SaveDataElem[];
 
 // =================================================================================================
 
-
-
 let _tickAccTime = 0;
 let _inputs: {[k: number]: 1} = {};
 let _previousTime: number;
@@ -104,6 +94,7 @@ let _ghostTextures: [WebGLTexture,WebGLTexture];
 let _ghostTextureIndex: number = 0;
 let _exportGhost: string;
 let _foreignGhost: 0|1;
+let _replayMode: 0|1|2;
 
 let _bootMode: 0|1 = 1;
 let _menuMode: MenuMode = 0;
@@ -271,11 +262,12 @@ let drawHUD = () =>
         c.fillText('kph',Y+410,250);
         C1.style.letterSpacing = '0px'; 
 
-        drawText('ARROWS DRIVE  SPACE DRIFTS', 135, 290, 16, '#b60', '', 0);
-        drawText('R RESTARTS  ESC QUITS', 155, 305, 16, '#b60', '', 0);
+        drawText('ARROWS DRIVE  SPACE DRIFTS', 135, 290, 16, '#bb0', '', 0);
+        drawText('R RESTARTS  ESC QUITS', 155, 305, 16, '#bb0', '', 0);
+        drawText('G FOLLOWS GHOST', 185, 320, 16, '#bb0', '', 0);
 
         if(( _previousTime / s_tempo ) % 1 > .25 )
-            drawText( 'PRESS ENTER', 180, 340, 24, '#0bb', '#06b' );
+            drawText( 'PRESS ENTER', 178, 350, 24, '#0bb', '#06b' );
     }
     else if( _menuMode == MenuMode.PostRace )
     {
@@ -368,6 +360,7 @@ let frame = () =>
             g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][1], 'u_modeState' ), 1 );
             g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][1], 'u_menuMode' ), _bootMode ? 2 : _menuMode == MenuMode.NoMenu ? 0 : 1 );
             g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][1], 'u_state' ), 0 );
+            g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][1], 'u_replayMode' ), _replayMode );
 
             fullScreenDraw( _shaderPairs[_trackIndex][1] );
 
@@ -386,11 +379,17 @@ let frame = () =>
                     fillGhostTexture();
                     if( _loadedGhostPtr < _loadedGhost.length - 16 )
                         _loadedGhostPtr += 16;
+                    else if( _replayMode == 1 )
+                    {
+                        _replayMode = 2;
+                        _raceTicks += 2;
+                    }
                 }
 
                 if( _menuMode == MenuMode.NoMenu )
                 {
-                    if( ++_raceTicks % 2 )
+                    if( _replayMode != 2 )
+                    if( ++_raceTicks % 2 && !_replayMode )
                         _recordGhost.push(
                             _latestState[StateVal.WheelPos0], _latestState[StateVal.WheelPos0+1], _latestState[StateVal.WheelPos0+2], _latestState[StateVal.SteeringAngle],
                             _latestState[StateVal.WheelPos1], _latestState[StateVal.WheelPos1+1], _latestState[StateVal.WheelPos1+2], _latestState[StateVal.WheelRot1],
@@ -464,6 +463,7 @@ let frame = () =>
         g.uniform1f( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_lerpTime' ), _tickAccTime / s_millisPerTick );
 
         g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_enableGhost' ), _loadedGhostPtr >= 0 ? 1 : 0 );
+        g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_replayMode' ), _replayMode );
 
         if( _loadedGhostPtr >= 0 )
         {
@@ -554,6 +554,8 @@ C0.onclick = () =>
 
         if( k.keyCode == KeyCode.R && !_bootMode )
         {
+            _replayMode = 0;
+
             _menuMode = MenuMode.NoMenu;
             setSynthMenuMode(0);
             resetState();
@@ -594,9 +596,20 @@ C0.onclick = () =>
         {
             if( k.keyCode == KeyCode.Esc )
             {
+                _replayMode = 0;
+
                 _menuMode = MenuMode.SelectTrack;
                 setSynthMenuMode(1);
                 playClickSound();
+            }
+            if( k.keyCode == KeyCode.G && _loadedGhostPtr >= 0 )
+            {
+                _replayMode = 1;
+
+                _menuMode = MenuMode.NoMenu;
+                setSynthMenuMode(0);
+                resetState();
+                playResetSound();
             }
             if( _menuMode == MenuMode.PostRace )
             {
