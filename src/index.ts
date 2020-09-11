@@ -298,6 +298,9 @@ let drawHUD = () =>
         if( t > 1 && t < 2 )
             drawText( 'GO!', 205, 200, 64, '#0'+t1+'0', '#0'+t2+'0', 4 );
 
+        if( _replayMode )
+            drawText( 'REPLAY', 395, 50, 24, '#0b0', '#060' );
+
         drawText( timeText, 375, 350, 24, '#0bb', '#06b' );
         drawText( (100*_latestState[StateVal.Speed]|0)+' kph', 35, 350, 24, '#b2d', '#906');
     }

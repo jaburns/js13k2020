@@ -119,7 +119,7 @@ vec2 map( vec3 p )
         world = min2( world, vec2( sdAxle( p, ST.wheelPos[0], ST.wheelPos[1] ), i_MAT_CAR6 ));
     }
 
-    if( mod( g_traceBits.x / i_BIT1, 2. ) >= 1. )
+    if( u_enableGhost && mod( g_traceBits.x / i_BIT1, 2. ) >= 1. )
     {
         world = min2( world, sdBody ( 5., g_ghostWheelRot*(p - g_ghostCenterPt) ));
         world = min2( world, sdWheel( 5., g_ghostWheelRot*(p - g_ghostWheel0.xyz), g_ghostWheel1.w ));

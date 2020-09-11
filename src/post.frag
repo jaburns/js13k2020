@@ -116,9 +116,8 @@ void main()
     
     bool shadowed;
     float edge, maxMat;
-    //{
-        vec4 sample0 = texture2D( u_tex, uv + uvDelta * vec2(-0, -0) );
     {
+        vec4 sample0 = texture2D( u_tex, uv + uvDelta * vec2(-0, -0) );
         vec4 sample1 = texture2D( u_tex, uv + uvDelta * vec2(-0, 1) );
         vec4 sample2 = texture2D( u_tex, uv + uvDelta * vec2(1, -0) );
         vec4 sample3 = texture2D( u_tex, uv + uvDelta * vec2(1, 1) );
@@ -166,7 +165,7 @@ void main()
         gameColor *= .4;
 
     // Debug normals
-    gameColor = .5+.5*sample0.xyz;
+    //gameColor = .5+.5*sample0.xyz;
 
 // =================================================================================================
 //  Compose the canvas
