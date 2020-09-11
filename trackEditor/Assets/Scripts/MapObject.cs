@@ -76,7 +76,7 @@ public class MapObject : MonoBehaviour
             else if( kind == Kind.CurvedTrack )
             {
                 extents = new Vector3(
-                    .5f * Mathf.Abs(parames[0]),
+                    1f * Mathf.Abs(parames[0]),
                     .5f * transform.localScale.x,
                     .5f * Mathf.Abs(parames[0])
                 );
