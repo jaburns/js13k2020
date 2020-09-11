@@ -14,7 +14,7 @@ public class MapObjectSmoothJoin : MonoBehaviour
         if( children.Length < 2 )
             throw new System.Exception("Cant join less than 2");
 
-        var lines = children.Select( x => x.WriteShaderCall( glsl )).ToArray();
+        var lines = children.Select( x => x.WriteShaderCall()).ToArray();
         result += string.Format( "vec2 d1 = opSmoothUnion2({0},{1},"+Utils.SmallNum(k,true)+")", lines[0], lines[1] ) + ";\n";
 
         for( var i = 2; i < lines.Length; ++i )

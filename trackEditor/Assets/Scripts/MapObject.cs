@@ -20,26 +20,43 @@ public class MapObject : MonoBehaviour
         Gizmos.DrawCube( Vector3.forward*.5f, Vector3.one );
     }
 
-    public string WriteShaderCall( bool glsl )
+    public string WriteShaderCall()
     {
         var fn = "sdObj" + (int)kind;
         var b = GetTracingBounds( true );
 
         var result = string.Format(
-            glsl
-                ? fn+"( quat({0},{1},{2},{3})*(p-vec3({4},{5},{6})), vec3({7},{8},{9}) "
-                : fn+"( mul(quat({0},{1},{2},{3}),p-float3({4},{5},{6})), float3({7},{8},{9}) ",
-            Utils.SmallNum( b.invRotation.x, glsl ), Utils.SmallNum( b.invRotation.y, glsl ), Utils.SmallNum( b.invRotation.z, glsl ), Utils.SmallNum( b.invRotation.w, glsl ),
-            Utils.SmallNum( b.position.x ), Utils.SmallNum( b.position.y ), Utils.SmallNum( b.position.z ),
-            Utils.SmallNum( b.extents.x ), Utils.SmallNum( b.extents.y ), Utils.SmallNum( b.extents.z )
+            fn+"( p, {0},{1},{2},{3},{4},{5},{6} ",
+            Utils.SmallNum( b.invRotation.x, true ), Utils.SmallNum( b.invRotation.y, true ), Utils.SmallNum( b.invRotation.z, true ), Utils.SmallNum( b.invRotation.w, true ),
+            Utils.SmallNum( b.position.x, true ), Utils.SmallNum( b.position.y, true ), Utils.SmallNum( b.position.z, true )
         );
 
-        return result + string.Join( "", parames.Select( x => ","+Utils.SmallNum(x,true) )) + " )";
+        var pars = parames.Select( x => x ).ToList();
+
+        switch( kind )
+        {
+            case Kind.Box:
+                pars.Insert( 0, b.extents.z );
+                pars.Insert( 0, b.extents.y );
+                pars.Insert( 0, b.extents.x );
+                break;
+
+            case Kind.StraightTrack:
+                pars.Insert( 0, b.extents.z );
+                pars.Insert( 0, b.extents.x );
+                break;
+
+            case Kind.CurvedTrack:
+                pars.Insert( 0, b.extents.x );
+                break;
+        }
+
+        return result + string.Join( "", pars.Select( x => ","+Utils.SmallNum(x,true) )) + " )";
     }
 
-    public string WriteShaderLine( bool glsl )
+    public string WriteShaderLine()
     {
-        return "d = min2( d, " + WriteShaderCall( glsl ) + " );\n";
+        return "d = min2( d, " + WriteShaderCall() + " );\n";
     }
 
     public TracingBounds GetTracingBounds( bool march = false )

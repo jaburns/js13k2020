@@ -95,19 +95,16 @@
 
                 float traceDist = 10000.;
                 {
-                    float hit;
-                    hit = traceBox( mul(quat(Xf0),ro-Xc0), mul(quat(Xf0),rd), float3(5,5,.5) );
-                    if( hit >= 0. ) { g_traceBits.x += i_BIT2; if( hit < traceDist ) traceDist = hit; }
-                    hit = traceBox( mul(quat(Xf1),ro-Xc1), mul(quat(Xf1),rd), float3(5,5,.5) );
-                    if( hit >= 0. ) { g_traceBits.x += i_BIT3; if( hit < traceDist ) traceDist = hit; }
-                    hit = traceBox( mul(quat(Xf2),ro-Xc2), mul(quat(Xf2),rd), float3(5,5,.5) );
-                    if( hit >= 0. ) { g_traceBits.x += i_BIT4; if( hit < traceDist ) traceDist = hit; }
-                    hit = traceBox( mul(quat(Xf3),ro-Xc3), mul(quat(Xf3),rd), float3(5,5,.5) );
-                    if( hit >= 0. ) { g_traceBits.x += i_BIT5; if( hit < traceDist ) traceDist = hit; }
+                    traceBox( ro, rd, traceDist, g_traceBits.x, i_BIT2, Xf0.x, Xf0.y, Xf0.z, Xf0.w, Xc0.x, Xc0.y, Xc0.z, 5,5,.5 );
+                    traceBox( ro, rd, traceDist, g_traceBits.x, i_BIT3, Xf1.x, Xf1.y, Xf1.z, Xf1.w, Xc1.x, Xc1.y, Xc1.z, 5,5,.5 );
+                    traceBox( ro, rd, traceDist, g_traceBits.x, i_BIT4, Xf2.x, Xf2.y, Xf2.z, Xf2.w, Xc2.x, Xc2.y, Xc2.z, 5,5,.5 );
+                    traceBox( ro, rd, traceDist, g_traceBits.x, i_BIT5, Xf3.x, Xf3.y, Xf3.z, Xf3.w, Xc3.x, Xc3.y, Xc3.z, 5,5,.5 );
                 }
 
                 float traceD = Xt( ro, rd, traceDist );
                 float base = 0.;
+
+                //return float4(1,1,1,1) *  traceD / 200;
 
                 if( traceD >= 0. )
                 {

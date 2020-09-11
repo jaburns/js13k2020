@@ -738,7 +738,7 @@ _startTime = 0;
             g.shaderSource( fs, defs.map( x => '#define '+x ).join('\n')+'\nprecision highp float;'+(i < 2 ? post_frag : main_frag) );
             g.compileShader( fs );
 
-            //if( DEBUG )
+            if( DEBUG )
             {
                 let log = g.getShaderInfoLog(fs);
                 if( log === null || log.length > 0 && log.indexOf('ERROR') >= 0 )

@@ -198,7 +198,11 @@ const generateShaderFile = () =>
         }
     });
 
-    run( MONO_RUN + 'tools/shader_minifier.exe --no-renaming-list main,Xm,Xt --format js -o build/shaders.js --preserve-externals '+(DEBUG ? '--preserve-all-globals' : '')+' shadersTmp/*' );
+    let noRenames = ['main','Xm','Xt'];
+    // noRenames = noRenames.concat([0,1,2,3].flatMap(x => (['Xc'+x, 'Xf'+x])));
+    // noRenames = noRenames.concat([0].map(x => (['Xp'+x])));
+
+    run( MONO_RUN + 'tools/shader_minifier.exe --no-renaming-list '+noRenames.join(',')+' --format js -o build/shaders.js --preserve-externals '+(DEBUG ? '--preserve-all-globals' : '')+' shadersTmp/*' );
     let shaderCode = fs.readFileSync('build/shaders.js', 'utf8');
     buildShaderExternalNameMap( shaderCode );
     shaderCode = minifyShaderExternalNames( shaderCode );

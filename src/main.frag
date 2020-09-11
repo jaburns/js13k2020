@@ -322,31 +322,31 @@ if( !u_replayMode ) {
 float traceObjects( vec3 ro, vec3 rd )
 {
     float traceDist = 10000.;
-    vec3 carBoundsMin = min( ST.wheelPos[0], min( ST.wheelPos[1], min( ST.wheelPos[2], ST.wheelPos[3] ))) - 2.*s_wheelRadius;
-    vec3 carBoundsMax = max( ST.wheelPos[0], max( ST.wheelPos[1], max( ST.wheelPos[2], ST.wheelPos[3] ))) + 2.*s_wheelRadius;
+    vec3 carBoundsMin = min( ST.wheelPos[0], min( ST.wheelPos[1], min( ST.wheelPos[2], ST.wheelPos[3] ))) - s_wheelRadius;
+    vec3 carBoundsMax = max( ST.wheelPos[0], max( ST.wheelPos[1], max( ST.wheelPos[2], ST.wheelPos[3] ))) + s_wheelRadius;
     vec3 carBoundsSize = .5 * (carBoundsMax - carBoundsMin);
 
-    float hit = traceBox( ro - g_carCenterPt + vec3(0,0,carBoundsSize.z), rd, carBoundsSize );
-    if( hit >= 0. ) { g_traceBits.x += i_BIT0; if( hit < traceDist ) traceDist = hit; }
+    traceBox(
+        ro, rd, traceDist, g_traceBits.x, i_BIT0, 0., 0., 0., 1.,
+        g_carCenterPt.x, g_carCenterPt.y, g_carCenterPt.z - .5*carBoundsSize.z, carBoundsSize.x, carBoundsSize.y, carBoundsSize.z
+    );
 
     if( u_enableGhost && ( u_replayMode || length( g_ghostCenterPt - g_carCenterPt ) > .1 ))
     {
-        carBoundsMin = min( g_ghostWheel0.xyz, min( g_ghostWheel1.xyz, min( g_ghostWheel2.xyz, g_ghostWheel3.xyz ))) - 2.*s_wheelRadius;
-        carBoundsMax = max( g_ghostWheel0.xyz, max( g_ghostWheel1.xyz, max( g_ghostWheel2.xyz, g_ghostWheel3.xyz ))) + 2.*s_wheelRadius;
+        carBoundsMin = min( g_ghostWheel0.xyz, min( g_ghostWheel1.xyz, min( g_ghostWheel2.xyz, g_ghostWheel3.xyz ))) - s_wheelRadius;
+        carBoundsMax = max( g_ghostWheel0.xyz, max( g_ghostWheel1.xyz, max( g_ghostWheel2.xyz, g_ghostWheel3.xyz ))) + s_wheelRadius;
         carBoundsSize = .5 * (carBoundsMax - carBoundsMin);
 
-        hit = traceBox( ro - g_ghostCenterPt + vec3(0,0,carBoundsSize.z), rd, carBoundsSize );
-        if( hit >= 0. ) { g_traceBits.x += i_BIT1; if( hit < traceDist ) traceDist = hit; }
+        traceBox(
+            ro, rd, traceDist, g_traceBits.x, i_BIT1, 0., 0., 0., 1.,
+            g_ghostCenterPt.x, g_ghostCenterPt.y, g_ghostCenterPt.z - .5*carBoundsSize.z, carBoundsSize.x, carBoundsSize.y, carBoundsSize.z
+        );
     }
 
-    hit = traceBox( quat(Xf0)*(ro-Xc0), quat(Xf0)*rd, vec3(5,5,.5) );
-    if( hit >= 0. ) { g_traceBits.x += i_BIT2; if( hit < traceDist ) traceDist = hit; }
-    hit = traceBox( quat(Xf1)*(ro-Xc1), quat(Xf1)*rd, vec3(5,5,.5) );
-    if( hit >= 0. ) { g_traceBits.x += i_BIT3; if( hit < traceDist ) traceDist = hit; }
-    hit = traceBox( quat(Xf2)*(ro-Xc2), quat(Xf2)*rd, vec3(5,5,.5) );
-    if( hit >= 0. ) { g_traceBits.x += i_BIT4; if( hit < traceDist ) traceDist = hit; }
-    hit = traceBox( quat(Xf3)*(ro-Xc3), quat(Xf3)*rd, vec3(5,5,.5) );
-    if( hit >= 0. ) { g_traceBits.x += i_BIT5; if( hit < traceDist ) traceDist = hit; }
+    traceBox( ro, rd, traceDist, g_traceBits.x, i_BIT2, Xf0.x, Xf0.y, Xf0.z, Xf0.w, Xc0.x, Xc0.y, Xc0.z, 5.,5.,.5 );
+    traceBox( ro, rd, traceDist, g_traceBits.x, i_BIT3, Xf1.x, Xf1.y, Xf1.z, Xf1.w, Xc1.x, Xc1.y, Xc1.z, 5.,5.,.5 );
+    traceBox( ro, rd, traceDist, g_traceBits.x, i_BIT4, Xf2.x, Xf2.y, Xf2.z, Xf2.w, Xc2.x, Xc2.y, Xc2.z, 5.,5.,.5 );
+    traceBox( ro, rd, traceDist, g_traceBits.x, i_BIT5, Xf3.x, Xf3.y, Xf3.z, Xf3.w, Xc3.x, Xc3.y, Xc3.z, 5.,5.,.5 );
 
     return traceDist;
 }
@@ -429,7 +429,10 @@ void main()
     vec3 normal = vec3( 0 );
     float planeDist = -roo.y / rd.y;
     float material = 0.;
-    float traceD = Xt( ro, rd, traceObjects( ro, rd ));
+    float i_objDist = traceObjects( ro, rd );
+    // Debug car ray trace bounds
+    //      if( i_objDist < 10000. ) { gl_FragColor = vec4(1); return; }
+    float traceD = Xt( ro, rd, i_objDist );
 
     if( traceD < 200. )
     {

@@ -11,18 +11,15 @@ public class TracingBounds
     public Quaternion invRotation;
     public Vector3 extents;
 
-    public string WriteTraceLine( bool glsl, int bit )
+    public string WriteTraceLine( int bit )
     {
         var b = this;
         var result = string.Format(
-            glsl
-                ? "hit = traceBox( quat({0},{1},{2},{3})*(ro-vec3({4},{5},{6})), quat({0},{1},{2},{3})*rd, vec3({7},{8},{9}) );\n"
-                : "hit = traceBox( mul(quat({0},{1},{2},{3}),ro-float3({4},{5},{6})), mul(quat({0},{1},{2},{3}),rd), float3({7},{8},{9}) );\n",
-            Utils.SmallNum( b.invRotation.x, glsl ), Utils.SmallNum( b.invRotation.y, glsl ), Utils.SmallNum( b.invRotation.z, glsl ), Utils.SmallNum( b.invRotation.w, glsl ),
-            Utils.SmallNum( b.position.x ), Utils.SmallNum( b.position.y ), Utils.SmallNum( b.position.z ),
-            Utils.SmallNum( b.extents.x ), Utils.SmallNum( b.extents.y ), Utils.SmallNum( b.extents.z )
+            "traceBox( ro, rd, dist, g_traceBits.y, i_BIT"+bit+", {0},{1},{2},{3},{4},{5},{6},{7},{8},{9} );\n",
+            Utils.SmallNum( b.invRotation.x, true ), Utils.SmallNum( b.invRotation.y, true ), Utils.SmallNum( b.invRotation.z, true ), Utils.SmallNum( b.invRotation.w, true ),
+            Utils.SmallNum( b.position.x, true ), Utils.SmallNum( b.position.y, true ), Utils.SmallNum( b.position.z, true ),
+            Utils.SmallNum( b.extents.x, true ), Utils.SmallNum( b.extents.y, true ), Utils.SmallNum( b.extents.z, true )
         );
-        result += "if( hit >= 0. ) { g_traceBits.y += i_BIT"+bit+"; if( hit < dist ) dist = hit; }\n";
         return result;
     }
 }
@@ -73,7 +70,7 @@ static public class MapCompiler
 
         var objectLines = GameObject.FindObjectsOfType<MapObject>()
             .Where( y => y.transform.parent == null || y.transform.parent.GetComponent<MapObjectSmoothJoin>() == null )
-            .Select( x => x.WriteShaderLine( glsl ));
+            .Select( x => x.WriteShaderLine());
 
         var smoothLines = GameObject.FindObjectsOfType<MapObjectSmoothJoin>()
             .Select( x => x.WriteShaderLine( glsl ));
@@ -99,11 +96,10 @@ static public class MapCompiler
         var smoothBounds = GameObject.FindObjectsOfType<MapObjectSmoothJoin>()
             .Select( x => x.GetTracingBounds() );
 
-        var lines = objectBounds.Concat( smoothBounds ).Select( x => x.WriteTraceLine( glsl, bit++ )).ToList();
+        var lines = objectBounds.Concat( smoothBounds ).Select( x => x.WriteTraceLine( bit++ )).ToList();
 
         return "float Xt( vec3 ro, vec3 rd, float dist )\n" +
         "{\n" +
-            "float hit;\n" +
             string.Join( "", lines ) + 
             "return dist < 10000. ? dist : -1.;\n" +
         "}\n";
