@@ -431,38 +431,47 @@ void main()
     float material = 0.;
     float traceD = Xt( ro, rd, traceObjects( ro, rd ));
 
-    if( rd.y < 0. && planeDist < traceD )
+    if( traceD < 200. )
     {
-        ro = roo + planeDist * rd;
-        normal = vec3( 0, 1, 0 );
-        material = 1.;
-    }
-    else if( traceD >= 0. )
-    {
-        ro += rd * traceD;
-        vec2 dist;
-        float totalDist = traceD;
-
-        const float i_EPS = .01;
-        for( int i = 0; i < 100; ++i )
-        {
-            dist = map( ro );
-            if( dist.x < i_EPS || totalDist >= 200. || ro.y < 0. ) break;
-            totalDist += dist.x;
-            ro += rd * dist.x;
-        }
-
-        if( ro.y < 0. || dist.x >= i_EPS && rd.y < 0. )
+        if( rd.y < 0. && planeDist < traceD )
         {
             ro = roo + planeDist * rd;
             normal = vec3( 0, 1, 0 );
             material = 1.;
         }
-        else if( dist.x < i_EPS )
+        else if( traceD >= 0. )
         {
-            g_traceBits = vec2(i_BITS_ALL);
-            normal = getNorm( ro );
-            material = dist.y;
+            ro += rd * traceD;
+            vec2 dist;
+            float totalDist = traceD;
+
+            const float i_EPS = .01;
+            for( int i = 0; i < 100; ++i )
+            {
+                dist = map( ro );
+                if( dist.x < i_EPS || totalDist >= 200. || ro.y < 0. ) break;
+                totalDist += dist.x;
+                ro += rd * dist.x;
+            }
+
+            if( ro.y < 0. || dist.x >= i_EPS && rd.y < 0. )
+            {
+                ro = roo + planeDist * rd;
+                normal = vec3( 0, 1, 0 );
+                material = 1.;
+            }
+            else if( dist.x < i_EPS )
+            {
+                g_traceBits = vec2(i_BITS_ALL);
+                normal = getNorm( ro );
+                material = dist.y;
+            }
+        }
+        else if( rd.y < 0. )
+        {
+            ro = roo + planeDist * rd;
+            normal = vec3( 0, 1, 0 );
+            material = 1.;
         }
     }
     else if( rd.y < 0. )
@@ -492,15 +501,13 @@ void main()
     {
         g_traceBits = vec2(0);
         rd = normalize( vec3( -.5, .3, 1 ));
-        float traceD = Xt( ro, rd, traceObjects( ro, rd ));
+        float d, t = .1, traceD = Xt( ro, rd, traceObjects( ro, rd ));
         if( traceD >= 0. )
         {
-            ro += rd*traceD;
-            float t = .1;
             for( int i = 0; i < 50; ++i )
             {
                 if( t >= 30. ) break;
-                float d = map( ro + rd*t ).x;
+                d = map( ro + rd*t ).x;
                 if( d < 0.01 ) {
                     material *= -1.;
                     break;
