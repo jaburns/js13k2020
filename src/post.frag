@@ -16,6 +16,9 @@ const float i_MAT_CAR4 = 17.;
 const float i_MAT_CAR5 = 17.5;
 const float i_MAT_CAR6 = 18.;
 
+// color converter
+//let togl = (x) => {let r = x.substr(0,2),g=x.substr(2,2),b=x.substr(4,2); return 'vec3('+([parseInt(r,16)+'.',parseInt(g,16)+'.',parseInt(b,16)+'.'].join(','))+')/255.;'}
+
 #ifdef XA
 
 // =================================================================================================
@@ -79,8 +82,6 @@ vec3 sun( float y, vec3 sky )
     float lightness = y < .5 ? pow(.5+.5*sin(200.*y*y), 5.) : 0.;
     return mix(mix(vec3(1,0,1), vec3(1),2.*y), y*sky, lightness );
 }
-
-//let togl = (x) => {let r = x.substr(0,2),g=x.substr(2,2),b=x.substr(4,2); return 'vec3('+([parseInt(r,16)+'.',parseInt(g,16)+'.',parseInt(b,16)+'.'].join(','))+')/255.;'}
 
 void main()
 {

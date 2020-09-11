@@ -479,17 +479,23 @@ void main()
 
     if( material > 1. )
     {
+        g_traceBits = vec2(0);
         rd = normalize( vec3( -.5, .3, 1 ));
-        float t = .1;
-        for( int i = 0; i < 50; ++i )
+        float traceD = Xt( ro, rd, traceObjects( ro, rd ));
+        if( traceD >= 0. )
         {
-            if( t >= 30. ) break;
-            float d = map( ro + rd*t ).x;
-            if( d < 0.01 ) {
-                material *= -1.;
-                break;
+            ro += rd*traceD;
+            float t = .1;
+            for( int i = 0; i < 50; ++i )
+            {
+                if( t >= 30. ) break;
+                float d = map( ro + rd*t ).x;
+                if( d < 0.01 ) {
+                    material *= -1.;
+                    break;
+                }
+                t += max( .1, d );
             }
-            t += max( .1, d );
         }
     }
 

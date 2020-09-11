@@ -218,7 +218,7 @@ static const float i_BIT9 = 512.;
 static const float i_BITS_ALL = 1023.;
 static const float3 Xc0 = float3(0.44,0.13,53.7),Xc1 = float3(23.56,8.03,162.8),Xc2 = float3(65.47,7.93,166.48),Xc3 = float3(122.56,9.77,207.71);
 static const float4 Xf0 = float4(0,0,0,1),Xf1 = float4(0.12,-0.468,0.199,0.853),Xf2 = float4(0.07,-0.704,0.07,0.704),Xf3 = float4(0,-0.277,0,0.961),Xp0 = float4(115.4,9.6,199.1,22.3);
-float2 Xmap( float3 p )
+float2 Xm( float3 p )
 {
 float2 d = float2( 10000, 0 );
 if( mod( g_traceBits.y / i_BIT0, 2. ) >= 1. )
@@ -242,7 +242,7 @@ d = min2( d, d1 );
 }
 return d;
 }
-float Xtrace( float3 ro, float3 rd, float dist )
+float Xt( float3 ro, float3 rd, float dist )
 {
 float hit;
 hit = traceBox( mul(quat(0.119,0,0,0.993),ro-float3(0.5,-2.19,-39.91)), mul(quat(0.119,0,0,0.993),rd), float3(3.549,0.5,5.093) );
