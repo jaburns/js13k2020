@@ -10,21 +10,21 @@ uniform int u_menuMode; // 0 -> in-game, 1 -> in-menu, 2 -> boot screen
 uniform vec4 u_inputs;
 
 vec3 g_state[s_totalStateSize];
+
 vec3 g_carCenterPt;
-vec3 g_carLastCenterPt;
-vec3 g_carForwardDir;
-vec3 g_carUpDir;
-vec3 g_steerForwardDir;
 vec3 g_ghostCenterPt;
+
 mat3 g_wheelRot;
 mat3 g_steerRot;
+
 mat3 g_ghostWheelRot;
 mat3 g_ghostSteerRot;
+
 vec4 g_ghostWheel0;
 vec4 g_ghostWheel1;
 vec4 g_ghostWheel2;
 vec4 g_ghostWheel3;
-bool g_enableGhost;
+
 vec2 g_traceBits;
 
 #pragma INCLUDE_WORLD_SDF
@@ -119,7 +119,7 @@ vec2 map( vec3 p )
         world = min2( world, vec2( sdAxle( p, ST.wheelPos[0], ST.wheelPos[1] ), i_MAT_CAR6 ));
     }
 
-    if( g_enableGhost && mod( g_traceBits.x / i_BIT1, 2. ) >= 1. )
+    if( mod( g_traceBits.x / i_BIT1, 2. ) >= 1. )
     {
         world = min2( world, sdBody ( 5., g_ghostWheelRot*(p - g_ghostCenterPt) ));
         world = min2( world, sdWheel( 5., g_ghostWheelRot*(p - g_ghostWheel0.xyz), g_ghostWheel1.w ));
@@ -160,77 +160,15 @@ void getCarOrientation(
     vec3 carRightDir = normalize( cross( downDir, nonOrthoFwdDir ));
     fwdDir = cross( carRightDir, downDir );
 
-    mat3 wheelRotFwd = mat3( carRightDir, downDir, carForwardDir );
+    mat3 wheelRotFwd = mat3( carRightDir, downDir, fwdDir );
     wheelRot = transpose( wheelRotFwd );
 
     steerFwdDir = vec3( 0, 0, 1 );
     steerFwdDir.xz *= rot( ST.carState.x );
-    steerFwdDir = wheelRotFwd * g_steerForwardDir;
+    steerFwdDir = wheelRotFwd * steerFwdDir;
 
-    steerRot = transpose( mat3( cross( downDir, steerForwardDir ), downDir, steerForwardDir ));
+    steerRot = transpose( mat3( cross( downDir, steerFwdDir ), downDir, steerFwdDir ));
     centerPt = .25 * (w0 + w1 + w2 + w3);
-}
-
-void initGlobals()
-{
-    vec3 carDownDir = normalize(
-        normalize(cross( ST.wheelPos[0] - ST.wheelPos[3], ST.wheelPos[2] - ST.wheelPos[3] )) -
-        normalize(cross( ST.wheelPos[0] - ST.wheelPos[1], ST.wheelPos[2] - ST.wheelPos[1] ))
-    );
-    if( carDownDir.y > 0. ) carDownDir *= -1.;
-
-    vec3 nonOrthoFwdDir = 
-        normalize( ST.wheelPos[2] - ST.wheelPos[1] ) +
-        normalize( ST.wheelPos[3] - ST.wheelPos[0] );
-
-    vec3 carRightDir = normalize( cross( carDownDir, nonOrthoFwdDir ));
-
-    g_carForwardDir = cross( carRightDir, carDownDir );
-
-    g_carCenterPt = ( ST.wheelPos[0] + ST.wheelPos[1] + ST.wheelPos[2] + ST.wheelPos[3] ) / 4.;
-
-    mat3 wheelRotFwd = mat3( carRightDir, carDownDir, g_carForwardDir );
-    g_wheelRot = transpose( wheelRotFwd );
-
-    g_steerForwardDir = vec3( 0, 0, 1 );
-    g_steerForwardDir.xz *= rot( ST.carState.x );
-    g_steerForwardDir = wheelRotFwd * g_steerForwardDir;
-
-    g_steerRot = transpose( mat3( cross( carDownDir, g_steerForwardDir ), carDownDir, g_steerForwardDir ));
-
-// TODO dont have both
-    g_carUpDir = -carDownDir;
-}
-
-// TODO This basically duplicates initGlobals
-void initGhostGlobals()
-{
-    vec3 carDownDir = normalize(
-        normalize(cross( g_ghostWheel0.xyz - g_ghostWheel3.xyz, g_ghostWheel2.xyz - g_ghostWheel3.xyz )) -
-        normalize(cross( g_ghostWheel0.xyz - g_ghostWheel1.xyz, g_ghostWheel2.xyz - g_ghostWheel1.xyz ))
-    );
-    if( carDownDir.y > 0. ) carDownDir *= -1.;
-
-    vec3 nonOrthoFwdDir = 
-        normalize( g_ghostWheel2.xyz - g_ghostWheel1.xyz ) +
-        normalize( g_ghostWheel3.xyz - g_ghostWheel0.xyz );
-
-    vec3 carRightDir = normalize( cross( carDownDir, nonOrthoFwdDir ));
-
-    vec3 carForwardDir = cross( carRightDir, carDownDir );
-
-    g_ghostCenterPt = ( g_ghostWheel0.xyz + g_ghostWheel1.xyz + g_ghostWheel2.xyz + g_ghostWheel3.xyz ) / 4.;
-
-    mat3 wheelRotFwd = mat3( carRightDir, carDownDir, carForwardDir );
-    g_ghostWheelRot = transpose( wheelRotFwd );
-
-    vec3 steerForwardDir = vec3( 0, 0, 1 );
-    steerForwardDir.xz *= rot( ST.carState.x );
-    steerForwardDir = wheelRotFwd * steerForwardDir;
-
-    g_ghostSteerRot = transpose( mat3( cross( carDownDir, steerForwardDir ), carDownDir, steerForwardDir ));
-
-    g_enableGhost = u_enableGhost && length(g_ghostCenterPt - g_carCenterPt) > .1;
 }
 
 #ifdef XA
@@ -251,6 +189,11 @@ vec3 lossyReflect( vec3 v, vec3 n, vec3 guess_u, float bounce, float frictionU, 
     return v_n*n + v_u*tan_u + v_v*tan_v;
 }
 
+
+// INLINE THIS ^ and then make it so that the ghost isnt inside of the car
+
+
+
 // Move two points closer or further from their average such that their distance becomes dist.
 void distConstraint( inout vec3 pos0, inout vec3 pos1, float dist )
 {
@@ -269,11 +212,27 @@ void main()
     for( int i = 0; i < s_totalStateSize; ++i )
         g_state[i] = texture2D(u_state, vec2( (float(i)+.5)/s_totalStateSize.)).xyz;
 
-    initGlobals();
+    vec3 carForwardDir;
+    vec3 carSteerForwardDir;
+    vec3 carCenterPt;
+    {
+        mat3 carWheelRot;
+        mat3 carSteerRot;
+        vec3 carDownDir;
+        getCarOrientation(
+            ST.wheelPos[0], ST.wheelPos[1], ST.wheelPos[2], ST.wheelPos[3], 
+            carDownDir,
+            carForwardDir,
+            carSteerForwardDir,
+            carCenterPt,
+            carWheelRot,
+            carSteerRot
+        );
+    }
 
     vec3 carLastCenterPt = ( ST.wheelLastPos[0] + ST.wheelLastPos[1] + ST.wheelLastPos[2] + ST.wheelLastPos[3] ) / 4.;
 
-    vec3 carVel = g_carCenterPt - carLastCenterPt;
+    vec3 carVel = carCenterPt - carLastCenterPt;
     ST.carState.y = length( carVel );
     float maxSteer = mix( .15, .02, .5*clamp( ST.carState.y, 0., 2. ));
 
@@ -288,19 +247,19 @@ void main()
 
     // Update checkpoint states
     vec3 checkFwd = transpose(quat( Xf0 )) * vec3( 0, 0, 1 );
-    if( length( g_carCenterPt - Xc0 ) < 5. && sign( dot( g_carCenterPt - Xc0, checkFwd )) != sign( dot( carLastCenterPt - Xc0, checkFwd )))
+    if( length( carCenterPt - Xc0 ) < 5. && sign( dot( carCenterPt - Xc0, checkFwd )) != sign( dot( carLastCenterPt - Xc0, checkFwd )))
         ST.goalStateA.x = 1.;
     checkFwd = transpose(quat( Xf1 )) * vec3( 0, 0, 1 );
-    if( length( g_carCenterPt - Xc1 ) < 5. && sign( dot( g_carCenterPt - Xc1, checkFwd )) != sign( dot( carLastCenterPt - Xc1, checkFwd )))
+    if( length( carCenterPt - Xc1 ) < 5. && sign( dot( carCenterPt - Xc1, checkFwd )) != sign( dot( carLastCenterPt - Xc1, checkFwd )))
         ST.goalStateA.y = 1.;
     checkFwd = transpose(quat( Xf2 )) * vec3( 0, 0, 1 );
-    if( length( g_carCenterPt - Xc2 ) < 5. && sign( dot( g_carCenterPt - Xc2, checkFwd )) != sign( dot( carLastCenterPt - Xc2, checkFwd )))
+    if( length( carCenterPt - Xc2 ) < 5. && sign( dot( carCenterPt - Xc2, checkFwd )) != sign( dot( carLastCenterPt - Xc2, checkFwd )))
         ST.goalStateA.z = 1.;
     checkFwd = transpose(quat( Xf3 )) * vec3( 0, 0, 1 );
-    if( length( g_carCenterPt - Xc3 ) < 5. && sign( dot( g_carCenterPt - Xc3, checkFwd )) != sign( dot( carLastCenterPt - Xc3, checkFwd )))
+    if( length( carCenterPt - Xc3 ) < 5. && sign( dot( carCenterPt - Xc3, checkFwd )) != sign( dot( carLastCenterPt - Xc3, checkFwd )))
         ST.goalStateB.x = 1.;
 
-    float velSign = sign(dot(carVel, g_carForwardDir));
+    float velSign = sign(dot(carVel, carForwardDir));
 
     for( int i = 0; i < 4; ++i )
     {
@@ -320,12 +279,12 @@ void main()
             if( u_menuMode == 0 && u_inputs.y < 0. ) lateralFriction = i < 2 ? .8 : .6;
 
             vec3 vel = ST.wheelPos[i] - ST.wheelLastPos[i];
-            vel = lossyReflect( vel, normal, i < 2 ? g_carForwardDir : g_steerForwardDir, .2, .995, lateralFriction );
+            vel = lossyReflect( vel, normal, i < 2 ? carForwardDir : carSteerForwardDir, .2, .995, lateralFriction );
             ST.wheelLastPos[i] = ST.wheelPos[i] - vel;
 
             if( u_menuMode == 0 && ( u_inputs.x > 0. || u_inputs.y > 0. ))
             {
-                vec3 xs = cross( normal, i < 2 ? g_carForwardDir : g_steerForwardDir );
+                vec3 xs = cross( normal, i < 2 ? carForwardDir : carSteerForwardDir );
                 vec3 groundedFwd = normalize( cross( xs, normal ));
                 ST.wheelForceCache[i] = 10. * groundedFwd * ( u_inputs.x > 0. ? 1. : velSign > 0. ? -1.5 : -.5 );
             }
@@ -369,7 +328,7 @@ float traceObjects( vec3 ro, vec3 rd )
     float hit = traceBox( ro - g_carCenterPt + vec3(0,0,carBoundsSize.z), rd, carBoundsSize );
     if( hit >= 0. ) { g_traceBits.x += i_BIT0; if( hit < traceDist ) traceDist = hit; }
 
-    if( u_enableGhost )
+    if( u_enableGhost ) // TODO check if ghost is far enough to enable
     {
         carBoundsMin = min( g_ghostWheel0.xyz, min( g_ghostWheel1.xyz, min( g_ghostWheel2.xyz, g_ghostWheel3.xyz ))) - 2.*s_wheelRadius;
         carBoundsMax = max( g_ghostWheel0.xyz, max( g_ghostWheel1.xyz, max( g_ghostWheel2.xyz, g_ghostWheel3.xyz ))) + 2.*s_wheelRadius;
@@ -399,7 +358,18 @@ void main()
             texture2D(u_state, vec2( (float(i)+.5)/s_totalStateSize.)),
             u_lerpTime ).xyz;
 
-    initGlobals();
+    vec3 carDownDir;
+    vec3 carForwardDir;
+    vec3 carSteerForwardDir;
+    getCarOrientation(
+        ST.wheelPos[0], ST.wheelPos[1], ST.wheelPos[2], ST.wheelPos[3], 
+        carDownDir,
+        carForwardDir,
+        carSteerForwardDir,
+        g_carCenterPt,
+        g_wheelRot,
+        g_steerRot
+    );
 
     if( u_enableGhost )
     {
@@ -407,7 +377,20 @@ void main()
         g_ghostWheel1 = mix( texture2D( u_prevGhost, vec2(1.5/4.,.5) ), texture2D( u_ghost, vec2(1.5/4.,.5) ), u_lerpTime );
         g_ghostWheel2 = mix( texture2D( u_prevGhost, vec2(2.5/4.,.5) ), texture2D( u_ghost, vec2(2.5/4.,.5) ), u_lerpTime );
         g_ghostWheel3 = mix( texture2D( u_prevGhost, vec2(3.5/4.,.5) ), texture2D( u_ghost, vec2(3.5/4.,.5) ), u_lerpTime );
-        initGhostGlobals();
+
+        vec3 ghostDownDir;
+        vec3 ghostForwardDir;
+        vec3 ghostSteerForwardDir;
+        vec3 ghostCenterPt;
+        getCarOrientation(
+            g_ghostWheel0.xyz, g_ghostWheel1.xyz, g_ghostWheel2.xyz, g_ghostWheel3.xyz, 
+            ghostDownDir,
+            ghostForwardDir,
+            ghostSteerForwardDir,
+            g_ghostCenterPt,
+            g_ghostWheelRot,
+            g_ghostSteerRot
+        );
     }
 
     vec2 uv = (gl_FragCoord.xy - .5*vec2(s_renderWidth., s_renderHeight.))/s_renderHeight.;
@@ -420,13 +403,13 @@ void main()
     }
     else if( length( g_carCenterPt - Xp0.xyz ) < Xp0.w )
     {
-        camUp = g_carUpDir;
-        ro = g_carCenterPt + g_carUpDir*.6 - g_carForwardDir*.4;
-        lookDir = ro + g_carForwardDir;
+        camUp = -carDownDir;
+        ro = g_carCenterPt - carDownDir*.6 - carForwardDir*.4;
+        lookDir = ro + carForwardDir;
     }
     else
     {
-        vec3 fwdxz = normalize(vec3(g_carForwardDir.x, 0, g_carForwardDir.z));
+        vec3 fwdxz = normalize(vec3(carForwardDir.x, 0, carForwardDir.z));
         ro = g_carCenterPt + vec3(0,2,0) - 7.*fwdxz;
         lookDir = g_carCenterPt + vec3(0,1,0);
     }
