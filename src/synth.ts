@@ -43,15 +43,14 @@ let menuMusicBuffer = new Float32Array( s_audioBufferSize );
 let engineIn = new Float32Array( s_audioBufferSize );
 let engineOut = new Float32Array( s_audioBufferSize );
 
-let biquadFilter = ( hpf?: 1|0 ) =>
+let biquadLPF = () =>
 {
     let x1: number = 0;
     let x2: number = 0;
     let y1: number = 0;
     let y2: number = 0;
-    let c0: number = 0;
+    let c02: number = 0;
     let c1: number = 0;
-    let c2: number = 0;
     let c3: number = 0;
     let c4: number = 0;
 
@@ -62,24 +61,22 @@ let biquadFilter = ( hpf?: 1|0 ) =>
         let cs = Math.cos(omega);
         let alpha = sn * Math.sinh(Math.log(2) * omega / sn);
 
-        let b0 = (hpf ? 1 + cs : 1 - cs) / 2;
-        let b1 = (hpf ? -1 : 1) - cs;
-        let b2 = (hpf ? 1+cs : 1-cs) / 2;
+        let b1 = 1 - cs;
+        let b02 = b1 / 2;
         let a0 = 1 + alpha;
         let a1 = -2 * cs;
         let a2 = 1 - alpha;
 
-        c0 = b0 / a0;
+        c02 = b02 / a0;
         c1 = b1 / a0;
-        c2 = b2 / a0;
         c3 = a1 / a0;
         c4 = a2 / a0;
 
-        y[0] = c0*x[0] + c1*x1 + c2*x2 - c3*y1 - c4*y2;
-        y[1] = c0*x[1] + c1*x[0] + c2*x1 - c3*y[0] - c4*y1;
+        y[0] = c02*x[0] + c1*x1   + c02*x2 - c3*y1 - c4*y2;
+        y[1] = c02*x[1] + c1*x[0] + c02*x1 - c3*y[0] - c4*y1;
 
         for (let i = 2; i < s_audioBufferSize; ++i)
-            y[i] = c0*x[i] + c1*x[i-1] + c2*x[i-2] - c3*y[i-1] - c4*y[i-2];
+            y[i] = c02*x[i] + c1*x[i-1] + c02*x[i-2] - c3*y[i-1] - c4*y[i-2];
 
         x1 = x[s_audioBufferSize - 1];
         x2 = x[s_audioBufferSize - 2];
@@ -234,10 +231,10 @@ let addBonk = ( y: Float32Array ) =>
         _lastBonkOffsetOld = _lastBonkOffsetNew;
 };
 
-let bassLpf = biquadFilter();
-let menuLpf = biquadFilter();
-let engineLpf = biquadFilter();
-let clickFilter = biquadFilter();
+let bassLpf = biquadLPF();
+let menuLpf = biquadLPF();
+let engineLpf = biquadLPF();
+let clickFilter = biquadLPF();
 
 for (let i = 0; i < s_audioBufferSize; ++i)
     crtClickIn[i] = 1-2*Math.random();
