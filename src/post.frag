@@ -132,17 +132,14 @@ void main()
 
         maxMat = max( materials.x, max( materials.y, max( materials.z, materials.w )));
 
-        float d0 = materials.x - materials.w;
-        float d1 = materials.z - materials.y;
-        float edgeMat = sqrt( d0*d0 + d1*d1 );
-        edgeMat = edgeMat > .1 ? 1. : 0.;
-
         vec3 n0 = sample0.xyz - sample3.xyz;
         vec3 n1 = sample2.xyz - sample1.xyz;
-        float edgeNormal = sqrt(dot( n0, n0 ) + dot( n1, n1 ));
-        edgeNormal = edgeNormal > .9 ? 1. : 0.;
+        float d0 = materials.x - materials.w;
+        float d1 = materials.z - materials.y;
+        float i_edgeMat = sqrt( d0*d0 + d1*d1 ) > .1 ? 1. : 0.;
+        float i_edgeNormal = sqrt(dot( n0, n0 ) + dot( n1, n1 )) > .9 ? 1. : 0.;
 
-        edge = .1 + .9*max( edgeNormal, edgeMat );
+        edge = .1 + .9*max( i_edgeNormal, i_edgeMat );
     }
 
     vec3 gameColor = vec3( .1 * maxMat );

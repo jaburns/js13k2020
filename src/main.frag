@@ -29,6 +29,9 @@ vec2 g_traceBits;
 
 #pragma INCLUDE_WORLD_SDF
 
+// ==========================================================================================================
+//  I can't believe this is undefined
+
 mat3 transpose( mat3 m )
 {
     return mat3(
@@ -38,57 +41,53 @@ mat3 transpose( mat3 m )
     );
 }
 
-float sdCappedCylinder1( vec3 p, float h, float r )
-{
-    vec2 d = abs(vec2(length(p.yz),p.x)) - vec2(h,r);
-    return min(max(d.x,d.y),0.0) + length(max(d,0.0)) - .1;
-}
-float sdCapsule1( vec3 p, vec3 a, vec3 b, float r )
+// ==========================================================================================================
+//  Car model
+
+float sdAxle( vec3 p, vec3 a, vec3 b )
 {
     vec3 pa = p - a, ba = b - a;
-    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
-    return length( pa - ba*h ) - r;
-}
-float sdUnevenCapsule( vec2 p, float r1, float r2, float h )
-{
-    p.x = abs(p.x);
-    float b = (r1-r2)/h;
-    float a = sqrt(1.0-b*b);
-    float k = dot(p,vec2(-b,a));
-    if( k < 0.0 ) return length(p) - r1;
-    if( k > a*h ) return length(p-vec2(0.0,h)) - r2;
-    return dot(p, vec2(a,b) ) - r1;
-}
-float sdUnevenCapsule3d( in vec3 p, float r1, float r2, float l, float h )
-{
-    float d = sdUnevenCapsule(p.xz, r1, r2, l);
-    vec2 w = vec2( d, abs(p.y) - h );
-    return min(max(w.x,w.y),0.0) + length(max(w,0.0));
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0., 1. );
+    return length( pa - ba*h ) - .08;
 }
 float sdEllipsoid( vec3 p, vec3 r )
 {
     float k0 = length(p/r);
-    float k1 = length(p/(r*r));
-    return k0*(k0-1.0)/k1;
+    return k0*(k0-1.) / length(p/(r*r));
 }
 vec2 sdWheel( float subM, vec3 p, float theta )
 {
     vec2 p1 = rot( theta ) * p.yz;
+    vec2 d = abs(vec2(length(p.yz),p.x)) - vec2(.3,.1);
     float atn = abs(atan(p1.x/p1.y));
     float material = length(p.yz) < .3 ? i_MAT_CAR0 : atn < .125*3.14159 || atn > .375*3.14159 ? i_MAT_CAR1 : i_MAT_CAR2;
-    float d = sdCappedCylinder1(p,.3,.1);
-    return vec2( d, material - subM );
+    return vec2( min(max(d.x,d.y),0.) + length(max(d,0.)) - .1, material - subM );
 }
 vec2 sdBody( float subM, vec3 p )
 {
     p.z *= -1.;
     vec2 d = vec2( p.z < 1.2 ? sdEllipsoid( p-vec3(0,0,-.05), vec3(.3, .25, 1.5)) : 1000., i_MAT_CAR3 );
     d = min2(d, vec2(sdEllipsoid(p-vec3(0,0,.4), vec3(.3, .4, .6)), i_MAT_CAR4 ));
-    d = min2(d, vec2(sdUnevenCapsule3d( p-vec3(0,0,-.25), .35, .55, 1., .15 ), i_MAT_CAR5 ));
-    d = min2(d, vec2(sdBox(p-vec3(0,0,1.), vec3(.45,.15,.25)), i_MAT_CAR5 ));
+
+    vec3 p0 = p - vec3(0,0,-.25);
+    vec2 p1 = vec2(abs(p0.x), p0.z);
+    float k = dot(p1,vec2(.2,.9798));
+    vec2 w = vec2( k < 0.
+        ? length(p1) - .35
+        : k > .9798 
+            ? length(p1-vec2(0,1)) - .55
+            : dot(p1, vec2(.9798,-.2)) - .35,
+        abs(p0.y) - .15
+    );
+    d = min2(d, vec2(min(max(w.x,w.y),0.) + length(max(w,0.)), i_MAT_CAR5 ));
+
+    d = min2(d, vec2(sdBox(p-vec3(0,0,1), vec3(.45,.15,.25)), i_MAT_CAR5 ));
     d.y -= subM;
     return d;
 }
+
+// ==========================================================================================================
+//  Signed distance field
 
 vec2 map( vec3 p )
 {
@@ -116,8 +115,8 @@ vec2 map( vec3 p )
         world = min2( world, sdWheel( 0., g_wheelRot*(p - ST.wheelPos[1]), ST.wheelRotation[1].x));
         world = min2( world, sdWheel( 0., g_steerRot*(p - ST.wheelPos[2]), ST.wheelRotation[2].x));
         world = min2( world, sdWheel( 0., g_steerRot*(p - ST.wheelPos[3]), ST.wheelRotation[3].x));
-        world = min2( world, vec2( sdCapsule1( p, ST.wheelPos[2], ST.wheelPos[3], .08 ), i_MAT_CAR6 ));
-        world = min2( world, vec2( sdCapsule1( p, ST.wheelPos[0], ST.wheelPos[1], .08 ), i_MAT_CAR6 ));
+        world = min2( world, vec2( sdAxle( p, ST.wheelPos[2], ST.wheelPos[3] ), i_MAT_CAR6 ));
+        world = min2( world, vec2( sdAxle( p, ST.wheelPos[0], ST.wheelPos[1] ), i_MAT_CAR6 ));
     }
 
     if( g_enableGhost && mod( g_traceBits.x / i_BIT1, 2. ) >= 1. )
@@ -127,8 +126,8 @@ vec2 map( vec3 p )
         world = min2( world, sdWheel( 5., g_ghostWheelRot*(p - g_ghostWheel1.xyz), g_ghostWheel1.w ));
         world = min2( world, sdWheel( 5., g_ghostSteerRot*(p - g_ghostWheel2.xyz), g_ghostWheel2.w ));
         world = min2( world, sdWheel( 5., g_ghostSteerRot*(p - g_ghostWheel3.xyz), g_ghostWheel3.w ));
-        world = min2( world, vec2( sdCapsule1( p, g_ghostWheel2.xyz, g_ghostWheel3.xyz, .08 ), i_MAT_CAR6 - 5. ));
-        world = min2( world, vec2( sdCapsule1( p, g_ghostWheel0.xyz, g_ghostWheel1.xyz, .08 ), i_MAT_CAR6 - 5. ));
+        world = min2( world, vec2( sdAxle( p, g_ghostWheel2.xyz, g_ghostWheel3.xyz ), i_MAT_CAR6 - 5. ));
+        world = min2( world, vec2( sdAxle( p, g_ghostWheel0.xyz, g_ghostWheel1.xyz ), i_MAT_CAR6 - 5. ));
     }
 
     return world;
@@ -142,6 +141,9 @@ vec3 getNorm(vec3 p)
         map(p + e.yxy).x - map(p - e.yxy).x,
         map(p + e.yyx).x - map(p - e.yyx).x));
 }
+
+// ==========================================================================================================
+//  Helper function for calculating car orientation from wheel positions
 
 void initGlobals()
 {
@@ -205,9 +207,12 @@ void initGhostGlobals()
     g_enableGhost = u_enableGhost && length(g_ghostCenterPt - g_carCenterPt) > .1;
 }
 
-
 #ifdef XA
+// ==========================================================================================================
+//  State update shader
 
+// Reflect an incoming vector v from a surface with normal n. Multiplies the components along the normal
+// and two orthogonal tangents by a scalar. guess_u is used to determine the direction of the u tangent.
 vec3 lossyReflect( vec3 v, vec3 n, vec3 guess_u, float bounce, float frictionU, float frictionV )
 {
     vec3 tan_v = normalize( cross( n, guess_u ));
@@ -220,6 +225,7 @@ vec3 lossyReflect( vec3 v, vec3 n, vec3 guess_u, float bounce, float frictionU, 
     return v_n*n + v_u*tan_u + v_v*tan_v;
 }
 
+// Move two points closer or further from their average such that their distance becomes dist.
 void distConstraint( inout vec3 pos0, inout vec3 pos1, float dist )
 {
     vec3 iToJ = pos0 - pos1;
@@ -227,6 +233,8 @@ void distConstraint( inout vec3 pos0, inout vec3 pos1, float dist )
     pos0 += fixVec;
     pos1 -= fixVec;
 }
+
+const float i_STEER_RATE = .03;
 
 void main()
 {
@@ -236,10 +244,6 @@ void main()
         g_state[i] = texture2D(u_state, vec2( (float(i)+.5)/s_totalStateSize.)).xyz;
 
     initGlobals();
-
-// ----- State update -----
-
-    const float i_STEER_RATE = .03;
 
     vec3 carLastCenterPt = ( ST.wheelLastPos[0] + ST.wheelLastPos[1] + ST.wheelLastPos[2] + ST.wheelLastPos[3] ) / 4.;
 
@@ -316,8 +320,6 @@ void main()
     distConstraint( ST.wheelPos[1], ST.wheelPos[2], s_wheelBaseLength. );
     distConstraint( ST.wheelPos[1], ST.wheelPos[3], sqrt(s_wheelBaseWidth*s_wheelBaseWidth + s_wheelBaseLength.*s_wheelBaseLength.) );
     distConstraint( ST.wheelPos[2], ST.wheelPos[3], s_wheelBaseWidth );
-
-// ------------------------
 
     for( int i = 0; i < s_totalStateSize; ++i )
     {
