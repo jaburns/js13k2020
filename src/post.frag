@@ -146,9 +146,11 @@ void main()
     else if( maxMat >= i_MAT_GHOST0 )
         gameColor = .7 * edge * vec3( 1, 1, 0 );
     else if( maxMat >= i_MAT_CHECKPOINT_GOT )
-        gameColor = .7 * vec3( 0, 1, 0 );
+        //gameColor = .7 * (.3+.7*edge) * vec3( 0, 1, 0 );
+        gameColor = edge * vec3( 0, 1, 0 );
     else if( maxMat >= i_MAT_CHECKPOINT )
-        gameColor = .7 * vec3( 1, 0, 0 );
+        //gameColor = .7 * (.3+.7*edge) * vec3( 1, 0, 0 );
+        gameColor = edge * vec3( 1, 0, 0 );
     else if( maxMat >= i_MAT_BUMPER )
         gameColor = edge * vec3( 0, .5, 1 );
     else if( maxMat >= i_MAT_ROAD )
