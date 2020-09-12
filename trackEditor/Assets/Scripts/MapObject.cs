@@ -10,6 +10,7 @@ public class MapObject : MonoBehaviour
         StraightTrack = 1,
         CurvedTrack = 2,
         Shrinker = 3,
+        Bumper = 4,
     }
 
     public Kind kind;

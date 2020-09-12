@@ -5,6 +5,8 @@ public class MapObjectSmoothJoin : MonoBehaviour
 {
     public float k;
     public Vector3 boundsScale;
+    public bool actuallySubtraction;
+    public float innerMaterial;
 
     public string WriteShaderLine( bool glsl )
     {
@@ -14,11 +16,20 @@ public class MapObjectSmoothJoin : MonoBehaviour
         if( children.Length < 2 )
             throw new System.Exception("Cant join less than 2");
 
-        var lines = children.Select( x => x.WriteShaderCall()).ToArray();
-        result += string.Format( "vec2 d1 = opSmoothUnion2({0},{1},"+Utils.SmallNum(k,true)+")", lines[0], lines[1] ) + ";\n";
-
-        for( var i = 2; i < lines.Length; ++i )
-            result += string.Format( "d1 = opSmoothUnion2(d1,{0},"+Utils.SmallNum(k,true)+")", lines[i] ) + ";\n";
+        if( !actuallySubtraction )
+        {
+            var lines = children.Select( x => x.WriteShaderCall()).ToArray();
+            result += string.Format( "vec2 d1 = opSmoothUnion2({0},{1},"+Utils.SmallNum(k,true)+")", lines[0], lines[1] ) + ";\n";
+            for( var i = 2; i < lines.Length; ++i )
+                result += string.Format( "d1 = opSmoothUnion2(d1,{0},"+Utils.SmallNum(k,true)+")", lines[i] ) + ";\n";
+        }
+        else
+        {
+            var lines = children.Select( x => x.WriteShaderCall()).ToArray();
+            result += string.Format( "vec2 d1 = opSubtract2({0},{1},{2});\n", lines[0], lines[1], Utils.SmallNum(innerMaterial,true) );
+            for( var i = 2; i < lines.Length; ++i )
+                result += string.Format( "d1 = opSubtract2(d1,{0},{2});", lines[1], Utils.SmallNum(innerMaterial,true) );
+        }
 
         result += "d = min2( d, d1 );\n}\n";
 

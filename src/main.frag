@@ -270,7 +270,7 @@ if( !u_replayMode ) {
 
         // If the distance function sampled at the center of the wheel is less than the wheel radius, we're in the ground
         vec2 distMat = map( ST.wheelPos[i] );
-        vec3 normal = getNorm( ST.wheelPos[i] );
+        vec3 normal = getNorm( ST.wheelLastPos[i] ); // Using the normal from last tick prevents the wheels from wrapping around sharp fall-offs
         if( distMat.x < s_wheelRadius )
         {
             if( distMat.y < 2. )
@@ -296,7 +296,7 @@ if( !u_replayMode ) {
             if( i > 1 && u_menuMode == 0 && ( u_inputs.x > 0. || u_inputs.y > 0. ))
             {
                 drivingWheels++;
-                float i_accel = distMat.y < 6. || distMat.y >= 8. ? 20. : distMat.y < 7. ? 40. : 0.;
+                float i_accel = (distMat.y < 6. || distMat.y >= 8. ? 20. : distMat.y < 7. ? 40. : 0.) + max( 0., 10. - 20.*ST.carState.y );
                 vec3 i_groundedFwd = normalize( cross( cross( normal, carSteerForwardDir ), normal ));
                 ST.wheelForceCache[i] = i_accel * i_groundedFwd * ( u_inputs.x > 0. ? 1. : velSign > 0. ? -1.5 : -.5 );
             }
