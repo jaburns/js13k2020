@@ -159,7 +159,7 @@ void getCarOrientation(
         updateFlipped = 2;
 
     if( updateFlipped == 2 )
-        flipped = -sign( downDir.y );
+        flipped = downDir.y > 0. ? -1. : 1.;
 
     downDir *= flipped;
 
@@ -273,6 +273,9 @@ if( !u_replayMode ) {
         vec3 normal = getNorm( ST.wheelPos[i] );
         if( distMat.x < s_wheelRadius )
         {
+            if( distMat.y < 2. )
+                ST.goalStateB.y = 1.;
+
             // Restore the wheel to the surface
             ST.wheelPos[i] += (s_wheelRadius-distMat.x)*normal;
 

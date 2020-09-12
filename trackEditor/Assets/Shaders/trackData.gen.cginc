@@ -289,7 +289,7 @@ void traceBox(
         }
     }
 }
-static const float3 Xc0 = float3(-110.9,31.5,169.28),Xc1 = float3(0.6,9.42,53.7),Xc2 = float3(-68.2,23.38,169.28),Xc3 = float3(-7.1,21.79,152.5);
+static const float3 Xc0 = float3(-117.1,34,169.28),Xc1 = float3(0.6,9.42,53.7),Xc2 = float3(-68.2,23.38,169.28),Xc3 = float3(-7.1,21.79,152.5);
 static const float4 Xf0 = float4(0,-0.707,0,0.707),Xf1 = float4(0,0,0,1),Xf2 = float4(0,-0.707,0,0.707),Xf3 = float4(0,-0.925,0,0.379),Xp0 = float4(63.9,24.3,8.7,50.67);
 float2 Xm( float3 p )
 {

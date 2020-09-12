@@ -39,6 +39,7 @@ const enum StateVal
     Checkpoint1 = 5,
     Checkpoint2 = 6,
     Checkpoint3 = 8,
+    Dead = 9,
     WheelPos0 = 12,
     WheelRot0 = 24,
     WheelPos1 = 28,
@@ -224,7 +225,7 @@ let drawHUD = () =>
 
     c.clearRect(0, 0, s_renderWidth, s_renderHeight);
 
-    if( _bootMode && _menuMode == MenuMode.NoMenu )
+    if( _bootMode && !_menuMode )
     {
         let Y = -50, X = 205, Z = -5;
 
@@ -361,7 +362,7 @@ let frame = () =>
                 g.uniform4f( g.getUniformLocation( _shaderPairs[_trackIndex][1], 'u_inputs' ), 0, 0, 0, 0 );
 
             g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][1], 'u_modeState' ), 1 );
-            g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][1], 'u_menuMode' ), _bootMode ? 2 : _menuMode == MenuMode.NoMenu ? 0 : 1 );
+            g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][1], 'u_menuMode' ), _bootMode ? 2 : !_menuMode ? 0 : 1 );
             g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][1], 'u_state' ), 0 );
             g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][1], 'u_replayMode' ), _replayMode );
 
@@ -389,7 +390,7 @@ let frame = () =>
                     }
                 }
 
-                if( _menuMode == MenuMode.NoMenu )
+                if( !_menuMode )
                 {
                     if( _replayMode != 2 )
                     if( ++_raceTicks % 2 && !_replayMode )
@@ -441,7 +442,13 @@ let frame = () =>
                         playBonkSound();
                 }
 
-                if( _bootMode && newTime > _startTime + 8 )
+                if( _latestState[StateVal.Dead] && !_menuMode )
+                {
+                    resetState();
+                    playResetSound();
+                }
+
+                if( _bootMode && newTime > _startTime + 8 ) 
                     resetState();
             }
         }
@@ -459,7 +466,7 @@ let frame = () =>
         g.bindTexture( gl_TEXTURE_2D, _stateFramebuffers[1-_curStateBufferIndex][1] );
 
         g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_modeState' ), 0 );
-        g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_menuMode' ), _bootMode ? 2 : _menuMode == MenuMode.NoMenu ? 0 : 1 );
+        g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_menuMode' ), _bootMode ? 2 : !_menuMode ? 0 : 1 );
         g.uniform1f( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_time' ), newTime - _startTime );
         g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_state' ), 0 );
         g.uniform1i( g.getUniformLocation( _shaderPairs[_trackIndex][0], 'u_prevState' ), 1 );
@@ -496,7 +503,7 @@ let frame = () =>
     g.uniform4f( g.getUniformLocation( _shaderPairs[0][0], 'u_time' ), _veryStartTime, newTime, _startTime, _progress );
     g.uniform1i( g.getUniformLocation( _shaderPairs[0][0], 'u_tex' ), 0 );
     g.uniform1i( g.getUniformLocation( _shaderPairs[0][0], 'u_canvas' ), 1 );
-    g.uniform2f( g.getUniformLocation( _shaderPairs[0][0], 'u_skewFade' ), _bootMode && _menuMode == MenuMode.NoMenu ? .3 : 1, _menuMode == MenuMode.NoMenu ? 1 : 0);
+    g.uniform2f( g.getUniformLocation( _shaderPairs[0][0], 'u_skewFade' ), _bootMode && !_menuMode ? .3 : 1, !_menuMode ? 1 : 0);
 
     fullScreenDraw( _shaderPairs[0][0] );
 
@@ -650,7 +657,7 @@ C0.onclick = () =>
             }
         }
 
-        if( _bootMode && _menuMode == MenuMode.NoMenu && k.keyCode == KeyCode.Enter )
+        if( _bootMode && !_menuMode && k.keyCode == KeyCode.Enter )
         {
             _menuMode = MenuMode.SelectTrack;
             playClickSound();

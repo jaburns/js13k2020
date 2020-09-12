@@ -28,6 +28,7 @@
         "s_carState.y => current car speed",
         "s_carState.z => 1 -> car is not flipped, -1 -> car is flipped",
         "s_goalStateA/B.xyz => checkpoint state, -1/1 -> not cleared, holds which side we're on. 2 -> cleared",
+        "s_goalStateB.y => 1 -> touching the purple grid",
         "s_wheelRotationX => x rotation, y angular velocity, z 0/1 is wheel touching ground"
     ],
     "stateFields": [
