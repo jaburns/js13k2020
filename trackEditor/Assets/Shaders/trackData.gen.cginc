@@ -98,7 +98,7 @@ float sdVerticalCapsule( float3 p, float h, float r )
 float2 sdObj1(
     float3 p,
     float qx, float qy, float qz, float qw, float px, float py, float pz,
-    float trackWidth, float trackLength, float twist, float material
+    float trackWidth, float trackLength, float twist, float material, float bumper
 ) {
     p = mul( quat(float4(qx,qy,qz,qw)) , (p - float3(px,py,pz)) ); //GLSL// p = quat(float4(qx,qy,qz,qw)) * (p - float3(px,py,pz));
     p.z -= trackLength;
@@ -107,40 +107,42 @@ float2 sdObj1(
         p.xy = mul(rot( 1./twist*(p.z+trackLength) ), p.xy);  //GLSL// p.xy = rot( 1./twist*(p.z+trackLength) ) * p.xy;
 
     float3 rep = floor(.25 * p + .01);
+    float2 track = float2( sdBox( p, float3(trackWidth,.5,trackLength)), material + .5 * mod(rep.x + rep.y + rep.z, 2.) );
 
-    return min2(
-        float2( sdBox( p, float3(trackWidth,.5,trackLength)), material + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
+    return bumper > 0. ? min2(
+        track,
         float2( sdVerticalCapsule( float3(abs(p.x),p.yz) - float3(trackWidth,0,0), trackLength, 1. ), i_MAT_BUMPER + .5 * mod(rep.x + rep.y + rep.z, 2.) )
-    );
+    ) : track;
 }
 
 // ================================================================================================
 //  Curved track
 
-float2 primitive( float2 p, float sx, float bank, float pz )
+float2 primitive( float2 p, float sx, float bank, float pz, float bumper )
 {
     p = mul(rot(bank), p);  //GLSL//  p = rot(bank) * p;
 
     float3 rep = floor( float3(p.xy, pz) / 4. + .01);
+    float2 track = float2( sdBox2D( p, float2( sx, .5 )), i_MAT_ROAD + .5 * mod(rep.x + rep.y + rep.z, 2.) );
 
-    return min2(
-        float2( sdBox2D( p, float2( sx, .5 )), i_MAT_ROAD + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
+    return bumper > 0. ? min2(
+        track,
         float2( length(float2(abs(p.x)-sx,p.y)) - 1., i_MAT_BUMPER + .5 * mod(rep.x + rep.y + rep.z, 2.) )
-    );
+    ) : track;
 }
 
-float2 opRevolution( float3 p, float sx, float radius, float bank )
+float2 opRevolution( float3 p, float sx, float radius, float bank, float bumper )
 {
+    float theta = atan2( p.z, p.x ) * radius;
     float len = length(p.xz);
     float2 q = float2( len - radius, p.y );
-    float theta = atan2( p.z, p.x ) * radius;
-    return primitive(q, sx, bank, theta);
+    return primitive(q, sx, bank, theta, bumper);
 }
 
-float2 opExtrusion( float3 p, float sx, float radius, float bank )
+float2 opExtrusion( float3 p, float sx, float radius, float bank, float bumper )
 {
     p.x -= radius;
-    float2 d = primitive(p.xy, sx, bank, 0.);
+    float2 d = primitive(p.xy, sx, bank, 0., bumper);
     float2 w = float2( d.x, abs(p.z));
     return float2(min(max(w.x,w.y),0.0) + length(max(w,0.0)), d.y);
 }
@@ -148,7 +150,7 @@ float2 opExtrusion( float3 p, float sx, float radius, float bank )
 float2 sdObj2( 
     float3 po,
     float qx, float qy, float qz, float qw, float px, float py, float pz,
-    float trackWidth, float radius, float bank
+    float trackWidth, float radius, float bank, float bumper
 ) {
     float3 p = mul( quat(float4(qx,qy,qz,qw)) , (po - float3(px,py,pz)) ); //GLSL// vec3 p = quat(float4(qx,qy,qz,qw)) * (po - float3(px,py,pz));
 
@@ -158,9 +160,9 @@ float2 sdObj2(
     }
 
     p.x += radius;
-    float2 d = p.x > 0. && p.z > 0. ? opRevolution( p, trackWidth, radius, bank ) : float2(10000.,0.); // sdObj0( p, s );
-    float2 d1 = opExtrusion( p, trackWidth, radius, bank );
-    float2 d2 = opExtrusion( p.zyx, trackWidth, radius, bank );
+    float2 d = p.x > 0. && p.z > 0. ? opRevolution( p, trackWidth, radius, bank, bumper ) : float2(10000.,0.);
+    float2 d1 = opExtrusion( p, trackWidth, radius, bank, bumper );
+    float2 d2 = opExtrusion( p.zyx, trackWidth, radius, bank, bumper );
     return min2(d,min2(d1,d2));
 }
 
@@ -244,24 +246,24 @@ float2 Xm( float3 p )
 {
 float2 d = float2( 10000, 0 );
 if( mod( g_traceBits.y / i_BIT0, 2. ) >= 1. )
-d = min2( d, sdObj2( p, 0.,-0.707,-0.707,0.,84.4,19.5,20.4 ,20.,-20.,-1.57 ) );
+d = min2( d, sdObj2( p, 0.,-0.707,-0.707,0.,84.4,19.5,20.4 ,20.,-20.,-1.57,0. ) );
 if( mod( g_traceBits.y / i_BIT1, 2. ) >= 1. )
-d = min2( d, sdObj2( p, -0.5,-0.5,-0.5,0.5,64.4,-0.5,40.4 ,20.,-20.,-1.57 ) );
+d = min2( d, sdObj2( p, -0.5,-0.5,-0.5,0.5,64.4,-0.5,40.4 ,20.,-20.,-1.57,0. ) );
 if( mod( g_traceBits.y / i_BIT2, 2. ) >= 1. )
-d = min2( d, sdObj2( p, 0.,0.,-0.707,0.707,52.3,-0.5,108.83 ,10.,-20.,-1.57 ) );
+d = min2( d, sdObj2( p, 0.,0.,-0.707,0.707,52.3,-0.5,108.83 ,10.,-20.,-1.57,0. ) );
 if( mod( g_traceBits.y / i_BIT3, 2. ) >= 1. )
-d = min2( d, sdObj1( p, 0.,0.,0.,1.,-1.1,5.47,134.5 ,4.,25.,0.,7. ) );
+d = min2( d, sdObj1( p, 0.,0.,0.,1.,-1.1,5.47,134.5 ,4.,25.,0.,7.,0. ) );
 if( mod( g_traceBits.y / i_BIT4, 2. ) >= 1. )
-d = min2( d, sdObj2( p, -0.5,0.5,0.5,0.5,64.46,39.5,0.4 ,20.,-20.,-1.57 ) );
+d = min2( d, sdObj2( p, -0.5,0.5,0.5,0.5,64.46,39.5,0.4 ,20.,-20.,-1.57,0. ) );
 if( mod( g_traceBits.y / i_BIT5, 2. ) >= 1. )
-d = min2( d, sdObj2( p, 0.5,0.5,-0.5,0.5,64.4,-0.5,-19.6 ,20.,-20.,-1.57 ) );
+d = min2( d, sdObj2( p, 0.5,0.5,-0.5,0.5,64.4,-0.5,-19.6 ,20.,-20.,-1.57,0. ) );
 if( mod( g_traceBits.y / i_BIT6, 2. ) >= 1. )
-d = min2( d, sdObj1( p, 0.,0.,0.,1.,-1.1,7.37,84.34 ,4.,25.,0.,6. ) );
+d = min2( d, sdObj1( p, 0.,0.,0.,1.,-1.1,7.37,84.34 ,4.,25.,0.,6.,0. ) );
 if( mod( g_traceBits.y / i_BIT7, 2. ) >= 1. )
-d = min2( d, sdObj2( p, 0.,0.,-0.707,0.707,95.5,-0.5,108.83 ,10.,-20.,-1.57 ) );
+d = min2( d, sdObj2( p, 0.,0.,-0.707,0.707,95.5,-0.5,108.83 ,10.,-20.,-1.57,0. ) );
 if( mod( g_traceBits.y / i_BIT8, 2. ) >= 1. )
 {
-float2 d1 = opSmoothUnion2(sdObj1( p, 0.,0.,0.,1.,0.5,0.21,-30.12 ,4.,50.,0.,2. ),sdObj0( p, 0.313,0.,0.,0.95,0.5,-2.69,62.28 ,2.29,0.5,5.093 ),2.);
+float2 d1 = opSmoothUnion2(sdObj1( p, 0.,0.,0.,1.,0.5,0.21,-30.12 ,4.,50.,0.,2.,0. ),sdObj0( p, 0.313,0.,0.,0.95,0.5,-2.69,62.28 ,2.29,0.5,5.093 ),2.);
 d = min2( d, d1 );
 }
 return d;

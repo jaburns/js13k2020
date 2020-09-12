@@ -12,6 +12,8 @@ public class MapObject : MonoBehaviour
     }
 
     public Kind kind;
+
+    [HideInInspector]
     public List<float> parames;
 
     void OnDrawGizmos()
