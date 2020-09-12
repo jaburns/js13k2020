@@ -227,6 +227,8 @@ if( !u_replayMode ) {
     ST.carState.y = length( carVel );
     float velSign = sign(dot(carVel, carForwardDir));
 
+    float drivingWheels = 0.;
+
     // Update steering angle
     float i_STEER_RATE = .03;
     float maxSteer = mix( .15, .02, .5*clamp( ST.carState.y, 0., 2. ));
@@ -290,6 +292,7 @@ if( !u_replayMode ) {
             // Add the driving force to the wheels parallel with the ground if the pedal is pressed
             if( i > 1 && u_menuMode == 0 && ( u_inputs.x > 0. || u_inputs.y > 0. ))
             {
+                drivingWheels++;
                 float i_accel = distMat.y < 6. || distMat.y >= 8. ? 20. : distMat.y < 7. ? 40. : 0.;
                 vec3 i_groundedFwd = normalize( cross( cross( normal, carSteerForwardDir ), normal ));
                 ST.wheelForceCache[i] = i_accel * i_groundedFwd * ( u_inputs.x > 0. ? 1. : velSign > 0. ? -1.5 : -.5 );
@@ -306,6 +309,10 @@ if( !u_replayMode ) {
         if( u_menuMode != 0 || !( u_inputs.y < 0. && i < 2 ))
             ST.wheelRotation[i].x += ST.wheelRotation[i].y;
     }
+
+    if( drivingWheels < 2. )
+        for( int i = 0; i < 4; ++i )
+            ST.wheelForceCache[i] = vec3(0);
 
     // Apply distance constraints to every pair of wheels
     distConstraint( ST.wheelPos[0], ST.wheelPos[1], s_wheelBaseWidth );

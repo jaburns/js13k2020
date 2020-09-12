@@ -9,6 +9,7 @@ public class MapObject : MonoBehaviour
         Box = 0,
         StraightTrack = 1,
         CurvedTrack = 2,
+        Shrinker = 3,
     }
 
     public Kind kind;
@@ -51,6 +52,11 @@ public class MapObject : MonoBehaviour
             case Kind.CurvedTrack:
                 pars.Insert( 0, b.extents.x );
                 break;
+
+            case Kind.Shrinker:
+                pars.Insert( 0, b.extents.z );
+                pars.Insert( 0, b.extents.x );
+                break;
         }
 
         return result + string.Join( "", pars.Select( x => ","+Utils.SmallNum(x,true) )) + " )";
@@ -68,6 +74,12 @@ public class MapObject : MonoBehaviour
 
         if( !march )
         {
+            if( kind == Kind.Shrinker )
+            {
+                extents.x = Mathf.Max( .5f * transform.localScale.x, parames[0] );
+                extents += new Vector3( 1, 1, 1 );
+            }
+
             if( kind == Kind.StraightTrack )
             {
                 extents += new Vector3( 1, 1, 1 );
@@ -88,6 +100,8 @@ public class MapObject : MonoBehaviour
                 position += transform.rotation
                     * ( parames[0] < 0 ? Vector3.left : Vector3.right )
                     * ( -r + .5f*(r + d));
+
+                extents += new Vector3( 1, 1, 1 );
             }
         }
 

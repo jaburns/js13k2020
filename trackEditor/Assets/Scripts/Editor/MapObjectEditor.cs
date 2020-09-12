@@ -41,6 +41,12 @@ public class MapObjectEditor : Editor
                 makeProps( "Radius", "Bank", "Bumper" );
                 break;
             }
+
+            case MapObject.Kind.Shrinker:
+            {
+                makeProps( "Half Width B", "Bumper" );
+                break;
+            }
         }
     }
 }

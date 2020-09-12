@@ -67,7 +67,7 @@ float sdBox2D( float2 p, float2 b )
 float2 opSmoothUnion2( float2 d1, float2 d2, float k )
 {
     float h = clamp( .5 + .5*(d2.x-d1.x)/k, 0., 1. );
-    return float2( lerp( d2.x, d1.x, h ) - k*h*(1.-h), d1.y );
+    return float2( lerp( d2.x, d1.x, h ) - k*h*(1.-h), d1.x < d2.x ? d1.y : d2.y );
 }
 
 // ================================================================================================
@@ -143,15 +143,15 @@ float2 opExtrusion( float3 p, float sx, float radius, float bank, float bumper )
     p.x -= radius;
     float2 d = primitive(p.xy, sx, bank, 0., bumper);
     float2 w = float2( d.x, abs(p.z));
-    return float2(min(max(w.x,w.y),0.0) + length(max(w,0.0)), d.y);
+    return float2(min(max(w.x,w.y),0.) + length(max(w,0.)), d.y);
 }
 
 float2 sdObj2( 
-    float3 po,
+    float3 p,
     float qx, float qy, float qz, float qw, float px, float py, float pz,
     float trackWidth, float radius, float bank, float bumper
 ) {
-    float3 p = mul( quat(float4(qx,qy,qz,qw)) , (po - float3(px,py,pz)) ); //GLSL// vec3 p = quat(float4(qx,qy,qz,qw)) * (po - float3(px,py,pz));
+    p = mul( quat(float4(qx,qy,qz,qw)) , (p - float3(px,py,pz)) ); //GLSL// p = quat(float4(qx,qy,qz,qw)) * (p - float3(px,py,pz));
 
     if( radius < 0. ) {
         radius *= -1.;
@@ -163,6 +163,55 @@ float2 sdObj2(
     float2 d1 = opExtrusion( p, trackWidth, radius, bank, bumper );
     float2 d2 = opExtrusion( p.zyx, trackWidth, radius, bank, bumper );
     return min2(d,min2(d1,d2));
+}
+
+// ================================================================================================
+//  Shrinking width track
+
+float sdCapsule3( float3 p, float3 a, float3 b, float r )
+{
+    float3 pa = p - a, ba = b - a;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0., 1. );
+    return length( pa - ba*h ) - r;
+}
+
+float sdTrapezoid3( float2 p, float r1, float r2, float he )
+{
+    float2 k1 = float2(r2,he);
+    float2 k2 = float2(r2-r1,2.*he);
+
+    // p.x = abs( p.x );
+    float2 ca = float2(max(0.,p.x-((p.y<0.)?r1:r2)), abs(p.y)-he);
+    float2 cb = p - k1 + k2*clamp( dot(k1-p,k2)/dot(k2,k2), 0., 1. );
+    float s = (cb.x < 0. && ca.y < 0.) ? -1. : 1.;
+    
+    return s*sqrt( min(dot(ca,ca),dot(cb,cb)) );
+}
+
+float opExtrusion3( float3 p,float r1, float r2, float he )
+{
+    float d = sdTrapezoid3( p.xz, r1, r2, he );
+    float2 w = float2( d, abs(p.y) - .5 );
+    return min(max(w.x,w.y),0.) + length(max(w,0.));
+}
+
+float2 sdObj3( 
+    float3 p,
+    float qx, float qy, float qz, float qw, float px, float py, float pz,
+    float trackWidthA, float trackLength, float trackWidthB, float bumper
+) {
+    p = mul( quat(float4(qx,qy,qz,qw)) , (p - float3(px,py,pz)) ); //GLSL// p = quat(float4(qx,qy,qz,qw)) * (p - float3(px,py,pz));
+    p.z -= trackLength;
+
+    float3 rep = floor(.25 * p + .01);
+
+    p.x = abs( p.x );
+
+    float2 track = float2( opExtrusion3( p, trackWidthA, trackWidthB, trackLength ), i_MAT_ROAD + .5 * mod(rep.x + rep.y + rep.z, 2.) );
+    return bumper > 0. ? min2(
+        track,
+        float2( sdCapsule3( p, float3( trackWidthA, 0, -trackLength ), float3( trackWidthB, 0, trackLength ), 1. ), i_MAT_BUMPER + .5 * mod(rep.x + rep.y + rep.z, 2.) )
+    ) : track;
 }
 
 // ================================================================================================
