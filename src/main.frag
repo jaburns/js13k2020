@@ -93,6 +93,12 @@ vec2 map( vec3 p )
 {
     vec2 world = Xm( p );
 
+    if( u_modeState )
+    {
+        world = min2( world, vec2(p.y,1) );
+        return world;
+    }
+
     if( mod( g_traceBits.x / i_BIT2, 2. ) >= 1. )
         world = min2( world, sdCheckpoint( p, Xc0, Xf0, ST.goalStateA.x ) );
     if( mod( g_traceBits.x / i_BIT3, 2. ) >= 1. )
@@ -101,12 +107,6 @@ vec2 map( vec3 p )
         world = min2( world, sdCheckpoint( p, Xc2, Xf2, ST.goalStateA.z ) );
     if( mod( g_traceBits.x / i_BIT5, 2. ) >= 1. )
         world = min2( world, sdCheckpoint( p, Xc3, Xf3, ST.goalStateB.x ) );
-
-    if( u_modeState )
-    {
-        world = min2( world, vec2(p.y,1) );
-        return world;
-    }
 
     if( !u_replayMode && mod( g_traceBits.x / i_BIT0, 2. ) >= 1. )
     {
@@ -146,14 +146,22 @@ vec3 getNorm(vec3 p)
 //  Helper function for calculating car orientation from wheel positions and steering angle
 
 void getCarOrientation(
-    vec3 w0, vec3 w1, vec3 w2, vec3 w3, float steer,
+    vec3 w0, vec3 w1, vec3 w2, vec3 w3, float steer, int updateFlipped, inout float flipped,
     out vec3 downDir, out vec3 fwdDir, out vec3 steerFwdDir, out vec3 centerPt, out mat3 wheelRot, out mat3 steerRot
 )
 {
+    centerPt = .25 * (w0 + w1 + w2 + w3);
+
     downDir = normalize( normalize(cross(w0-w3, w2-w3)) - normalize(cross(w0-w1, w2-w1)) );
     vec3 nonOrthoFwdDir = normalize( w2-w1 ) + normalize( w3-w0 );
 
-    if( downDir.y > 0. ) downDir *= -1.;
+    if( updateFlipped == 1 && ( length( centerPt - Xp0.xyz ) > Xp0.w || map( centerPt - flipped*downDir*.6 ).x < 0. ))
+        updateFlipped = 2;
+
+    if( updateFlipped == 2 )
+        flipped = -sign( downDir.y );
+
+    downDir *= flipped;
 
     vec3 carRightDir = normalize( cross( downDir, nonOrthoFwdDir ));
     fwdDir = cross( carRightDir, downDir );
@@ -166,7 +174,6 @@ void getCarOrientation(
     steerFwdDir = wheelRotFwd * steerFwdDir;
 
     steerRot = transpose( mat3( cross( downDir, steerFwdDir ), downDir, steerFwdDir ));
-    centerPt = .25 * (w0 + w1 + w2 + w3);
 }
 
 #ifdef XA
@@ -195,15 +202,16 @@ void main()
 if( !u_replayMode ) {
 
     // Calculate and keep the car orientation properties we care about.
+    vec3 carCenterPt;
     vec3 carForwardDir;
     vec3 carSteerForwardDir;
-    vec3 carCenterPt;
     {
         mat3 carWheelRot;
         mat3 carSteerRot;
         vec3 carDownDir;
         getCarOrientation(
             ST.wheelPos[0], ST.wheelPos[1], ST.wheelPos[2], ST.wheelPos[3], ST.carState.x,
+            1, ST.carState.z,
             carDownDir,
             carForwardDir,
             carSteerForwardDir,
@@ -259,12 +267,12 @@ if( !u_replayMode ) {
         ST.wheelForceCache[i] = vec3( 0 );
 
         // If the distance function sampled at the center of the wheel is less than the wheel radius, we're in the ground
-        float dist = map( ST.wheelPos[i] ).x;
+        vec2 distMat = map( ST.wheelPos[i] );
         vec3 normal = getNorm( ST.wheelPos[i] );
-        if( dist < s_wheelRadius )
+        if( distMat.x < s_wheelRadius )
         {
             // Restore the wheel to the surface
-            ST.wheelPos[i] += (s_wheelRadius-dist)*normal;
+            ST.wheelPos[i] += (s_wheelRadius-distMat.x)*normal;
 
             // Calculate lateral friction based on whether the drift button is pressed
             float lateralFriction = .1;
@@ -274,16 +282,17 @@ if( !u_replayMode ) {
             vec3 vel = ST.wheelPos[i] - ST.wheelLastPos[i];
             vec3 tan_v = normalize( cross( normal, i < 2 ? carForwardDir : carSteerForwardDir ));
             vec3 tan_u = cross( normal, tan_v );
-            float v_n = -.2 * dot( vel, normal );
-            float v_u = .995 * dot( vel, tan_u );
-            float v_v = lateralFriction * dot( vel, tan_v );
-            ST.wheelLastPos[i] = ST.wheelPos[i] - v_n*normal - v_u*tan_u - v_v*tan_v;
+            float i_v_n = .2 * dot( vel, normal );
+            float i_v_u = .995 * dot( vel, tan_u );
+            float i_v_v = lateralFriction * dot( vel, tan_v );
+            ST.wheelLastPos[i] = ST.wheelPos[i] + i_v_n*normal - i_v_u*tan_u - i_v_v*tan_v;
 
             // Add the driving force to the wheels parallel with the ground if the pedal is pressed
             if( i > 1 && u_menuMode == 0 && ( u_inputs.x > 0. || u_inputs.y > 0. ))
             {
-                vec3 groundedFwd = normalize( cross( cross( normal, carSteerForwardDir ), normal ));
-                ST.wheelForceCache[i] = 20. * groundedFwd * ( u_inputs.x > 0. ? 1. : velSign > 0. ? -1.5 : -.5 );
+                float i_accel = distMat.y < 6. || distMat.y >= 8. ? 20. : distMat.y < 7. ? 40. : 0.;
+                vec3 i_groundedFwd = normalize( cross( cross( normal, carSteerForwardDir ), normal ));
+                ST.wheelForceCache[i] = i_accel * i_groundedFwd * ( u_inputs.x > 0. ? 1. : velSign > 0. ? -1.5 : -.5 );
             }
 
             // Update the wheel angular velocity to match the speed of the wheel relative to the ground
@@ -326,8 +335,8 @@ if( !u_replayMode ) {
 float traceObjects( vec3 ro, vec3 rd )
 {
     float traceDist = 10000.;
-    vec3 carBoundsMin = min( ST.wheelPos[0], min( ST.wheelPos[1], min( ST.wheelPos[2], ST.wheelPos[3] ))) - s_wheelRadius;
-    vec3 carBoundsMax = max( ST.wheelPos[0], max( ST.wheelPos[1], max( ST.wheelPos[2], ST.wheelPos[3] ))) + s_wheelRadius;
+    vec3 carBoundsMin = min( ST.wheelPos[0], min( ST.wheelPos[1], min( ST.wheelPos[2], ST.wheelPos[3] ))) - 2.*s_wheelRadius;
+    vec3 carBoundsMax = max( ST.wheelPos[0], max( ST.wheelPos[1], max( ST.wheelPos[2], ST.wheelPos[3] ))) + 2.*s_wheelRadius;
     vec3 carBoundsSize = .5 * (carBoundsMax - carBoundsMin);
 
     traceBox(
@@ -337,8 +346,8 @@ float traceObjects( vec3 ro, vec3 rd )
 
     if( u_enableGhost && ( u_replayMode || length( g_ghostCenterPt - g_carCenterPt ) > .1 ))
     {
-        carBoundsMin = min( g_ghostWheel0.xyz, min( g_ghostWheel1.xyz, min( g_ghostWheel2.xyz, g_ghostWheel3.xyz ))) - s_wheelRadius;
-        carBoundsMax = max( g_ghostWheel0.xyz, max( g_ghostWheel1.xyz, max( g_ghostWheel2.xyz, g_ghostWheel3.xyz ))) + s_wheelRadius;
+        carBoundsMin = min( g_ghostWheel0.xyz, min( g_ghostWheel1.xyz, min( g_ghostWheel2.xyz, g_ghostWheel3.xyz ))) - 2.*s_wheelRadius;
+        carBoundsMax = max( g_ghostWheel0.xyz, max( g_ghostWheel1.xyz, max( g_ghostWheel2.xyz, g_ghostWheel3.xyz ))) + 2.*s_wheelRadius;
         carBoundsSize = .5 * (carBoundsMax - carBoundsMin);
 
         traceBox(
@@ -368,6 +377,7 @@ void main()
     vec3 carSteerForwardDir;
     getCarOrientation(
         ST.wheelPos[0], ST.wheelPos[1], ST.wheelPos[2], ST.wheelPos[3], ST.carState.x,
+        0, ST.carState.z,
         carDownDir,
         carForwardDir,
         carSteerForwardDir,
@@ -404,8 +414,10 @@ void main()
         vec3 ghostDownDir;
         vec3 ghostForwardDir;
         vec3 ghostSteerForwardDir;
+        float ghostFlipped;
         getCarOrientation(
             g_ghostWheel0.xyz, g_ghostWheel1.xyz, g_ghostWheel2.xyz, g_ghostWheel3.xyz, 0.,
+            2, ghostFlipped,
             ghostDownDir,
             ghostForwardDir,
             ghostSteerForwardDir,

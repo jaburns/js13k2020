@@ -2,6 +2,8 @@ static const float i_MAT_ROAD = 2.;
 static const float i_MAT_BUMPER = 3.;
 static const float i_MAT_CHECKPOINT = 4.;
 static const float i_MAT_CHECKPOINT_GOT = 5.;
+static const float i_MAT_SPEEDER = 6.;
+static const float i_MAT_SLOWER = 7.;
 static const float i_MAT_GHOST0 = 10.;
 static const float i_MAT_CAR0 = 15.;
 static const float i_MAT_CAR1 = 15.5;
@@ -95,7 +97,7 @@ float sdVerticalCapsule( float3 p, float h, float r )
 float2 sdObj1(
     float3 p,
     float qx, float qy, float qz, float qw, float px, float py, float pz,
-    float trackWidth, float trackLength, float twist
+    float trackWidth, float trackLength, float twist, float material
 ) {
     p = mul( quat(float4(qx,qy,qz,qw)) , (p - float3(px,py,pz)) ); //GLSL// p = quat(float4(qx,qy,qz,qw)) * (p - float3(px,py,pz));
     p.z -= trackLength;
@@ -106,7 +108,7 @@ float2 sdObj1(
     float3 rep = floor(.25 * p + .01);
 
     return min2(
-        float2( sdBox( p, float3(trackWidth,.5,trackLength)), i_MAT_ROAD + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
+        float2( sdBox( p, float3(trackWidth,.5,trackLength)), material + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
         float2( sdVerticalCapsule( float3(abs(p.x),p.yz) - float3(trackWidth,0,0), trackLength, 1. ), i_MAT_BUMPER + .5 * mod(rep.x + rep.y + rep.z, 2.) )
     );
 }
@@ -163,12 +165,13 @@ float2 sdObj2(
 
 // ================================================================================================
 
-float2 sdCheckpoint( float3 p, float3 center, float4 rot, float goalState )
+float2 sdCheckpoint( float3 p, float3 center, float4 rota, float goalState )
 {
     float i_checkpointThickness = .4;
 
     p -= center;
-    p = mul(quat(rot), p); //GLSL// p = quat(rot) * p;
+    p = mul(quat(rota), p); //GLSL// p = quat(rota) * p;
+    //GLSL// p.xy *= rot( u_time );
 
     float3 rep = floor(.5 * p);
 
@@ -176,11 +179,7 @@ float2 sdCheckpoint( float3 p, float3 center, float4 rot, float goalState )
     p1 -= 2.*min(dot(float2(-.866,.5),p1),0.)*float2(-.866,.5);
     p1 -= float2(clamp(p1.x, -2.31, 2.31), 4);
 
-    float2 w = float2( abs( max(
-        sdBox2D( p.xy - float2(0,4.62), float2(4.62,4.62)), //GLSL// sdBox2D( p.xy - vec2(0,4.62), vec2(4.62)),
-        length(p1)*sign(p1.y)
-    ) ) - i_checkpointThickness, abs(p.z) - i_checkpointThickness );
-
+    float2 w = float2(length(p1), abs(p.z)) - i_checkpointThickness;
     float d = min(max(w.x,w.y),0.) + length(max(w,0.));
 
     return float2( d, (goalState == 2. ? i_MAT_CHECKPOINT_GOT : i_MAT_CHECKPOINT) + .5 * mod(rep.x + rep.y + rep.z, 2.) );

@@ -589,6 +589,7 @@ MonoBehaviour:
   kind: 1
   parames:
   - 80
+  - 2
 --- !u!4 &511554027
 Transform:
   m_ObjectHideFlags: 0
@@ -860,6 +861,7 @@ MonoBehaviour:
   kind: 1
   parames:
   - 0
+  - 2
 --- !u!1 &1304233494
 GameObject:
   m_ObjectHideFlags: 0
@@ -892,6 +894,7 @@ MonoBehaviour:
   kind: 1
   parames:
   - -80
+  - 2
 --- !u!4 &1304233496
 Transform:
   m_ObjectHideFlags: 0

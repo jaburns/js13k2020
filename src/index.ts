@@ -163,7 +163,7 @@ let resetState = () =>
         g.bindTexture( gl_TEXTURE_2D, tex );
         g.texImage2D( gl_TEXTURE_2D, 0, gl_RGBA, s_totalStateSize, 1, 0, gl_RGBA, gl_FLOAT, Float32Array.of(
         // Initial state
-            0, 0, 0, 0, // 0
+            0, 0, 1, 0, // 0
             0, 0, 0, 0, // 4
             0, 0, 0, 0, // 8
 

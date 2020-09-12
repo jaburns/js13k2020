@@ -3,6 +3,8 @@ static const float i_MAT_ROAD = 2.;
 static const float i_MAT_BUMPER = 3.;
 static const float i_MAT_CHECKPOINT = 4.;
 static const float i_MAT_CHECKPOINT_GOT = 5.;
+static const float i_MAT_SPEEDER = 6.;
+static const float i_MAT_SLOWER = 7.;
 static const float i_MAT_GHOST0 = 10.;
 static const float i_MAT_CAR0 = 15.;
 static const float i_MAT_CAR1 = 15.5;
@@ -96,7 +98,7 @@ float sdVerticalCapsule( float3 p, float h, float r )
 float2 sdObj1(
     float3 p,
     float qx, float qy, float qz, float qw, float px, float py, float pz,
-    float trackWidth, float trackLength, float twist
+    float trackWidth, float trackLength, float twist, float material
 ) {
     p = mul( quat(float4(qx,qy,qz,qw)) , (p - float3(px,py,pz)) ); //GLSL// p = quat(float4(qx,qy,qz,qw)) * (p - float3(px,py,pz));
     p.z -= trackLength;
@@ -107,7 +109,7 @@ float2 sdObj1(
     float3 rep = floor(.25 * p + .01);
 
     return min2(
-        float2( sdBox( p, float3(trackWidth,.5,trackLength)), i_MAT_ROAD + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
+        float2( sdBox( p, float3(trackWidth,.5,trackLength)), material + .5 * mod(rep.x + rep.y + rep.z, 2.) ),
         float2( sdVerticalCapsule( float3(abs(p.x),p.yz) - float3(trackWidth,0,0), trackLength, 1. ), i_MAT_BUMPER + .5 * mod(rep.x + rep.y + rep.z, 2.) )
     );
 }
@@ -164,12 +166,13 @@ float2 sdObj2(
 
 // ================================================================================================
 
-float2 sdCheckpoint( float3 p, float3 center, float4 rot, float goalState )
+float2 sdCheckpoint( float3 p, float3 center, float4 rota, float goalState )
 {
     float i_checkpointThickness = .4;
 
     p -= center;
-    p = mul(quat(rot), p); //GLSL// p = quat(rot) * p;
+    p = mul(quat(rota), p); //GLSL// p = quat(rota) * p;
+    //GLSL// p.xy *= rot( u_time );
 
     float3 rep = floor(.5 * p);
 
@@ -177,14 +180,10 @@ float2 sdCheckpoint( float3 p, float3 center, float4 rot, float goalState )
     p1 -= 2.*min(dot(float2(-.866,.5),p1),0.)*float2(-.866,.5);
     p1 -= float2(clamp(p1.x, -2.31, 2.31), 4);
 
-    float2 w = float2( abs( max(
-        sdBox2D( p.xy - float2(0,4.62), float2(4.62,4.62)), //GLSL// sdBox2D( p.xy - vec2(0,4.62), vec2(4.62)),
-        length(p1)*sign(p1.y)
-    ) ) - i_checkpointThickness, abs(p.z) - i_checkpointThickness );
-
+    float2 w = float2(length(p1), abs(p.z)) - i_checkpointThickness;
     float d = min(max(w.x,w.y),0.) + length(max(w,0.));
 
-    return float2( d, (goalState > 0. ? i_MAT_CHECKPOINT_GOT : i_MAT_CHECKPOINT) + .5 * mod(rep.x + rep.y + rep.z, 2.) );
+    return float2( d, (goalState == 2. ? i_MAT_CHECKPOINT_GOT : i_MAT_CHECKPOINT) + .5 * mod(rep.x + rep.y + rep.z, 2.) );
 }
 
 // ================================================================================================
@@ -239,38 +238,44 @@ void traceBox(
         }
     }
 }
-static const float3 Xc0 = float3(0.44,0.13,53.7),Xc1 = float3(78.07,7.96,166.05),Xc2 = float3(23.58,8.11,162.77),Xc3 = float3(65.47,7.93,166.48);
-static const float4 Xf0 = float4(0,0,0,1),Xf1 = float4(0,-0.69,0,0.724),Xf2 = float4(0.12,-0.468,0.199,0.853),Xf3 = float4(0.07,-0.704,0.07,0.704),Xp0 = float4(63.9,16.3,8.7,50.67);
+static const float3 Xc0 = float3(0.44,0.13,53.7),Xc1 = float3(75.5,0,-67.15),Xc2 = float3(64.74,0,-46.17),Xc3 = float3(44.37,0,26.66);
+static const float4 Xf0 = float4(0,0,0,1),Xf1 = float4(0,-0.953,0,0.304),Xf2 = float4(0,-0.953,0,0.304),Xf3 = float4(0,-0.729,0,0.684),Xp0 = float4(63.9,16.3,8.7,50.67);
 float2 Xm( float3 p )
 {
 float2 d = float2( 10000, 0 );
 if( mod( g_traceBits.y / i_BIT0, 2. ) >= 1. )
-d = min2( d, sdObj2( p, 0.5,0.5,-0.5,0.5,64.4,-0.5,-19.6 ,20.,-20.,-1.57 ) );
-if( mod( g_traceBits.y / i_BIT1, 2. ) >= 1. )
-d = min2( d, sdObj2( p, -0.5,0.5,0.5,0.5,64.46,39.5,0.4 ,20.,-20.,-1.57 ) );
-if( mod( g_traceBits.y / i_BIT2, 2. ) >= 1. )
 d = min2( d, sdObj2( p, 0.,-0.707,-0.707,0.,84.4,19.5,20.4 ,20.,-20.,-1.57 ) );
-if( mod( g_traceBits.y / i_BIT3, 2. ) >= 1. )
+if( mod( g_traceBits.y / i_BIT1, 2. ) >= 1. )
 d = min2( d, sdObj2( p, -0.5,-0.5,-0.5,0.5,64.4,-0.5,40.4 ,20.,-20.,-1.57 ) );
-if( mod( g_traceBits.y / i_BIT4, 2. ) >= 1. )
+if( mod( g_traceBits.y / i_BIT2, 2. ) >= 1. )
 d = min2( d, sdObj2( p, 0.,0.,-0.707,0.707,52.3,-0.5,108.83 ,10.,-20.,-1.57 ) );
+if( mod( g_traceBits.y / i_BIT3, 2. ) >= 1. )
+d = min2( d, sdObj1( p, 0.,0.,0.,1.,-1.1,5.47,134.5 ,4.,25.,0.,7. ) );
+if( mod( g_traceBits.y / i_BIT4, 2. ) >= 1. )
+d = min2( d, sdObj2( p, -0.5,0.5,0.5,0.5,64.46,39.5,0.4 ,20.,-20.,-1.57 ) );
 if( mod( g_traceBits.y / i_BIT5, 2. ) >= 1. )
-d = min2( d, sdObj2( p, 0.,0.,-0.707,0.707,95.5,-0.5,108.83 ,10.,-20.,-1.57 ) );
+d = min2( d, sdObj2( p, 0.5,0.5,-0.5,0.5,64.4,-0.5,-19.6 ,20.,-20.,-1.57 ) );
 if( mod( g_traceBits.y / i_BIT6, 2. ) >= 1. )
+d = min2( d, sdObj1( p, 0.,0.,0.,1.,-1.1,7.37,84.34 ,4.,25.,0.,6. ) );
+if( mod( g_traceBits.y / i_BIT7, 2. ) >= 1. )
+d = min2( d, sdObj2( p, 0.,0.,-0.707,0.707,95.5,-0.5,108.83 ,10.,-20.,-1.57 ) );
+if( mod( g_traceBits.y / i_BIT8, 2. ) >= 1. )
 {
-float2 d1 = opSmoothUnion2(sdObj1( p, 0.,0.,0.,1.,0.5,0.21,-30.12 ,4.,50.,0. ),sdObj0( p, 0.313,0.,0.,0.95,0.5,-2.69,62.28 ,2.29,0.5,5.093 ),2.);
+float2 d1 = opSmoothUnion2(sdObj1( p, 0.,0.,0.,1.,0.5,0.21,-30.12 ,4.,50.,0.,2. ),sdObj0( p, 0.313,0.,0.,0.95,0.5,-2.69,62.28 ,2.29,0.5,5.093 ),2.);
 d = min2( d, d1 );
 }
 return d;
 }
 float Xt( float3 ro, float3 rd, float dist )
 {
-traceBox( ro, rd, dist, g_traceBits.y, i_BIT0, 0.5,0.5,-0.5,0.5,64.4,-1.,-19.6,20.5,21.,20.5 );
-traceBox( ro, rd, dist, g_traceBits.y, i_BIT1, -0.5,0.5,0.5,0.5,64.46,40.,0.4,20.5,21.,20.5 );
-traceBox( ro, rd, dist, g_traceBits.y, i_BIT2, 0.,-0.707,-0.707,0.,84.9,19.5,20.4,20.5,21.,20.5 );
-traceBox( ro, rd, dist, g_traceBits.y, i_BIT3, -0.5,-0.5,-0.5,0.5,64.4,-1.,40.4,20.5,21.,20.5 );
-traceBox( ro, rd, dist, g_traceBits.y, i_BIT4, 0.,0.,-0.707,0.707,52.3,4.,108.83,15.5,11.,15.5 );
-traceBox( ro, rd, dist, g_traceBits.y, i_BIT5, 0.,0.,-0.707,0.707,95.5,4.,108.83,15.5,11.,15.5 );
-traceBox( ro, rd, dist, g_traceBits.y, i_BIT6, 0.,0.,0.,1.,0.,1.07,-30.16,6.,3.,51. );
+traceBox( ro, rd, dist, g_traceBits.y, i_BIT0, 0.,-0.707,-0.707,0.,84.9,19.5,20.4,20.5,21.,20.5 );
+traceBox( ro, rd, dist, g_traceBits.y, i_BIT1, -0.5,-0.5,-0.5,0.5,64.4,-1.,40.4,20.5,21.,20.5 );
+traceBox( ro, rd, dist, g_traceBits.y, i_BIT2, 0.,0.,-0.707,0.707,52.3,4.,108.83,15.5,11.,15.5 );
+traceBox( ro, rd, dist, g_traceBits.y, i_BIT3, 0.,0.,0.,1.,-1.1,5.47,134.5,5.,1.5,26. );
+traceBox( ro, rd, dist, g_traceBits.y, i_BIT4, -0.5,0.5,0.5,0.5,64.46,40.,0.4,20.5,21.,20.5 );
+traceBox( ro, rd, dist, g_traceBits.y, i_BIT5, 0.5,0.5,-0.5,0.5,64.4,-1.,-19.6,20.5,21.,20.5 );
+traceBox( ro, rd, dist, g_traceBits.y, i_BIT6, 0.,0.,0.,1.,-1.1,7.37,84.34,5.,1.5,26. );
+traceBox( ro, rd, dist, g_traceBits.y, i_BIT7, 0.,0.,-0.707,0.707,95.5,4.,108.83,15.5,11.,15.5 );
+traceBox( ro, rd, dist, g_traceBits.y, i_BIT8, 0.,0.,0.,1.,0.,1.07,-30.16,6.,3.,51. );
 return dist < 10000. ? dist : -1.;
 }
