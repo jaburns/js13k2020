@@ -382,12 +382,13 @@ void main()
             texture2D(u_state, vec2( (float(i)+.5)/s_totalStateSize.)),
             u_lerpTime ).xyz;
 
+    float flipped = ST.carState.z > 0. ? 1. : -1.; // undo inter-tick lerping on this value
     vec3 carDownDir;
     vec3 carForwardDir;
     vec3 carSteerForwardDir;
     getCarOrientation(
         ST.wheelPos[0], ST.wheelPos[1], ST.wheelPos[2], ST.wheelPos[3], ST.carState.x,
-        0, ST.carState.z,
+        0, flipped,
         carDownDir,
         carForwardDir,
         carSteerForwardDir,
