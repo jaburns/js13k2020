@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-cp tracks/track02.glsl tracks/track03.glsl
-cp tracks/track02.glsl tracks/track04.glsl
-cp tracks/track02.glsl tracks/track05.glsl
-cp tracks/track02.glsl tracks/track06.glsl
-cp tracks/track02.glsl tracks/track07.glsl
-cp tracks/track02.glsl tracks/track08.glsl
+cp tracks/track05.glsl tracks/track06.glsl
+cp tracks/track05.glsl tracks/track07.glsl
+cp tracks/track05.glsl tracks/track08.glsl

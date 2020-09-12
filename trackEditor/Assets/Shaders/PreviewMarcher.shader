@@ -31,7 +31,7 @@
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
-            float2 g_traceBits;
+            float4 g_traceBits;
 
             v2f vert( appdata v )
             {
@@ -71,7 +71,7 @@
 
             float3 getNorm(float3 p)
             {
-                g_traceBits = float2(i_BITS_ALL,i_BITS_ALL);
+                g_traceBits = float4(i_BITS_ALL,i_BITS_ALL,i_BITS_ALL,i_BITS_ALL);
                 float2 e = float2(0.001, 0);
                 return normalize(float3(
                     map(p + e.xyy).x - map(p - e.xyy).x,
@@ -91,7 +91,7 @@
                 float3 ii = c + i.uv.x * r + i.uv.y * u;
                 float3 rd = normalize(ii - ro);
 
-                g_traceBits = float2(0,0);
+                g_traceBits = float4(0,0,0,0);
 
                 float traceDist = 10000.;
                 {

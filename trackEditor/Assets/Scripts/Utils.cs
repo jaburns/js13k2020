@@ -15,4 +15,15 @@ static public class Utils
 
         return result;
     }
+
+    static public string BitField( int bit, int field )
+    {
+        bit += 6;
+        int x = bit % 10;
+        int p = bit / 10;
+
+        return field == 0 
+            ? ( p == 0 ? "x" : p == 1 ? "y" : "z" )
+            : x.ToString();
+    }
 }

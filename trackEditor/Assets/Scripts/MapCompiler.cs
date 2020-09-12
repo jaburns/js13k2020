@@ -15,7 +15,7 @@ public class TracingBounds
     {
         var b = this;
         var result = string.Format(
-            "traceBox( ro, rd, dist, g_traceBits.y, i_BIT"+bit+", {0},{1},{2},{3},{4},{5},{6},{7},{8},{9} );\n",
+            "traceBox( ro, rd, dist, g_traceBits."+Utils.BitField(bit,0)+", i_BIT"+Utils.BitField(bit,1)+", {0},{1},{2},{3},{4},{5},{6},{7},{8},{9} );\n",
             Utils.SmallNum( b.invRotation.x, true ), Utils.SmallNum( b.invRotation.y, true ), Utils.SmallNum( b.invRotation.z, true ), Utils.SmallNum( b.invRotation.w, true ),
             Utils.SmallNum( b.position.x, true ), Utils.SmallNum( b.position.y, true ), Utils.SmallNum( b.position.z, true ),
             Utils.SmallNum( b.extents.x, true ), Utils.SmallNum( b.extents.y, true ), Utils.SmallNum( b.extents.z, true )
@@ -107,7 +107,7 @@ static public class MapCompiler
 
     static string addMapLineBitCondition( string line, int bit )
     {
-        return "if( mod( g_traceBits.y / i_BIT"+bit+", 2. ) >= 1. )\n" + line;
+        return "if( mod( g_traceBits."+Utils.BitField(bit,0)+" / i_BIT"+Utils.BitField(bit,1)+", 2. ) >= 1. )\n" + line;
     }
 
     static string getConstants( bool glsl, string trackId )

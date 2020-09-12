@@ -26,7 +26,7 @@ vec4 g_ghostWheel1;
 vec4 g_ghostWheel2;
 vec4 g_ghostWheel3;
 
-vec2 g_traceBits;
+vec4 g_traceBits;
 
 #pragma INCLUDE_WORLD_SDF
 
@@ -193,7 +193,7 @@ void main()
 {
     // Set all the bounding box trace bits for sampling the world distance field.
     // It's not worth trying to optimize the map sampling function for the state update.
-    g_traceBits = vec2(i_BITS_ALL);
+    g_traceBits = vec4(i_BITS_ALL);
 
     // Load game state from the texture strip in to the global array.
     for( int i = 0; i < s_totalStateSize; ++i )
@@ -230,16 +230,16 @@ if( !u_replayMode ) {
     float drivingWheels = 0.;
 
     // Update steering angle
-    float i_STEER_RATE = .03;
-    float maxSteer = mix( .15, .02, .5*clamp( ST.carState.y, 0., 2. ));
+    float steerRate = mix( .03, .01, .5*clamp( ST.carState.y, 0., 2. ));
+    float maxSteer = mix( .15, .01, .5*clamp( ST.carState.y, 0., 2. ));
     if( u_menuMode > 0 )
         ST.carState.x = 0.;
     else if( u_inputs.z > 0. )
-        ST.carState.x += min( i_STEER_RATE, maxSteer - ST.carState.x );
+        ST.carState.x += min( steerRate, maxSteer - ST.carState.x );
     else if( u_inputs.w > 0. )
-        ST.carState.x -= min( i_STEER_RATE, maxSteer + ST.carState.x );
+        ST.carState.x -= min( steerRate, maxSteer + ST.carState.x );
     else
-        ST.carState.x -= sign( ST.carState.x ) * min( abs( ST.carState.x ), i_STEER_RATE );
+        ST.carState.x = 0.; // sign( ST.carState.x ) * min( abs( ST.carState.x ), steerRate );
 
     // Update checkpoint collected states
     if( length( carCenterPt - Xc0 ) < 5. && ST.goalStateA.x < 2. ) {
@@ -444,7 +444,7 @@ void main()
         }
     }
 
-    g_traceBits = vec2(0);
+    g_traceBits = vec4(0);
 
     vec2 uv = (gl_FragCoord.xy - .5*vec2(s_renderWidth., s_renderHeight.))/s_renderHeight.;
     vec3 roo = ro;
@@ -492,7 +492,7 @@ void main()
             }
             else if( dist.x < i_EPS )
             {
-                g_traceBits = vec2(i_BITS_ALL);
+                g_traceBits = vec4(i_BITS_ALL);
                 normal = getNorm( ro );
                 material = dist.y;
             }
@@ -529,7 +529,7 @@ void main()
     }
     if( material > 1. )
     {
-        g_traceBits = vec2(0);
+        g_traceBits = vec4(0);
         rd = normalize( vec3( -.5, .3, 1 ));
         float d, t = .1, traceD = Xt( ro, rd, traceObjects( ro, rd ));
         if( traceD >= 0. )
