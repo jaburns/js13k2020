@@ -23,7 +23,9 @@ export default {
     },
     mangle: {
       reserved: ['C0','C1','g','c'],
-      properties: true,
+      properties: {
+        keep_quoted: true
+      },
     },
     format: {
       quote_style: 1
