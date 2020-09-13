@@ -41,6 +41,7 @@ const enum StateVal
     Checkpoint3 = 8,
     Dead = 9,
     WheelPos0 = 12,
+    WheelPosZ0 = 14,
     WheelRot0 = 24,
     WheelPos1 = 28,
     WheelRot1 = 40,
@@ -139,6 +140,16 @@ let loadGhost64 = ( b64?: string ) =>
     _ghostTextureIndex = 1 - _ghostTextureIndex;
     fillGhostTexture();
 }
+
+/*
+
+
+cork
+loop
+1/4 transfer
+
+
+*/
 
 // =================================================================================================
 
@@ -301,6 +312,12 @@ let drawHUD = () =>
 
         if( _replayMode )
             drawText( 'REPLAY', 395, 50, 24, '#0b0', '#060' );
+
+        if( _trackIndex == 5 && _latestState[StateVal.WheelPosZ0] > 40 )
+        {
+            drawText( 'PRESS SPACE', 145, 70, 32, '#0f0', '#008', 3 );
+            drawText( 'TO DRIFT', 175, 100, 32, '#0f0', '#008', 3 );
+        }
 
         drawText( timeText, 375, 350, 24, '#0bb', '#06b' );
         drawText( (100*_latestState[StateVal.Speed]|0)+' kph', 35, 350, 24, '#b2d', '#906');
@@ -779,7 +796,7 @@ _startTime = 0;
             if( i == 1 )
                 frame();
 
-            if( ++i > ( DEBUG ? 5 : 17 ))
+            if( ++i > ( DEBUG ? 5 : 19 ))
             {
                 C0.style.cursor='pointer';
                 _progress = 1;
@@ -788,7 +805,7 @@ _startTime = 0;
         }
 
         step++;
-        _progress = (i + ( step / 4 )) / ( DEBUG ? 6 : 18 );
+        _progress = (i + ( step / 4 )) / ( DEBUG ? 6 : 20 );
         setTimeout( run, 30 );
     };
 
