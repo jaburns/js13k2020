@@ -117,8 +117,8 @@ static public class MapCompiler
 
         if( objs.Length != 4 ) 
             throw new System.Exception("Need 4 checkpoints");
-        if( fps.Length != 1 ) 
-            throw new System.Exception("Need 1 fps region");
+//        if( fps.Length != 1 ) 
+//            throw new System.Exception("Need 1 fps region");
 
         var vec3s = new List<string>();
         var vec4s = new List<string>();
@@ -139,6 +139,15 @@ static public class MapCompiler
         vec4s.Add(
             string.Format("Xp0 = vec4({0},{1},{2},{3})", Utils.SmallNum(fps[0].transform.position.x), Utils.SmallNum(fps[0].transform.position.y), Utils.SmallNum(fps[0].transform.position.z), Utils.SmallNum(fps[0].radius))
         );
+
+        if( fps.Length < 2 )
+            vec4s.Add(
+                string.Format(glsl ? "Xp1 = vec4(0)" : "Xp1 = float4(0,0,0,0)")
+            );
+        else
+            vec4s.Add(
+                string.Format("Xp1 = vec4({0},{1},{2},{3})", Utils.SmallNum(fps[1].transform.position.x), Utils.SmallNum(fps[1].transform.position.y), Utils.SmallNum(fps[1].transform.position.z), Utils.SmallNum(fps[1].radius))
+            );
 
         return
             (glsl ? "const vec3 " : "static const float3 ") + string.Join( ",", vec3s ).Replace("vec3", glsl ? "vec3" : "float3") + ";\n" +

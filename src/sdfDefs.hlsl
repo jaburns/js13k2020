@@ -54,7 +54,7 @@ float2 min2( float2 a, float2 b )
 
 float2 opSubtract2( float2 a, float2 b, float innerMat )
 {
-    return -a.x > b.x ? float2( -a.x, innerMat ) : b;
+    return -a.x > b.x ? float2( -a.x, innerMat + frac(a.y) ) : b;
 }
 
 float sdBox( float3 p, float3 b )

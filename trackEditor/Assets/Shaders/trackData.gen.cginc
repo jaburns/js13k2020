@@ -55,7 +55,7 @@ float2 min2( float2 a, float2 b )
 
 float2 opSubtract2( float2 a, float2 b, float innerMat )
 {
-    return -a.x > b.x ? float2( -a.x, innerMat ) : b;
+    return -a.x > b.x ? float2( -a.x, innerMat + frac(a.y) ) : b;
 }
 
 float sdBox( float3 p, float3 b )
@@ -309,29 +309,44 @@ void traceBox(
         }
     }
 }
-static const float3 Xc0 = float3(0,-10,0),Xc1 = float3(0,-10,0),Xc2 = float3(0,-10,0),Xc3 = float3(0,-10,0);
-static const float4 Xf0 = float4(0,0,0,1),Xf1 = float4(0,0,0,1),Xf2 = float4(0,0,0,1),Xf3 = float4(0,0,0,1),Xp0 = float4(0,0,0,0);
+static const float3 Xc0 = float3(90.7,96.2,139.2),Xc1 = float3(46,46.52,217.34),Xc2 = float3(87.87,71.45,201.84),Xc3 = float3(0.02,11.38,149.3);
+static const float4 Xf0 = float4(0,0,0,1),Xf1 = float4(0,-0.69,0,0.723),Xf2 = float4(-0.492,-0.012,0.022,0.87),Xf3 = float4(0,0,0,1),Xp0 = float4(39.1,29.5,244.4,100),Xp1 = float4(0,0,0,0);
 float2 Xm( float3 p )
 {
 float2 d = float2( 10000, 0 );
 if( mod( g_traceBits.x / i_BIT6, 2. ) >= 1. )
-d = min2( d, sdObj1( p, 0.,0.,0.,1.,0.5,5.65,87.7 ,4.,20.505,0.,2.,1. ) );
+d = min2( d, sdObj0( p, 0.,-1.,0.,0.,90.39,35.5,188.5 ,15.,60.,30. ) );
 if( mod( g_traceBits.x / i_BIT7, 2. ) >= 1. )
-d = min2( d, sdObj2( p, 0.,0.,-0.707,0.707,0.5,5.65,128.61 ,4.,-20.,-1.57,1.,2. ) );
+d = min2( d, sdObj1( p, 0.259,0.,0.,0.966,0.,16.75,167.16 ,7.5,15.,19.,2.,0. ) );
 if( mod( g_traceBits.x / i_BIT8, 2. ) >= 1. )
-d = min2( d, sdObj0( p, -0.178,-0.507,-0.71,0.455,-67.8,-9.6,65.9 ,18.917,18.917,18.917 ) );
+d = min2( d, sdObj3( p, 0.,0.,0.,1.,0.,9.,-12.3 ,15.,25.,7.5,1. ) );
 if( mod( g_traceBits.x / i_BIT9, 2. ) >= 1. )
+d = min2( d, sdObj2( p, 0.259,0.,0.,0.966,0.,31.74,193.14 ,7.5,-30.,1.57,0.,2. ) );
+if( mod( g_traceBits.y / i_BIT0, 2. ) >= 1. )
+d = min2( d, sdObj2( p, -0.001,-0.487,0.873,-0.019,90.187,70.137,202.487 ,7.5,-30.,1.57,0.,2. ) );
+if( mod( g_traceBits.y / i_BIT1, 2. ) >= 1. )
+d = min2( d, sdObj1( p, 0.619,0.605,0.352,0.357,90.232,69.665,202.828 ,7.5,15.,-19.,2.,0. ) );
+if( mod( g_traceBits.y / i_BIT2, 2. ) >= 1. )
+d = min2( d, sdObj1( p, 0.617,-0.358,0.618,0.331,29.612,46.725,219.271 ,7.5,15.,-19.,2.,0. ) );
+if( mod( g_traceBits.y / i_BIT3, 2. ) >= 1. )
+d = min2( d, sdObj1( p, 0.,0.,0.,1.,0.,9.,37.7 ,7.5,52.3,0.,6.,0. ) );
+if( mod( g_traceBits.y / i_BIT4, 2. ) >= 1. )
 {
-float2 d1 = opSmoothUnion2(sdObj1( p, -0.061,0.,0.,0.998,0.5,11.5,-31.6 ,4.,50.,0.,2.,1. ),sdObj0( p, 0.383,0.,0.,0.924,0.5,-1.42,64.2 ,2.29,0.5,3.109 ),2.);
+float2 d1 = opSmoothUnion2(sdObj1( p, 0.259,0.,0.,0.966,0.,6.75,149.84 ,7.5,10.,0.,2.,0. ),sdObj1( p, 0.,0.,0.,1.,0.,9.,142.3 ,7.5,10.,0.,2.,0. ),5.);
 d = min2( d, d1 );
 }
 return d;
 }
 float Xt( float3 ro, float3 rd, float dist )
 {
-traceBox( ro, rd, dist, g_traceBits.x, i_BIT6, 0.,0.,0.,1.,0.5,5.65,87.7,5.,1.5,21.505 );
-traceBox( ro, rd, dist, g_traceBits.x, i_BIT7, 0.,0.,-0.707,0.707,0.5,13.15,128.61,13.5,6.,13.5 );
-traceBox( ro, rd, dist, g_traceBits.x, i_BIT8, -0.178,-0.507,-0.71,0.455,-67.8,-9.6,65.9,18.917,18.917,18.917 );
-traceBox( ro, rd, dist, g_traceBits.x, i_BIT9, 0.,0.,0.,1.,0.,0.,-130.8,7.5,25.,102.5 );
+traceBox( ro, rd, dist, g_traceBits.x, i_BIT6, 0.,-1.,0.,0.,90.39,35.5,188.5,15.,60.,30. );
+traceBox( ro, rd, dist, g_traceBits.x, i_BIT7, 0.259,0.,0.,0.966,0.,16.75,167.16,8.5,8.5,16. );
+traceBox( ro, rd, dist, g_traceBits.x, i_BIT8, 0.,0.,0.,1.,0.,9.,-12.3,16.,1.5,26. );
+traceBox( ro, rd, dist, g_traceBits.x, i_BIT9, 0.259,0.,0.,0.966,10.75,31.74,193.14,20.25,9.5,20.25 );
+traceBox( ro, rd, dist, g_traceBits.y, i_BIT0, -0.001,-0.487,0.873,-0.019,79.445,70.513,202.668,20.25,9.5,20.25 );
+traceBox( ro, rd, dist, g_traceBits.y, i_BIT1, 0.619,0.605,0.352,0.357,90.232,69.665,202.828,8.5,8.5,16. );
+traceBox( ro, rd, dist, g_traceBits.y, i_BIT2, 0.617,-0.358,0.618,0.331,29.612,46.725,219.271,8.5,8.5,16. );
+traceBox( ro, rd, dist, g_traceBits.y, i_BIT3, 0.,0.,0.,1.,0.,9.,37.7,8.5,1.5,53.3 );
+traceBox( ro, rd, dist, g_traceBits.y, i_BIT4, 0.,0.,0.,1.,0.,9.,142.3,7.5,11.5,15.75 );
 return dist < 10000. ? dist : -1.;
 }

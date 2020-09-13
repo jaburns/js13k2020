@@ -155,7 +155,7 @@ void getCarOrientation(
     downDir = normalize( normalize(cross(w0-w3, w2-w3)) - normalize(cross(w0-w1, w2-w1)) );
     vec3 nonOrthoFwdDir = normalize( w2-w1 ) + normalize( w3-w0 );
 
-    if( updateFlipped == 1 && ( length( centerPt - Xp0.xyz ) > Xp0.w || map( centerPt - flipped*downDir*.6 ).x < 0. ))
+    if( updateFlipped == 1 && ( length( centerPt - Xp0.xyz ) > Xp0.w && length( centerPt - Xp1.xyz ) > Xp1.w || map( centerPt - flipped*downDir*.6 ).x < 0. ))
         updateFlipped = 2;
 
     if( updateFlipped == 2 )
@@ -403,7 +403,7 @@ void main()
         ro = vec3(10,10,80);
         lookDir = g_carCenterPt + vec3(0,1,0);
     }
-    else if( length( g_carCenterPt - Xp0.xyz ) < Xp0.w )
+    else if( length( g_carCenterPt - Xp0.xyz ) < Xp0.w || length( g_carCenterPt - Xp1.xyz ) < Xp1.w )
     {
         camUp = -carDownDir;
         ro = g_carCenterPt - carDownDir*.6 - carForwardDir*.4;
