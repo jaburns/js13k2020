@@ -315,8 +315,8 @@ let drawHUD = () =>
 
         if( _trackIndex == 5 && _latestState[StateVal.WheelPosZ0] > 40 )
         {
-            drawText( 'PRESS SPACE', 145, 70, 32, '#0f0', '#008', 3 );
-            drawText( 'TO DRIFT', 175, 100, 32, '#0f0', '#008', 3 );
+            drawText( 'PRESS SPACE', 145, 70, 32, '#0f0', '#080', 3 );
+            drawText( 'TO DRIFT', 175, 100, 32, '#0f0', '#080', 3 );
         }
 
         drawText( timeText, 375, 350, 24, '#0bb', '#06b' );

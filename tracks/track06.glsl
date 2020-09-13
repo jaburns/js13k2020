@@ -5,17 +5,17 @@ vec2 Xm( vec3 p )
 {
 vec2 d = vec2( 10000, 0 );
 if( mod( g_traceBits.x / i_BIT6, 2. ) >= 1. )
-d = min2( d, sdObj2( p, 0.,-0.707,-0.707,0.,84.4,19.5,20.4 ,20.,-20.,-1.57,0.,2. ) );
-if( mod( g_traceBits.x / i_BIT7, 2. ) >= 1. )
-d = min2( d, sdObj2( p, -0.5,-0.5,-0.5,0.5,64.4,-0.5,40.4 ,20.,-20.,-1.57,0.,2. ) );
-if( mod( g_traceBits.x / i_BIT8, 2. ) >= 1. )
-d = min2( d, sdObj2( p, 0.,0.,-0.707,0.707,52.3,-0.5,108.83 ,10.,-20.,-1.57,0.,2. ) );
-if( mod( g_traceBits.x / i_BIT9, 2. ) >= 1. )
-d = min2( d, sdObj1( p, 0.,0.,0.,1.,-1.1,5.47,134.5 ,4.,25.,0.,7.,1. ) );
-if( mod( g_traceBits.y / i_BIT0, 2. ) >= 1. )
-d = min2( d, sdObj2( p, -0.5,0.5,0.5,0.5,64.46,39.5,0.4 ,20.,-20.,-1.57,0.,2. ) );
-if( mod( g_traceBits.y / i_BIT1, 2. ) >= 1. )
 d = min2( d, sdObj2( p, 0.5,0.5,-0.5,0.5,64.4,-0.5,-19.6 ,20.,-20.,-1.57,0.,2. ) );
+if( mod( g_traceBits.x / i_BIT7, 2. ) >= 1. )
+d = min2( d, sdObj2( p, -0.5,0.5,0.5,0.5,64.46,39.5,0.4 ,20.,-20.,-1.57,0.,2. ) );
+if( mod( g_traceBits.x / i_BIT8, 2. ) >= 1. )
+d = min2( d, sdObj2( p, 0.,-0.707,-0.707,0.,84.4,19.5,20.4 ,20.,-20.,-1.57,0.,2. ) );
+if( mod( g_traceBits.x / i_BIT9, 2. ) >= 1. )
+d = min2( d, sdObj2( p, -0.5,-0.5,-0.5,0.5,64.4,-0.5,40.4 ,20.,-20.,-1.57,0.,2. ) );
+if( mod( g_traceBits.y / i_BIT0, 2. ) >= 1. )
+d = min2( d, sdObj2( p, 0.,0.,-0.707,0.707,52.3,-0.5,108.83 ,10.,-20.,-1.57,0.,2. ) );
+if( mod( g_traceBits.y / i_BIT1, 2. ) >= 1. )
+d = min2( d, sdObj1( p, 0.,0.,0.,1.,-1.1,5.47,134.5 ,4.,25.,0.,7.,1. ) );
 if( mod( g_traceBits.y / i_BIT2, 2. ) >= 1. )
 d = min2( d, sdObj1( p, 0.,0.,0.,1.,-1.1,7.37,84.34 ,2.,25.,0.,6.,1. ) );
 if( mod( g_traceBits.y / i_BIT3, 2. ) >= 1. )
@@ -31,12 +31,12 @@ return d;
 }
 float Xt( vec3 ro, vec3 rd, float dist )
 {
-traceBox( ro, rd, dist, g_traceBits.x, i_BIT6, 0.,-0.707,-0.707,0.,84.9,19.5,20.4,21.5,22.,21.5 );
-traceBox( ro, rd, dist, g_traceBits.x, i_BIT7, -0.5,-0.5,-0.5,0.5,64.4,-1.,40.4,21.5,22.,21.5 );
-traceBox( ro, rd, dist, g_traceBits.x, i_BIT8, 0.,0.,-0.707,0.707,52.3,4.,108.83,16.5,12.,16.5 );
-traceBox( ro, rd, dist, g_traceBits.x, i_BIT9, 0.,0.,0.,1.,-1.1,5.47,134.5,5.,1.5,26. );
-traceBox( ro, rd, dist, g_traceBits.y, i_BIT0, -0.5,0.5,0.5,0.5,64.46,40.,0.4,21.5,22.,21.5 );
-traceBox( ro, rd, dist, g_traceBits.y, i_BIT1, 0.5,0.5,-0.5,0.5,64.4,-1.,-19.6,21.5,22.,21.5 );
+traceBox( ro, rd, dist, g_traceBits.x, i_BIT6, 0.5,0.5,-0.5,0.5,64.4,-1.,-19.6,21.5,22.,21.5 );
+traceBox( ro, rd, dist, g_traceBits.x, i_BIT7, -0.5,0.5,0.5,0.5,64.46,40.,0.4,21.5,22.,21.5 );
+traceBox( ro, rd, dist, g_traceBits.x, i_BIT8, 0.,-0.707,-0.707,0.,84.9,19.5,20.4,21.5,22.,21.5 );
+traceBox( ro, rd, dist, g_traceBits.x, i_BIT9, -0.5,-0.5,-0.5,0.5,64.4,-1.,40.4,21.5,22.,21.5 );
+traceBox( ro, rd, dist, g_traceBits.y, i_BIT0, 0.,0.,-0.707,0.707,52.3,4.,108.83,16.5,12.,16.5 );
+traceBox( ro, rd, dist, g_traceBits.y, i_BIT1, 0.,0.,0.,1.,-1.1,5.47,134.5,5.,1.5,26. );
 traceBox( ro, rd, dist, g_traceBits.y, i_BIT2, 0.,0.,0.,1.,-1.1,7.37,84.34,3.,1.5,26. );
 traceBox( ro, rd, dist, g_traceBits.y, i_BIT3, 0.,0.,-0.707,0.707,95.5,4.,108.83,16.5,12.,16.5 );
 traceBox( ro, rd, dist, g_traceBits.y, i_BIT4, 0.,0.,0.,1.,-1.09,5.47,184.48,9.,1.5,16. );
