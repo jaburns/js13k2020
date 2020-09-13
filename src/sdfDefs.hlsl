@@ -154,7 +154,7 @@ float2 opExtrusion( float3 p, float sx, float radius, float bank, float bumper )
 float2 sdObj2( 
     float3 p,
     float qx, float qy, float qz, float qw, float px, float py, float pz,
-    float trackWidth, float radius, float bank, float bumper
+    float trackWidth, float radius, float bank, float bumper, float material
 ) {
     p = mul( quat(float4(qx,qy,qz,qw)) , (p - float3(px,py,pz)) ); //GLSL// p = quat(float4(qx,qy,qz,qw)) * (p - float3(px,py,pz));
 
@@ -167,7 +167,9 @@ float2 sdObj2(
     float2 d = p.x > 0. && p.z > 0. ? opRevolution( p, trackWidth, radius, bank, bumper ) : float2(10000.,0.);
     float2 d1 = opExtrusion( p, trackWidth, radius, bank, bumper );
     float2 d2 = opExtrusion( p.zyx, trackWidth, radius, bank, bumper );
-    return min2(d,min2(d1,d2));
+    float2 ret = min2(d,min2(d1,d2));
+    if( ret.y < i_MAT_BUMPER ) ret.y += material - i_MAT_ROAD;
+    return ret;
 }
 
 // ================================================================================================
@@ -217,6 +219,19 @@ float2 sdObj3(
         track,
         float2( sdCapsule3( p, float3( trackWidthA, 0, -trackLength ), float3( trackWidthB, 0, trackLength ), 1. ), i_MAT_BUMPER + .5 * mod(rep.x + rep.y + rep.z, 2.) )
     ) : track;
+}
+
+// ================================================================================================
+
+float2 sdObj4( 
+    float3 p,
+    float qx, float qy, float qz, float qw, float px, float py, float pz,
+    float length, float radius
+) {
+    p = mul( quat(float4(qx,qy,qz,qw)) , (p - float3(px,py,pz)) ); //GLSL// p = quat(float4(qx,qy,qz,qw)) * (p - float3(px,py,pz));
+    p.z -= length;
+    float3 rep = floor(.25 * p + .01);
+    return float2( sdVerticalCapsule( p, length, radius ), i_MAT_BUMPER + .5 * mod(rep.x + rep.y + rep.z, 2.) );
 }
 
 // ================================================================================================

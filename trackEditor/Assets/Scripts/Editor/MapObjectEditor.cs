@@ -25,6 +25,7 @@ public class MapObjectEditor : Editor
         switch( targ.kind )
         {
             case MapObject.Kind.Box:
+            case MapObject.Kind.Bumper:
             {
                 makeProps();
                 break;
@@ -38,7 +39,7 @@ public class MapObjectEditor : Editor
 
             case MapObject.Kind.CurvedTrack:
             {
-                makeProps( "Radius", "Bank", "Bumper" );
+                makeProps( "Radius", "Bank", "Bumper", "Material" );
                 break;
             }
 

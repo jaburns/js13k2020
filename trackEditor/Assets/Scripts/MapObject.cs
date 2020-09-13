@@ -58,6 +58,11 @@ public class MapObject : MonoBehaviour
                 pars.Insert( 0, b.extents.z );
                 pars.Insert( 0, b.extents.x );
                 break;
+
+            case Kind.Bumper:
+                pars.Insert( 0, b.extents.x );
+                pars.Insert( 0, b.extents.z );
+                break;
         }
 
         return result + string.Join( "", pars.Select( x => ","+Utils.SmallNum(x,true) )) + " )";
@@ -103,6 +108,12 @@ public class MapObject : MonoBehaviour
                     * ( -r + .5f*(r + d));
 
                 extents += new Vector3( 1, 1, 1 );
+            }
+            else if( kind == Kind.Bumper )
+            {
+                extents.x *= 2f;
+                extents.y *= 2f;
+                extents.z += extents.x/2;
             }
         }
 

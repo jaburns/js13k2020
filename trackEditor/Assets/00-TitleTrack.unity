@@ -524,6 +524,7 @@ MonoBehaviour:
   - -20
   - -1.57
   - 1
+  - 2
 --- !u!4 &1701209045
 Transform:
   m_ObjectHideFlags: 0
@@ -688,6 +689,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   k: 2
   boundsScale: {x: 15, y: 10, z: 205}
+  actuallySubtraction: 0
+  innerMaterial: 0
 --- !u!4 &1964648963
 Transform:
   m_ObjectHideFlags: 0
@@ -841,37 +844,37 @@ PrefabInstance:
     - target: {fileID: 3228407714415252572, guid: 7a38593400839128c90ff1452c8ec5d3,
         type: 3}
       propertyPath: m_LocalPosition.x
-      value: 1.7918898
+      value: -88.6009
       objectReference: {fileID: 0}
     - target: {fileID: 3228407714415252572, guid: 7a38593400839128c90ff1452c8ec5d3,
         type: 3}
       propertyPath: m_LocalPosition.y
-      value: 14.261702
+      value: 63.334328
       objectReference: {fileID: 0}
     - target: {fileID: 3228407714415252572, guid: 7a38593400839128c90ff1452c8ec5d3,
         type: 3}
       propertyPath: m_LocalPosition.z
-      value: 98.7388
+      value: 114.41049
       objectReference: {fileID: 0}
     - target: {fileID: 3228407714415252572, guid: 7a38593400839128c90ff1452c8ec5d3,
         type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0.07486542
+      value: -0.15063752
       objectReference: {fileID: 0}
     - target: {fileID: 3228407714415252572, guid: 7a38593400839128c90ff1452c8ec5d3,
         type: 3}
       propertyPath: m_LocalRotation.y
-      value: -0.041270178
+      value: -0.84703773
       objectReference: {fileID: 0}
     - target: {fileID: 3228407714415252572, guid: 7a38593400839128c90ff1452c8ec5d3,
         type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0.0031010655
+      value: 0.3246361
       objectReference: {fileID: 0}
     - target: {fileID: 3228407714415252572, guid: 7a38593400839128c90ff1452c8ec5d3,
         type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.9963345
+      value: -0.39299732
       objectReference: {fileID: 0}
     - target: {fileID: 3228407714415252572, guid: 7a38593400839128c90ff1452c8ec5d3,
         type: 3}

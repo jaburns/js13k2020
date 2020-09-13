@@ -230,8 +230,8 @@ if( !u_replayMode ) {
     float drivingWheels = 0.;
 
     // Update steering angle
-    float steerRate = mix( .03, .01, .5*clamp( ST.carState.y, 0., 2. ));
-    float maxSteer = mix( .15, .01, .5*clamp( ST.carState.y, 0., 2. ));
+    float steerRate = mix( .02, .01, .5*min( ST.carState.y, 2. ));
+    float maxSteer = mix( .15, .03, .5*min( ST.carState.y, 2. ));
     if( u_menuMode > 0 )
         ST.carState.x = 0.;
     else if( u_inputs.z > 0. )
