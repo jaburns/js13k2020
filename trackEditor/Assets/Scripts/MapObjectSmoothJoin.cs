@@ -26,9 +26,9 @@ public class MapObjectSmoothJoin : MonoBehaviour
         else
         {
             var lines = children.Select( x => x.WriteShaderCall()).ToArray();
-            result += string.Format( "vec2 d1 = opSubtract2({0},{1},{2});\n", lines[0], lines[1], Utils.SmallNum(innerMaterial,true) );
+            result += string.Format( "vec2 d1 = opSubtract2({0},{1},{2});\n", lines[0], lines[1], Utils.SmallNum(innerMaterial,true));
             for( var i = 2; i < lines.Length; ++i )
-                result += string.Format( "d1 = opSubtract2(d1,{0},{2});", lines[1], Utils.SmallNum(innerMaterial,true) );
+                result += string.Format( "d1 = opSubtract2(d1,{0},{2});", lines[1], Utils.SmallNum(innerMaterial,true));
         }
 
         result += "d = min2( d, d1 );\n}\n";
