@@ -141,16 +141,6 @@ let loadGhost64 = ( b64?: string ) =>
     fillGhostTexture();
 }
 
-/*
-
-
-cork
-loop
-1/4 transfer
-
-
-*/
-
 // =================================================================================================
 
 let resetState = () =>
@@ -198,6 +188,8 @@ let resetState = () =>
             0, 10, s_wheelBaseLength+z, 0, // 64
             0, 0, 0, 0, // 68
             0, 0, 0, 0, // 72
+
+            0, 0, -1, 0,
         ));
 
         g.texParameteri( gl_TEXTURE_2D, gl_TEXTURE_MIN_FILTER, gl_NEAREST );
